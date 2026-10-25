@@ -1,0 +1,3 @@
+import {session,sql,sameOrigin,json} from '@/lib/auth';
+export async function GET(){try{const s=await session();return json({user:s?.google_sub?{name:s.name||'Google account',picture:s.picture||null}:null})}catch{return json({error:'Could not load your account.'},503)}}
+export async function DELETE(req:Request){if(!sameOrigin(req))return json({error:'Invalid origin.'},403);try{const s=await session();if(s){await sql()`UPDATE sessions SET google_sub=NULL,name=NULL,picture=NULL WHERE id=${s.id}`;await sql()`DELETE FROM oauth_states WHERE session_id=${s.id}`;}return json({user:null})}catch{return json({error:'Could not sign out.'},503)}}
