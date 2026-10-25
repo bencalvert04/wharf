@@ -10,7 +10,7 @@ assert.equal(url.searchParams.get('scope'),'openid profile');assert.equal(url.se
 const [flow]=await sql`SELECT * FROM oauth_states WHERE session_id=${id}`;assert.equal(flow.meeting_id,null);
 await sql`UPDATE sessions SET google_sub='synthetic-account-test',name='Test Account',picture='https://lh3.googleusercontent.com/test' WHERE id=${id}`;
 const read=()=>fetch(base+'/api/auth/account',{headers:{Cookie:cookie}}).then(r=>r.json());
-assert.deepEqual(await read(),{user:{name:'Test Account',picture:'https://lh3.googleusercontent.com/test'}});
+assert.deepEqual(await read(),{user:{name:'Test Account',picture:'https://lh3.googleusercontent.com/test',calendarConnected:false,calendarDisconnectPending:false}});
 assert.equal((await fetch(base+'/api/auth/account',{method:'DELETE',headers:{Cookie:cookie,Origin:'https://invalid.example'}})).status,403);
 assert.ok((await read()).user);
 assert.equal((await fetch(base+'/api/auth/account',{method:'DELETE',headers:{Cookie:cookie,Origin:base}})).status,200);

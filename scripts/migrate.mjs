@@ -14,3 +14,11 @@ await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS name text`;
 await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS picture text`;
 await sql`ALTER TABLE oauth_states ALTER COLUMN meeting_id DROP NOT NULL`;
 await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS return_meeting_id text`;
+
+await sql`CREATE TABLE IF NOT EXISTS google_calendar_connections (
+ google_sub text PRIMARY KEY, refresh_token text, version integer NOT NULL DEFAULT 0,
+ disconnecting boolean NOT NULL DEFAULT false, updated_at timestamptz NOT NULL DEFAULT now()
+)`;
+await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS expected_sub text`;
+await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS connection_version integer`;
+console.log('Persistent calendar connection schema is ready.');

@@ -1,4 +1,24 @@
-import {createHash} from 'node:crypto';
-import {session,sql,token,hash,meeting,sameOrigin,json} from '@/lib/auth';
-import {google,configured,challengeMethod} from '@/lib/google';
-export async function POST(req:Request){if(!sameOrigin(req))return json({error:'Invalid origin.'},403);if(!configured())return json({error:'Google Calendar setup is not complete yet.'},503);try{const {meetingId,returnMeetingId}=await req.json();if(meetingId!=null&&(typeof meetingId!=='string'||!await meeting(meetingId)))return json({error:'Meeting not found or expired.'},404);const s=await session(true);const row=meetingId?await meeting(meetingId):null;if(row&&JSON.parse(row.constraints).demo&&row!.owner_session!==s!.id)return json({error:'Create your own demo to connect a calendar.'},403);const state=token(),verifier=token(),nonce=token();await sql()`INSERT INTO oauth_states(id,session_id,meeting_id,verifier,nonce,expires_at,return_meeting_id) VALUES(${hash(state)},${s!.id},${meetingId||null},${verifier},${nonce},now()+interval '10 minutes',${typeof returnMeetingId==='string'?returnMeetingId.slice(0,100):null})`;const url=google().generateAuthUrl({access_type:'online',scope:['openid','profile',...(meetingId?['https://www.googleapis.com/auth/calendar.freebusy']:[])],state,nonce,code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:challengeMethod,prompt:'select_account'});return json({url})}catch{return json({error:'Could not start Google sign-in. Please try again.'},503)}}
+import {session,meeting,sameOrigin,json} from '@/lib/auth';
+import {configured} from '@/lib/google';
+import {beginGoogleFlow} from '@/lib/google-flow';
+import {joinWithSavedCalendar} from '@/lib/calendar-connection';
+import {tokenVaultConfigured} from '@/lib/token-vault';
+
+export async function POST(req:Request){
+ if(!sameOrigin(req))return json({error:'Invalid origin.'},403);
+ if(!configured())return json({error:'Google Calendar setup is not complete yet.'},503);
+ try{
+  const {meetingId,returnMeetingId}=await req.json();
+  if(meetingId!=null&&typeof meetingId!=='string')return json({error:'Invalid meeting.'},400);
+  const row=meetingId?await meeting(meetingId):null;
+  if(meetingId&&!row)return json({error:'Meeting not found or expired.'},404);
+  if(row&&!tokenVaultConfigured())return json({error:'Ongoing calendar access is not configured yet.'},503);
+  const s=(await session(true))!;
+  if(row&&JSON.parse(row.constraints).demo&&row.owner_session!==s.id)return json({error:'Create your own demo to connect a calendar.'},403);
+  if(row&&s.google_sub){
+   if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},s.google_sub,s.name||'Guest',s.id))return json({joined:true,meetingId:row.id});
+   return json({url:await beginGoogleFlow(s.id,row.id,null,s.google_sub)});
+  }
+  return json({url:await beginGoogleFlow(s.id,row?.id||null,typeof returnMeetingId==='string'?returnMeetingId.slice(0,100):null)});
+ }catch{return json({error:'Could not connect Google. Please try again.'},503)}
+}
