@@ -36,8 +36,9 @@ export async function persistCalendarSnapshot(id:string,sub:string,name:string,b
  if(!result.saved)throw Error('The meeting changed while connecting. Please try again.');
 }
 export async function withdrawSnapshot(id:string,sub:string){
- const [row]=await sql()`SELECT revision FROM requests WHERE id=${id} AND EXISTS(SELECT 1 FROM attendees WHERE meeting_id=${id} AND google_sub=${sub})`;
+ const [row]=await sql()`SELECT revision,final_time,agent_request_id FROM requests WHERE id=${id} AND EXISTS(SELECT 1 FROM attendees WHERE meeting_id=${id} AND google_sub=${sub})`;
  if(!row)return;
+ if(row.final_time&&!row.agent_request_id)throw Error('This meeting has already been finalized.');
  const [result]=await sql()`WITH changed AS (
   UPDATE requests SET revision=revision+1,final_time=CASE WHEN agent_request_id IS NOT NULL THEN NULL ELSE final_time END WHERE id=${id} AND revision=${row.revision} RETURNING id
  ), removed AS (
