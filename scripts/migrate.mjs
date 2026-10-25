@@ -9,3 +9,8 @@ await sql`CREATE TABLE IF NOT EXISTS oauth_states(id text PRIMARY KEY, session_i
 await sql`CREATE TABLE IF NOT EXISTS attendees(meeting_id text NOT NULL REFERENCES requests(id) ON DELETE CASCADE, google_sub text NOT NULL, name text NOT NULL, busy jsonb NOT NULL, captured_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(meeting_id,google_sub))`;
 await sql`ALTER TABLE requests ADD COLUMN IF NOT EXISTS planner_name text`;
 console.log('Calendar schema is ready.');
+
+await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS name text`;
+await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS picture text`;
+await sql`ALTER TABLE oauth_states ALTER COLUMN meeting_id DROP NOT NULL`;
+await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS return_meeting_id text`;

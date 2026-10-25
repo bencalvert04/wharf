@@ -1,6 +1,7 @@
 'use client';
 import {useState,useMemo,useEffect} from 'react';
 import {samplePeople} from '@/lib/demo';
+import AccountButton from '@/components/AccountButton';
 import DatePicker from '@/components/DatePicker';
 import AvailabilityWindow from '@/components/AvailabilityWindow';
 import PendingMeetings from '@/components/PendingMeetings';
@@ -23,7 +24,7 @@ export default function Home(){
  function changeTheme(value:'system'|'light'|'dark'){setTheme(value);try{localStorage.setItem('wharf-theme',value)}catch{}}
  const [live,setLive]=useState<{attendees:{name:string;sample?:boolean}[];windows:Window[];bestWindows:Window[];joined:boolean;canView:boolean}|null>(null);
  useEffect(()=>{if(!meeting||demo)return;let active=true;const refresh=()=>fetch('/api/requests/'+meeting).then(r=>r.json()).then(d=>{if(active&&!d.error)setLive(d)}).catch(()=>{});refresh();const timer=setInterval(refresh,15000);window.addEventListener('focus',refresh);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',refresh)}},[meeting,demo]);
- useEffect(()=>{const result=new URLSearchParams(location.search).get('calendar');if(result)setNotice(({joined:'Your calendar snapshot is saved.',cancelled:'Google sign-in was cancelled.',expired:'This sign-in expired. Please try again.',failed:'Could not read your calendar. Please try again and allow free/busy access.'} as Record<string,string>)[result]||'');},[]);
+ useEffect(()=>{const result=new URLSearchParams(location.search).get('calendar');if(result)setNotice(({signedin:'You’re signed in with Google.',cancelled:'Google sign-in was cancelled.',expired:'This sign-in expired. Please try again.',failed:'Could not read your calendar. Please try again and allow free/busy access.'} as Record<string,string>)[result]||'');},[]);
  const people=useMemo(()=>demo?samplePeople(c).slice(0,count):(live?.attendees||[]).map(p=>({...p,busy:[]})),[demo,c,count,live]);
  const windows=useMemo(()=>demo?(view==='results'&&people.length?shared(c,people):[]):live?.windows||[],[c,people,view,demo,live]);
  const fits=windows.filter(w=>w.end-w.start>=c.duration*60000);
@@ -41,7 +42,7 @@ export default function Home(){
  const startMinute=Number(c.from.slice(0,2))*60+Number(c.from.slice(3)),endMinute=Number(c.to.slice(0,2))*60+Number(c.to.slice(3));
  const ticks=Array.from({length:Math.max(0,Math.ceil(endMinute/60)-Math.floor(startMinute/60)+1)},(_,i)=>(Math.floor(startMinute/60)+i)*60).filter(m=>m>=startMinute&&m<=endMinute);
  return <div className={dark?'app':'app light'}>
- <header><button className="brand" onClick={reset} aria-label="Wharf home"><svg className="brandmark" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="6" r="3"/><path d="M16 9v18M10 13h12M5 19c0 5 5 9 11 9s11-4 11-9"/><path d="m2 22 3-5 4 4m14 0 4-4 3 5"/></svg>Wharf</button><nav><button className={view==='create'||view==='results'?'active':''} onClick={reset} aria-current={view==='create'||view==='results'?'page':undefined}>Scheduler</button><button className={view==='pending'?'active':''} aria-current={view==='pending'?'page':undefined} onClick={()=>{setView('pending');setError('');setSelected(null)}}>Pending meetings</button><button className={view==='docs'?'active':''} onClick={()=>setView('docs')}>API <ArrowUpRight size={12}/></button><span className="nav-divider"/><button type="button" className="icon-button" aria-label={`Appearance: ${theme}. Switch to ${theme==='light'?'dark':theme==='dark'?'system':'light'} mode`} onClick={()=>changeTheme(theme==='light'?'dark':theme==='dark'?'system':'light')}>{theme==='light'?<Sun size={16}/>:theme==='dark'?<Moon size={16}/>:<Monitor size={16}/>}</button></nav></header>
+ <header><div className="header-left"><button className="brand" onClick={reset} aria-label="Wharf home"><svg className="brandmark" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="6" r="3"/><path d="M16 9v18M10 13h12M5 19c0 5 5 9 11 9s11-4 11-9"/><path d="m2 22 3-5 4 4m14 0 4-4 3 5"/></svg>Wharf</button><nav><button className={view==='create'||view==='results'?'active':''} onClick={reset}>Scheduler</button><button className={view==='pending'?'active':''} aria-current={view==='pending'?'page':undefined} onClick={()=>{setView('pending');setError('');setSelected(null)}}>Pending meetings</button></nav></div><nav aria-label="Utilities"><button className={view==='docs'?'active':''} onClick={()=>setView('docs')}>API <ArrowUpRight size={12}/></button><span className="nav-divider"/><button type="button" className="icon-button" aria-label={`Appearance: ${theme}. Switch to ${theme==='light'?'dark':theme==='dark'?'system':'light'} mode`} onClick={()=>changeTheme(theme==='light'?'dark':theme==='dark'?'system':'light')}>{theme==='light'?<Sun size={16}/>:theme==='dark'?<Moon size={16}/>:<Monitor size={16}/>}</button><AccountButton/></nav></header>
  <main>
  {view==='pending'&&<PendingMeetings onCreate={reset}/>}
  {view==='create'&&<>
