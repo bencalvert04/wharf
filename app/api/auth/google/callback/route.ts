@@ -1,4 +1,5 @@
 import {session,sql,hash,meeting,appUrl} from '@/lib/auth';
+import {validEmail} from '@/lib/calendar-invitation';
 import {google} from '@/lib/google';
 import {beginGoogleFlow} from '@/lib/google-flow';
 import {joinWithSavedCalendar,saveCalendarGrant,saveCalendarSnapshot} from '@/lib/calendar-connection';
@@ -15,16 +16,16 @@ export async function GET(req:Request){
   id=flow.meeting_id||flow.return_meeting_id||'';
   if(p.has('error'))return redirect('cancelled');
   const code=p.get('code'),row=flow.meeting_id?await meeting(flow.meeting_id):null;
-  if(!code||(flow.meeting_id&&!row))return redirect('expired');
+  if(!code||(flow.meeting_id&&(!row||row.final_time)))return redirect('expired');
   if(row&&JSON.parse(row.constraints).demo&&row.owner_session!==s.id)return redirect('expired');
   const client=google(),{tokens}=await client.getToken({code,codeVerifier:flow.verifier});
   if(!tokens.id_token||!tokens.access_token)throw Error('Missing token');
   const ticket=await client.verifyIdToken({idToken:tokens.id_token,audience:process.env.GOOGLE_CLIENT_ID}),identity=ticket.getPayload();
-  if(!identity?.sub||identity.nonce!==flow.nonce||(flow.expected_sub&&identity.sub!==flow.expected_sub))throw Error('Invalid identity');
+  if(!identity?.sub||identity.email_verified!==true||!validEmail(identity.email)||identity.nonce!==flow.nonce||(flow.expected_sub&&identity.sub!==flow.expected_sub))throw Error('Invalid identity');
   let picture:string|null=null;
   try{const url=new URL(identity.picture||'');if(url.protocol==='https:'&&(url.hostname==='googleusercontent.com'||url.hostname.endsWith('.googleusercontent.com')))picture=url.href}catch{}
   const name=(identity.name||'Guest').slice(0,100);
-  await sql()`UPDATE sessions SET google_sub=${identity.sub},name=${name},picture=${picture} WHERE id=${s.id}`;
+  await sql()`UPDATE sessions SET google_sub=${identity.sub},name=${name},picture=${picture},email=${identity.email} WHERE id=${s.id}`;
   if(!row)return redirect('signedin');
   if(flow.expected_sub){
    // Google may allow profile sign-in while the user declines calendar permission.

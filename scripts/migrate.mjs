@@ -22,3 +22,15 @@ await sql`CREATE TABLE IF NOT EXISTS google_calendar_connections (
 await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS expected_sub text`;
 await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS connection_version integer`;
 console.log('Persistent calendar connection schema is ready.');
+
+await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS email text`;
+await sql`ALTER TABLE attendees ADD COLUMN IF NOT EXISTS email text`;
+await sql`ALTER TABLE requests ADD COLUMN IF NOT EXISTS final_time jsonb`;
+await sql`CREATE TABLE IF NOT EXISTS invitation_outbox (
+ id text PRIMARY KEY, meeting_id text NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
+ recipient_key text NOT NULL, payload jsonb NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(), first_attempt_at timestamptz,
+ lease_until timestamptz, sent_at timestamptz, provider_id text,
+ attempts integer NOT NULL DEFAULT 0, last_error text,
+ UNIQUE(meeting_id,recipient_key)
+)`;

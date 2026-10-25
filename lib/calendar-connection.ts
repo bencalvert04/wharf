@@ -27,7 +27,8 @@ export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;co
  const result=await client.request({url:'https://www.googleapis.com/calendar/v3/freeBusy',method:'POST',
   data:{timeMin:new Date(bounds[0].start).toISOString(),timeMax:new Date(bounds.at(-1)!.end).toISOString(),items:[{id:'primary'}]}});
  const busy=parseBusy(result.data,c);
- await sql()`INSERT INTO attendees(meeting_id,google_sub,name,busy) VALUES(${row.id},${sub},${name.slice(0,100)},${JSON.stringify(busy)}::jsonb) ON CONFLICT(meeting_id,google_sub) DO NOTHING`;
+ const [identity]=await sql()`SELECT email FROM sessions WHERE id=${sessionId} AND google_sub=${sub}`;
+ await sql()`INSERT INTO attendees(meeting_id,google_sub,name,busy,email) VALUES(${row.id},${sub},${name.slice(0,100)},${JSON.stringify(busy)}::jsonb,${identity?.email||null}) ON CONFLICT(meeting_id,google_sub) DO UPDATE SET email=COALESCE(EXCLUDED.email,attendees.email)`;
  await sql()`UPDATE requests SET planner_name=${name.slice(0,100)} WHERE id=${row.id} AND owner_session=${sessionId}`;
 }
 

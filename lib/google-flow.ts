@@ -13,7 +13,7 @@ export async function beginGoogleFlow(sessionId:string,meetingId:string|null,ret
  // Identify signed-out attendees first so returning users can reuse the saved grant.
  // Request offline consent only when there is no usable connection for that identity.
  return google().generateAuthUrl({access_type:consentSub?'offline':'online',
-  scope:['openid','profile',...(consentSub?['https://www.googleapis.com/auth/calendar.freebusy']:[])],
+  scope:['openid','profile','email',...(consentSub?['https://www.googleapis.com/auth/calendar.freebusy']:[])],
   ...(consentSub?{prompt:'consent',login_hint:consentSub}: {prompt:'select_account'}),
   state,nonce,code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:challengeMethod});
 }
