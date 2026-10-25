@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {neon} from '@neondatabase/serverless';
 import {createHash} from 'node:crypto';
-const sql=neon(process.env.DATABASE_URL),base='http://127.0.0.1:3004';
+const sql=neon(process.env.DATABASE_URL),base=process.env.TEST_URL||'http://127.0.0.1:3004';
 assert.deepEqual(await fetch(base+'/api/auth/account').then(r=>r.json()),{user:null});
 const r=await fetch(base+'/api/auth/google/start',{method:'POST',headers:{'Content-Type':'application/json',Origin:base},body:'{}'});
 assert.equal(r.status,200);const d=await r.json(),url=new URL(d.url),cookie=r.headers.get('set-cookie').split(';')[0],id=createHash('sha256').update(cookie.split('=')[1]).digest('hex');
