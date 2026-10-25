@@ -1,0 +1,11 @@
+import {strict as assert} from 'node:assert';
+import {test} from 'node:test';
+import {shared,allowed,validate,type Constraints} from '../lib/availability.ts';
+const c:Constraints={title:'Test',start:'2026-10-26',end:'2026-10-26',duration:60,zone:'UTC',from:'09:00',to:'12:00',days:[1]};
+const t=(s:string)=>Date.parse('2026-10-26T'+s+':00Z');
+test('intersects busy intervals and aligns starts to local quarter hours',()=>{const w=shared(c,[{name:'A',busy:[{start:t('09:00'),end:t('09:07')},{start:t('10:10'),end:t('11:00')}]},{name:'B',busy:[{start:t('11:30'),end:t('12:00')}]}]);assert.deepEqual(w.map(x=>[x.start,x.end]),[[t('09:15'),t('10:10')],[t('11:00'),t('11:30')]])});
+test('retains a 40 minute shorter option without rounding its end',()=>{const w=shared({...c,to:'10:00'},[{name:'A',busy:[{start:t('09:40'),end:t('10:00')}]}]);assert.equal((w[0].end-w[0].start)/60000,40)});
+test('drops fragments shorter than 15 minutes',()=>{assert.equal(shared({...c,to:'09:10'},[]).length,0)});
+test('handles local spring-forward hours',()=>{const windows=allowed({...c,start:'2026-03-08',end:'2026-03-08',zone:'America/Denver',from:'01:00',to:'04:00',days:[0]});assert.equal(windows.reduce((sum,w)=>sum+w.end-w.start,0)/3600000,2)});
+test('handles local fall-back hours',()=>{const windows=allowed({...c,start:'2026-11-01',end:'2026-11-01',zone:'America/Denver',from:'01:00',to:'04:00',days:[0]});assert.equal(windows.reduce((sum,w)=>sum+w.end-w.start,0)/3600000,4)});
+test('rejects invalid dates and unbounded date ranges',()=>{assert.throws(()=>validate({...c,start:'2026-02-30'}));assert.throws(()=>validate({...c,end:'2027-01-01'}));assert.throws(()=>validate({...c,days:[]}));});

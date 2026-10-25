@@ -1,0 +1,2 @@
+import {allowed,type Constraints,type Interval} from './availability.ts';
+export function parseBusy(data:any,c:Constraints):Interval[]{const cal=data?.calendars?.primary;if(!cal||cal.errors?.length||!Array.isArray(cal.busy))throw Error('Calendar unavailable');const bounds=allowed(c);return cal.busy.flatMap((b:any)=>{const start=Date.parse(b.start),end=Date.parse(b.end);if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start)throw Error('Invalid calendar data');return bounds.map(w=>({start:Math.max(start,w.start),end:Math.min(end,w.end)})).filter(w=>w.end>w.start)})}

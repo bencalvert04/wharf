@@ -1,0 +1,2 @@
+import {allowed,type Constraints} from './availability.ts';
+export function samplePeople(c:Constraints){const slots=allowed(c);return ['Ray Shaw','Dave Grow','Seamus Hennessy','Ben Dilts'].map((name,index)=>({name,sample:true,busy:slots.flatMap((w,d)=>{const hrs=index===0?[[1.5,2.5],[5,6]]:index===1?[[0,0.5],[2.5,3],[4.5,5]]:index===2?[[1,2],[4,4.5]]:[[0,1.5],[5.5,6.5]];return hrs.map(([a,b])=>({start:Math.min(w.end,w.start+(a+(d%2)*.5)*3600000),end:Math.min(w.end,w.start+(b+(d%2)*.5)*3600000)}))})}))}
