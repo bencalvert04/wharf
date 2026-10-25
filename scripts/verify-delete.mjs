@@ -10,6 +10,11 @@ try{
  const sub='synthetic-'+randomUUID();
  await sql`UPDATE sessions SET google_sub=${sub} WHERE id=${other.sid}`;
  await sql`INSERT INTO attendees(meeting_id,google_sub,name,busy) VALUES(${owner.id},${sub},'Synthetic attendee','[]'::jsonb)`;
+ const detail=async cookie=>(await (await fetch(base+'/api/requests/'+owner.id,{headers:{Cookie:cookie}})).json());
+ assert.equal((await detail(owner.cookie)).isPlanner,true);
+ assert.equal((await detail(other.cookie)).isPlanner,false);
+ const list=await (await fetch(base+'/api/requests',{headers:{Cookie:other.cookie}})).json();
+ assert.equal(list.meetings.find(m=>m.id===owner.id).isPlanner,false);
  assert.equal((await remove(owner.id)).status,403);
  assert.equal((await remove(owner.id,{Cookie:other.cookie})).status,403);
  assert.equal((await remove(owner.id,{Authorization:'Bearer wrong'})).status,403);
