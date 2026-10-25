@@ -32,10 +32,10 @@ export async function GET(req:Request){
    if(!grantHasFreeBusy(tokens.scope)||!tokens.refresh_token)return redirect('permission');
    await saveCalendarGrant(identity.sub,tokens.refresh_token,Number(flow.connection_version));
    client.setCredentials(tokens);
-   await saveCalendarSnapshot(client,{id:row.id,constraints:row.constraints},identity.sub,name,s.id);
+   await saveCalendarSnapshot(client,{id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null);
    return redirect('joined');
   }
-  if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},identity.sub,name,s.id))return redirect('joined');
-  return Response.redirect(await beginGoogleFlow(s.id,row.id,null,identity.sub),303);
+  if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null))return redirect('joined');
+  return Response.redirect(await beginGoogleFlow(s.id,row.id,null,identity.sub,flow.invitee_id||null),303);
  }catch{return redirect('failed')}
 }

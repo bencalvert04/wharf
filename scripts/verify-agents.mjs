@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import {randomBytes,randomUUID} from 'node:crypto';
+import {neon} from '@neondatabase/serverless';
+import {persistCalendarSnapshot,withdrawSnapshot,resolveInvitation} from '../lib/meeting-participation.ts';
+const sql=neon(process.env.DATABASE_URL),base=process.env.TEST_URL||'http://127.0.0.1:3004';
+const key=randomBytes(32).toString('base64url'),requestId=randomUUID(),ids=[];
+const body={title:'Synthetic agent check',startDate:'2030-01-07',timezone:'UTC',durationMinutes:45,dayStart:'09:00',dayEnd:'11:00',participants:[{id:'ray',name:'Ray'},{id:'ben',name:'Ben'}]};
+async function call(path,{method='GET',data,token=key,idempotencyKey=requestId}={}){const r=await fetch(base+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{}),'Idempotency-Key':idempotencyKey},...(data?{body:JSON.stringify(data)}:{})});return {status:r.status,data:await r.json(),headers:r.headers}}
+let id;
+try{
+ const responses=await Promise.all(Array.from({length:4},()=>call('/api/v1/meetings',{method:'POST',data:body})));for(const r of responses){assert.equal(r.status,201,JSON.stringify(r.data));ids.push(r.data.id)};id=responses[0].data.id;
+ assert.equal(new Set(ids).size,1);assert.equal(responses.filter(r=>!r.data.replayed).length,1);
+ const path='/api/v1/meetings/'+id,first=responses[0].data;
+ assert.equal((await call('/api/v1/meetings',{method:'POST',data:body,idempotencyKey:randomUUID()})).data.error.code,'key_already_used');
+ assert.equal(first.status,'awaiting_responses');assert.equal(first.responseSummary.expected,2);assert.equal(first.nextAction.pollAfterSeconds,30);
+ assert.equal((await call('/api/v1/meetings',{method:'POST',data:{...body,title:'Different'}})).status,409);
+ assert.equal((await call(path,{token:''})).status,401);assert.equal((await call(path,{token:randomBytes(32).toString('base64url')})).status,404);
+ assert.equal((await call(path+'/slots?limit=101')).status,400);assert.equal((await call(path+'/slots')).data.slots.length,0);
+ assert.equal((await call(path+'/finalize',{method:'POST',data:{slotId:'fake',revision:0}})).status,409);
+ await assert.rejects(()=>resolveInvitation(id,'invalid'));
+ const sub1='test-'+randomUUID(),sub2='test-'+randomUUID();
+ const benToken=new URL(first.participants.find(p=>p.id==='ben').invitationUrl).searchParams.get('invite');assert.equal(await resolveInvitation(id,benToken),'ben');
+ await persistCalendarSnapshot(id,sub1,'Actual Ben',[],'synthetic','ben');
+ assert.equal((await call(path)).data.responseSummary.responded,1);assert.equal((await call(path+'/slots')).data.total,0);
+ await assert.rejects(()=>persistCalendarSnapshot(id,sub2,'Imposter',[],'synthetic','ben'));
+ await assert.rejects(()=>persistCalendarSnapshot(id,sub1,'Duplicate',[],'synthetic','ray'));
+ await assert.rejects(()=>persistCalendarSnapshot(id,sub2,'No invite',[],'synthetic'));
+ await persistCalendarSnapshot(id,sub2,'Actual Ray',[],'synthetic','ray');
+ let slots=(await call(path+'/slots?limit=2')).data;assert.equal(slots.status,'ready');assert.equal(slots.total,6);assert.equal(slots.slots.length,2);assert.equal(slots.nextOffset,2);
+ const next=(await call(path+'/slots?offset=2&limit=2')).data;assert.notEqual(slots.slots[0].id,next.slots[0].id);
+ await persistCalendarSnapshot(id,sub2,'Actual Ray',[],'synthetic','ray');
+ assert.equal((await call(path+'/finalize',{method:'POST',data:{slotId:slots.slots[0].id,revision:slots.revision}})).data.error.code,'stale_revision');
+ slots=(await call(path+'/slots')).data;
+ const choice={slotId:slots.slots[0].id,revision:slots.revision};
+ const outcomes=await Promise.all([call(path+'/finalize',{method:'POST',data:choice}),call(path+'/finalize',{method:'POST',data:choice})]);assert.ok(outcomes.every(r=>r.status===200));assert.ok(outcomes.some(r=>r.data.replayed));
+ assert.equal(outcomes[0].data.calendarEventCreated,false);assert.equal(outcomes[0].data.status,'finalized');
+ const publicView=await fetch(base+'/api/requests/'+id).then(r=>r.json());assert.equal(publicView.finalTime.slotId,choice.slotId);
+ await withdrawSnapshot(id,'not-an-attendee');assert.equal((await call(path)).data.status,'finalized');
+ await assert.rejects(()=>persistCalendarSnapshot(id,sub2,'Actual Ray',[],'synthetic','ray'));
+ await withdrawSnapshot(id,sub1);assert.equal((await call(path)).data.status,'awaiting_responses');assert.equal((await call(path)).data.finalTime,null);
+ await persistCalendarSnapshot(id,sub1,'Actual Ben',[{start:Date.parse('2030-01-07T09:00Z'),end:Date.parse('2030-01-07T11:00Z')}],'synthetic','ben');assert.equal((await call(path)).data.status,'no_overlap');
+ const view=(await call(path)).data;assert.equal(view.participants.find(p=>p.id==='ben').googleDisplayName,'Actual Ben');assert.ok(!JSON.stringify(view).includes(sub1));assert.ok(!JSON.stringify(view).includes('busy'));assert.ok(!JSON.stringify(view).includes(key));
+ await sql`UPDATE requests SET created_at=${new Date(Date.now()-31*86400000).toISOString()} WHERE id=${id}`;assert.equal((await call(path)).status,404);assert.equal((await call('/api/v1/meetings',{method:'POST',data:body})).status,410);
+ console.log('Agent integration passed: concurrent retries, privacy, roster claims, partial responses, exact slots/pagination, stale revisions, concurrent finalization, withdrawal, no overlap, expiry.');
+}finally{for(const id of new Set(ids))await sql`DELETE FROM requests WHERE id=${id}`}

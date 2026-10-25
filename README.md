@@ -1,47 +1,66 @@
-# Wharf on Vercel
+# Wharf
 
-Standard Next.js app, prepared from the existing Wharf Sites project. The UI, anchor logo, single-day option, and scheduling engine are preserved. Cloudflare Workers, D1, and Sites authentication dependencies have been removed.
+Shared meeting availability for people and agents. Next.js on Vercel, Neon Postgres, Google Calendar free/busy.
 
-## Deploy
-1. Deploy this directory as a Next.js project in the intended Vercel account.
-2. Connect a Neon Postgres database through Vercel Storage and provide DATABASE_URL to the project.
-3. Run `npm run db:migrate` with that database's DATABASE_URL in the environment.
-4. Redeploy and verify request creation and retrieval.
+## Run and deploy
 
-Use Vercel deployment protection if the preview should remain account-private. The app uses HttpOnly sessions and planner capability keys. Invitation URLs expose meeting constraints, while attendee names and aggregate results require planner or joined-attendee authorization.
+Node 22.13 or later is required. Run `npm ci`, configure `.env.local`, then `npm run dev`. Use `npm run build` for a production build.
 
-## Local development
-Node 22.13 or later is required. Run `npm ci`, set DATABASE_URL in `.env.local`, then `npm run dev`. For the migration script, export DATABASE_URL or use `node --env-file=.env.local scripts/migrate.mjs`.
+Production configuration: `APP_URL`, `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_TOKEN_ENCRYPTION_KEY` (32 random bytes encoded as 64 hex characters), and `CRON_SECRET`. Register `APP_URL/api/auth/google/callback` in Google Cloud. Run `node --env-file=.env.production.local scripts/migrate.mjs` before deploying schema-dependent code. The migration is additive and can be rerun.
 
-`npm test` checks scheduling logic. `npm run build` verifies the production build.
+Do not commit environment files, planner keys, invitation tokens, or MCP credential stores. `.env.example` documents configuration names without credentials.
 
-## Status
-Google Calendar joining is implemented. Calendar invitations are sent when the planner creates the meeting. Sample calendars are clearly labeled. No existing D1 meeting records have been migrated. The original Sites deployment remains intact.
+## Calendar and privacy
 
-## Google Calendar
+Google sign-in identifies the user. Attending a meeting asks for ongoing primary-calendar free/busy access if no saved grant exists. Refresh tokens are encrypted, authenticated, and bound to the Google account. Wharf uses them when the person joins a meeting; it does not continuously refresh existing snapshots. Disconnecting revokes the grant. If revocation cannot be confirmed, local use is paused and encrypted credentials are kept only for a retry.
 
-Implemented: server OAuth code flow with PKCE, one-use session-bound state and nonce verification; primary-calendar free/busy snapshots; planner/member result authorization; snapshot removal; 30-day expiry and daily database cleanup. No Google tokens are persisted. API consumers retain the returned plannerKey and use it as a bearer token to read results.
+Only free/busy intervals within the meeting's working hours are stored. Event titles, descriptions, guests and locations are not read. Planner credentials and joined browser sessions can read aggregate availability and names, not individual busy intervals. Invitation URLs expose meeting constraints and any confirmed time. A personal invitation token additionally reveals its intended participant label.
 
-Production configuration: `APP_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DATABASE_URL`, `CRON_SECRET`. Register `APP_URL/api/auth/google/callback` with Google. Google OAuth was published to Production on October 25, 2026. Users can authorize their own profile and free/busy access. The owner chose to perform the first live calendar grant personally; no live calendar snapshot has been verified yet. Preview deployments must not use the production callback credentials.
+Requests expire after 30 days and are removed by the daily cleanup route. Browser sessions expire after 30 days. Google Calendar write access is not requested. A separate planner-only endpoint can send RSVP invitations through Gmail SMTP; agent finalization never invokes it. Demo meetings remain private to their creating browser and use clearly labeled sample calendars.
 
-Tests: `npm test`; `npm run build`. `scripts/verify-calendar.mjs` exercises a local server at port 3002 using synthetic rows in the configured database, then removes those rows. It verifies result permissions, privacy, CSRF, leaving, OAuth session binding, and replay prevention. Google consent and a live free/busy response still require an actual Google user sign-in.
+## Agent workflow
 
-## Pending meetings
+Start at `/agents`, `/llms.txt`, or `/api/agent`. The versioned API contract is `/api/openapi`. New agents should use `/api/v1/meetings`, not the legacy browser API.
 
-The Pending meetings tab lists unexpired, non-demo requests owned by the browser session or joined with its verified Google identity. A request stays pending until the planner creates the meeting and confirms a final time, even if its proposed dates have passed.
+- `POST /api/v1/meetings`: create a named participant roster. The client generates and saves a unique random 32-byte base64url Bearer key before sending; `Idempotency-Key` makes retries recoverable. One key is scoped to one meeting. Reusing the same keys with changed input returns 409. Retry records last for the meeting's 30-day retention period.
+- `GET /api/v1/meetings/:id`: status, exact missing participants, capture timestamps, private invitation links, and a recommended next action. No cookies required.
+- `GET /api/v1/meetings/:id/slots`: paginated exact-duration, future-only slots after everyone responds, with explicit local/UTC times and a revision.
+- `POST /api/v1/meetings/:id/finalize`: confirm a returned slot ID with its revision. Conditional updates reject stale responses. Identical retries are safe. No Google event or notification is created.
 
-Pending meeting cards show the planner name, joined attendee names, and proposed date range, and link to the existing shared-availability calendar. Run `npm run db:migrate` before using the updated creation/Google callback routes to add the nullable `requests.planner_name` column. The planner name is saved when they connect Google, or inferred from an existing connected attendee identity on creation. Existing unnamed planners display a fallback. No migration has been run against a remote database as part of this local change.
+Personal invitation links bind a verified Google identity to a roster position after that person connects their calendar. They are private claim capabilities, not email identity verification. The organizer sees the actual Google display name. One account cannot fill multiple positions. Withdrawing availability releases that position and clears any confirmed time. Availability remains a snapshot, not live calendar synchronization.
 
-## Calendar invitations
+Finalization stores `requests.final_time`, displays it on the meeting page, and removes the meeting from Pending meetings. Pending lists are scoped to the owning browser session or joined Google identity. Agent keys do not grant access to unrelated browser/account meetings.
 
-Wharf sends RSVP calendar requests through Gmail SMTP as `Wharf <wharfmeetings@gmail.com>`. It never requests calendar-write access from attendees. Set `INVITATION_FROM=wharfmeetings@gmail.com` and `GMAIL_APP_PASSWORD` in the server environment. Keep the App Password out of Git and chat. Enable 2-Step Verification and create an App Password called Wharf in the sender Google account. Run `npm run email:verify` locally to check authentication without sending an email. Production needs the same environment variables.
+### MCP
 
-Run `npm run db:migrate` for the verified attendee email, optional final-time field, and durable invitation outbox. Existing attendees must reconnect Google to grant email identity access. Their verified email is stored privately and never returned by meeting-list APIs.
+`node /absolute/path/to/wharf/scripts/mcp.mjs` starts the official SDK's stdio server. Five tools cover creation, locally known meetings, status, slots, and finalization. It exposes `wharf://guide` as a resource.
 
-The planner selects a time from Valid times or the calendar, then chooses Create meeting. They must join with their Google calendar first, so their availability and invitation are included. `POST /api/requests/:id/finalize` accepts `{start,end,revision}` (epoch milliseconds and the revision from GET). It verifies the owner session, future exact-duration shared availability, verified recipient emails, and unchanged attendees. A database transaction commits the confirmed time and invitation outbox together; an attendee trigger serializes joins and removals with finalization. Repeating the same confirmation is safe. Different times are rejected once confirmed.
+`WHARF_URL` defaults to `https://wharf-delta.vercel.app`. `WHARF_STATE_DIR` defaults to `~/.config/wharf`; credentials are separated by origin, written before network requests, and stored with owner-only file permissions. The bridge never returns planner keys to the model. Use the same directory across restarts to preserve retry recovery. A crashed process can leave a lock directory; remove it only after confirming the old process has stopped. This is a local stdio MCP bridge, not a hosted OAuth MCP endpoint.
 
-The browser dispatches queued invitations in batches. If interrupted, the planner can use Send remaining invitations on the confirmed meeting. Only unattempted jobs are retried. This version does not implement rescheduling, cancellations, or RSVP tracking.
+Example MCP client configuration:
 
-Gmail sends one private calendar request per recipient. Queue records prevent duplicate queuing. SMTP cannot guarantee exactly-once delivery after a network failure, so once a send has been attempted it is not retried automatically. Unconfirmed sends are flagged for manual review in Gmail Sent before any resend. Each dispatch processes up to four recipients concurrently; call again for remaining unattempted jobs. Accepted means Gmail accepted the message, not that the recipient received or accepted it. Invitation appearance depends on recipient calendar settings. No actual invitations have been sent or tested against Gmail yet.
+```json
+{"mcpServers":{"wharf":{"command":"node","args":["/absolute/path/to/wharf/scripts/mcp.mjs"]}}}
+```
 
-Planners can permanently delete meetings from Pending meetings or the meeting page. The planner-only `DELETE /api/requests/:id` removes the meeting and its saved availability; previously sent calendar invitations are not cancelled.
+### Verification
+
+`npm test` covers normalization, validation, exact-duration slots, DST, snapshot parsing, token handling and existing behavior. `npm run build` checks all routes and types.
+
+Against a local server at `http://127.0.0.1:3004`:
+
+- `npm run test:agents` uses synthetic database rows to check concurrent idempotency, permissions, invitation claims, response tracking, pagination, stale revisions, finalization races, withdrawal and expiry.
+- `npm run test:mcp` uses the official MCP client, including process restart/retry recovery and private credential storage.
+- `scripts/verify-account.mjs`, `scripts/verify-demo.mjs`, and `scripts/verify-pending.mjs` check existing account, demo and pending-list behavior.
+
+The agent/MCP scripts read `.env.production.local`; set `TEST_URL` to change their server target. Test records are removed in finally blocks. These tests use synthetic calendar snapshots and do not authorize Google on a real person's behalf. Live consent still requires the person to sign in themselves.
+
+## Optional Gmail invitation delivery
+
+The existing planner-only `POST /api/requests/:id/invitations` queues and sends private calendar requests for an already-finalized browser meeting. Configure `INVITATION_FROM` and `GMAIL_APP_PASSWORD` and run `npm run email:verify` to verify SMTP authentication without sending. Verified attendee emails are private and not returned by meeting APIs. Older attendees need to reconnect Google to provide verified email. The durable outbox prevents duplicate queuing; ambiguous SMTP outcomes require manual review in Gmail Sent before any resend. Accepted means Gmail accepted delivery, not that a recipient received or accepted it. Rescheduling, cancellation messages and RSVP tracking are not implemented. Agent finalization is deliberately separate from this sending endpoint.
+
+## Browser planner finalization
+
+The planner joins with Google, selects a valid time, and uses Create meeting. `POST /api/requests/:id/finalize` validates the browser’s availability revision, freezes the selected time and attendees, atomically queues the planner and attendee email recipients, and dispatches Gmail invitations. It uses a separate contract from `/api/v1/meetings/:id/finalize`, which only confirms an agent meeting without sending. `scripts/verify-finalization.mjs` verifies the browser transaction, outbox idempotency and frozen-attendee behavior using synthetic data without sending email.
+
+Planners can permanently delete meetings from Pending meetings or the meeting page. The planner-only `DELETE /api/requests/:id` removes the meeting and its saved availability; previously sent calendar invitations are not cancelled. Idempotency recovery ends when a meeting is deliberately deleted or expires.

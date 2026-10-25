@@ -47,3 +47,17 @@ END;
 $$ LANGUAGE plpgsql`;
 await sql`DROP TRIGGER IF EXISTS protect_finalized_attendees ON attendees`;
 await sql`CREATE TRIGGER protect_finalized_attendees BEFORE INSERT OR UPDATE OR DELETE ON attendees FOR EACH ROW EXECUTE FUNCTION protect_finalized_attendees()`;
+await sql`ALTER TABLE requests ADD COLUMN IF NOT EXISTS agent_request_id text`;
+await sql`ALTER TABLE requests ADD COLUMN IF NOT EXISTS agent_input_hash text`;
+await sql`ALTER TABLE requests ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 0`;
+await sql`ALTER TABLE requests ADD COLUMN IF NOT EXISTS final_time jsonb`;
+await sql`CREATE UNIQUE INDEX IF NOT EXISTS requests_agent_idempotency ON requests(planner_key,agent_request_id) WHERE agent_request_id IS NOT NULL`;
+await sql`CREATE TABLE IF NOT EXISTS request_invitees (
+ meeting_id text NOT NULL REFERENCES requests(id) ON DELETE CASCADE,id text NOT NULL,
+ name text NOT NULL,position integer NOT NULL,token_hash text NOT NULL,
+ google_sub text,PRIMARY KEY(meeting_id,id),UNIQUE(meeting_id,google_sub)
+)`;
+await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS invitee_id text`;
+console.log('Agent workflow schema is ready.');
+
+await sql`CREATE UNIQUE INDEX IF NOT EXISTS requests_agent_key_scope ON requests(planner_key) WHERE agent_request_id IS NOT NULL`;

@@ -1,4 +1,5 @@
 import {sql} from './auth';
+import {persistCalendarSnapshot} from './meeting-participation';
 import {google,parseBusy} from './google';
 import {allowed,type Constraints} from './availability';
 import {openToken,sealToken} from './token-vault';
@@ -21,24 +22,22 @@ export async function saveCalendarGrant(sub:string,refreshToken:string,version:n
  if(!row)throw Error('Calendar connection changed. Please try again.');
 }
 
-export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string){
+export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null){
  const c=JSON.parse(row.constraints) as Constraints,bounds=allowed(c);
  if(!bounds.length)throw Error('No dates');
  const result=await client.request({url:'https://www.googleapis.com/calendar/v3/freeBusy',method:'POST',
   data:{timeMin:new Date(bounds[0].start).toISOString(),timeMax:new Date(bounds.at(-1)!.end).toISOString(),items:[{id:'primary'}]}});
  const busy=parseBusy(result.data,c);
- const [identity]=await sql()`SELECT email FROM sessions WHERE id=${sessionId} AND google_sub=${sub}`;
- await sql()`INSERT INTO attendees(meeting_id,google_sub,name,busy,email) VALUES(${row.id},${sub},${name.slice(0,100)},${JSON.stringify(busy)}::jsonb,${identity?.email||null}) ON CONFLICT(meeting_id,google_sub) DO UPDATE SET email=COALESCE(EXCLUDED.email,attendees.email)`;
- await sql()`UPDATE requests SET planner_name=${name.slice(0,100)} WHERE id=${row.id} AND owner_session=${sessionId}`;
+ await persistCalendarSnapshot(row.id,sub,name,busy,sessionId,inviteeId);
 }
 
-export async function joinWithSavedCalendar(row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string){
+export async function joinWithSavedCalendar(row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null){
  const connection=await calendarConnection(sub);
  if(!connection?.refresh_token||connection.disconnecting)return false;
  const client=google();
  client.setCredentials({refresh_token:openToken(connection.refresh_token,sub)});
  try{
-  await saveCalendarSnapshot(client,row,sub,name,sessionId);
+  await saveCalendarSnapshot(client,row,sub,name,sessionId,inviteeId);
   return true;
  }catch(error){
   if(!needsCalendarConsent(error))throw error;
