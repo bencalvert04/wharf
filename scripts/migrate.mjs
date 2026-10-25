@@ -7,6 +7,7 @@ await sql`ALTER TABLE requests ADD COLUMN IF NOT EXISTS owner_session text`;
 await sql`CREATE TABLE IF NOT EXISTS sessions(id text PRIMARY KEY, google_sub text, expires_at timestamptz NOT NULL)`;
 await sql`CREATE TABLE IF NOT EXISTS oauth_states(id text PRIMARY KEY, session_id text NOT NULL, meeting_id text NOT NULL REFERENCES requests(id) ON DELETE CASCADE, verifier text NOT NULL, nonce text NOT NULL, expires_at timestamptz NOT NULL)`;
 await sql`CREATE TABLE IF NOT EXISTS attendees(meeting_id text NOT NULL REFERENCES requests(id) ON DELETE CASCADE, google_sub text NOT NULL, name text NOT NULL, busy jsonb NOT NULL, captured_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(meeting_id,google_sub))`;
+await sql`ALTER TABLE requests ADD COLUMN IF NOT EXISTS planner_name text`;
 console.log('Calendar schema is ready.');
 
 await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS name text`;
