@@ -38,9 +38,9 @@ export async function deliverInvitations(meetingId?:string){
   WHERE id IN (SELECT id FROM invitation_outbox WHERE sent_at IS NULL
    AND (${meetingId||null}::text IS NULL OR meeting_id=${meetingId||null})
    AND first_attempt_at IS NULL
-   ORDER BY created_at LIMIT 20 FOR UPDATE SKIP LOCKED) RETURNING *`;
+   ORDER BY created_at LIMIT 4 FOR UPDATE SKIP LOCKED) RETURNING *`;
  let accepted=0;
- for(const job of jobs){
+ await Promise.all(jobs.map(async job=>{
   try{
    const messageId=await sendGmailInvitation(job.payload,job.id);
    await sql()`UPDATE invitation_outbox SET sent_at=now(),provider_id=${messageId},lease_until=NULL,last_error=NULL WHERE id=${job.id}`;
@@ -48,7 +48,7 @@ export async function deliverInvitations(meetingId?:string){
   }catch{
    await sql()`UPDATE invitation_outbox SET lease_until=NULL,last_error='Delivery unconfirmed. Review Gmail Sent before attempting any resend.' WHERE id=${job.id}`;
   }
- }
+ }));
  const [counts]=await sql()`SELECT count(*) FILTER(WHERE sent_at IS NULL)::int AS pending,
   count(*) FILTER(WHERE sent_at IS NULL AND first_attempt_at IS NOT NULL AND (lease_until IS NULL OR lease_until<now()))::int AS needs_review
   FROM invitation_outbox WHERE (${meetingId||null}::text IS NULL OR meeting_id=${meetingId||null})`;

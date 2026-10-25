@@ -34,3 +34,16 @@ await sql`CREATE TABLE IF NOT EXISTS invitation_outbox (
  attempts integer NOT NULL DEFAULT 0, last_error text,
  UNIQUE(meeting_id,recipient_key)
 )`;
+
+// Serialize attendee changes with finalization, including OAuth callbacks already in flight.
+await sql`CREATE OR REPLACE FUNCTION protect_finalized_attendees() RETURNS trigger AS $$
+DECLARE finalized jsonb; tracked text;
+BEGIN
+ SELECT final_time,to_jsonb(requests)->>'agent_request_id' INTO finalized,tracked FROM requests WHERE id=COALESCE(NEW.meeting_id,OLD.meeting_id) FOR UPDATE;
+ IF finalized IS NOT NULL AND tracked IS NULL THEN RAISE EXCEPTION 'This meeting has already been finalized.'; END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+ RETURN NEW;
+END;
+$$ LANGUAGE plpgsql`;
+await sql`DROP TRIGGER IF EXISTS protect_finalized_attendees ON attendees`;
+await sql`CREATE TRIGGER protect_finalized_attendees BEFORE INSERT OR UPDATE OR DELETE ON attendees FOR EACH ROW EXECUTE FUNCTION protect_finalized_attendees()`;
