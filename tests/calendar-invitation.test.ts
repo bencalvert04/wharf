@@ -34,3 +34,22 @@ test('sends one private invitation with the calendar request MIME type',()=>{
  assert.equal(Buffer.from(mail.attachments[0].content,'base64').toString(),calendarInvitation(event));
  assert.equal(mail.from,'Wharf <meetings@wharf.example>');
 });
+
+test('professional invitation includes planner identity, local time, and a plain-text alternative',()=>{
+ const mail=invitationEmail({...event,plannerName:'Ben Calvert',zone:'America/Denver'});
+ assert.ok(mail.html.includes('Ben Calvert invited you'));
+ assert.ok(mail.html.includes('9:00 AM – 9:30 AM'));
+ assert.ok(mail.html.includes('America/Denver'));
+ assert.ok(mail.html.includes('View meeting details'));
+ assert.ok(mail.text.includes('Organized by: Ben Calvert'));
+ assert.ok(mail.text.includes('9:00 AM – 9:30 AM (America/Denver)'));
+ assert.ok(!mail.html.includes('href="mailto:'));
+});
+test('invitation HTML escapes meeting titles, planner names, and links',()=>{
+ const mail=invitationEmail({...event,title:'<script>alert(1)</script>',plannerName:'<img src=x onerror=alert(1)>',url:'https://example.com/?meeting=x&mode=y'});
+ assert.ok(!mail.html.includes('<script>'));
+ assert.ok(!mail.html.includes('<img'));
+ assert.ok(mail.html.includes('&lt;script&gt;'));
+ assert.ok(mail.html.includes('meeting=x&amp;mode=y'));
+ assert.throws(()=>invitationEmail({...event,url:'javascript:alert(1)'}));
+});
