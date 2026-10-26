@@ -71,3 +71,11 @@ await sql`CREATE TABLE IF NOT EXISTS google_meeting_events (
  html_link text, lease_until timestamptz, last_error text
 )`;
 console.log('Native Google Calendar invitation schema is ready.');
+
+await sql`CREATE TABLE IF NOT EXISTS agent_calendar_authorizations (
+ meeting_id text PRIMARY KEY REFERENCES requests(id) ON DELETE CASCADE,
+ participant_id text NOT NULL, token_hash text NOT NULL,
+ authorized_sub text, authorized_at timestamptz,
+ FOREIGN KEY(meeting_id,participant_id) REFERENCES request_invitees(meeting_id,id) ON DELETE CASCADE
+)`;
+console.log('Agent calendar authorization schema is ready.');

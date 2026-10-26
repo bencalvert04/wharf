@@ -1,3 +1,4 @@
+import {completeAgentCalendarAuthorization} from '@/lib/agent-calendar-authorization';
 import {grantHasEventWrite} from '@/lib/google-event-payload';
 import {session,sql,hash,meeting,appUrl} from '@/lib/auth';
 import {validEmail} from '@/lib/calendar-invitation';
@@ -7,13 +8,14 @@ import {joinWithSavedCalendar,saveCalendarGrant,saveCalendarSnapshot} from '@/li
 import {grantHasFreeBusy} from '@/lib/calendar-access';
 
 export async function GET(req:Request){
- let id='';
- const redirect=(message:string)=>Response.redirect(appUrl()+'/?'+new URLSearchParams({...(id?{meeting:id}:{}),calendar:message}),303);
+ let id='',agentAuthorization=false;
+ const redirect=(message:string)=>agentAuthorization?Response.redirect(appUrl()+'/agent/authorize?status='+(['eventready'].includes(message)?'authorized':'failed'),303):Response.redirect(appUrl()+'/?'+new URLSearchParams({...(id?{meeting:id}:{}),calendar:message}),303);
  try{
   const p=new URL(req.url).searchParams,s=await session(),state=p.get('state');
   if(!s||!state)return redirect('expired');
   const [flow]=await sql()`DELETE FROM oauth_states WHERE id=${hash(state)} AND session_id=${s.id} AND expires_at>now() RETURNING *`;
   if(!flow)return redirect('expired');
+  agentAuthorization=flow.purpose==='agent_events';
   id=flow.meeting_id||flow.return_meeting_id||'';
   if(p.has('error'))return redirect('cancelled');
   const code=p.get('code'),row=flow.meeting_id?await meeting(flow.meeting_id):null;
@@ -27,6 +29,7 @@ export async function GET(req:Request){
   try{const url=new URL(identity.picture||'');if(url.protocol==='https:'&&(url.hostname==='googleusercontent.com'||url.hostname.endsWith('.googleusercontent.com')))picture=url.href}catch{}
   const name=(identity.name||'Guest').slice(0,100);
   await sql()`UPDATE sessions SET google_sub=${identity.sub},name=${name},picture=${picture},email=${identity.email} WHERE id=${s.id}`;
+  if(agentAuthorization){await completeAgentCalendarAuthorization(flow,identity,tokens);return redirect('eventready')}
   if(flow.purpose==='events'){
    const planned=await meeting(flow.return_meeting_id);
    if(!planned||planned.owner_session!==s.id||JSON.parse(planned.constraints).demo)return redirect('expired');

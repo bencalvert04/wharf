@@ -19,10 +19,10 @@ export async function prepareAgentCalendar(id:string,key:string,raw:unknown){
  return {meetingId:id,organizerParticipantId,authorized:!!auth.authorized_at&&auth.authorized_sub===person.googleSub,authorizationUrl:organizerAuthorizationUrl(id,key,organizerParticipantId),nextAction:{type:'authorize_calendar',message:'Give this private link only to the organizer. They explicitly authorize this agent to create one event and invite everyone. Never automate their consent.'}};
 }
 
-export async function bookAgentMeeting(id:string,key:string,raw:unknown){
+export async function queueAgentBooking(id:string,key:string,raw:unknown){
  const input=finalizeSchema.parse(raw),row=await loadAgentMeeting(id,key),view=describeMeeting(row,key),job=await googleMeetingEvent(id);
  if(row.final_time&&(row.final_time.slotId!==input.slotId||row.final_time.basedOnRevision!==input.revision))throw new AgentError('already_finalized','This meeting has a different confirmed choice.',409,'Read the meeting. Retry only the original slotId and basedOnRevision.');
- if(job){await deliver(id);return {...await getAgentMeeting(id,key),replayed:true}}
+ if(job)return {replayed:true};
  const auth=await agentCalendarAuthorization(id);
  if(!auth?.authorized_at||!auth.authorized_sub||auth.authorized_sub!==auth.participant_sub)throw new AgentError('calendar_authorization_required','The organizer must authorize calendar invitations for this meeting.',409,'Call wharf_prepare_calendar or POST /calendar with organizerParticipantId, then give the authorizationUrl to the organizer.');
  try{await eventConnection(auth.authorized_sub)}catch(error){if(error instanceof CalendarPermissionRequired)throw new AgentError('calendar_authorization_required','Google Calendar permission needs to be renewed.',409,'Call POST /calendar with the same organizerParticipantId and have the organizer reopen authorizationUrl.');throw error}
@@ -50,6 +50,7 @@ export async function bookAgentMeeting(id:string,key:string,raw:unknown){
  ]);
  const saved=await googleMeetingEvent(id),current=await loadAgentMeeting(id,key);
  if(!saved||current.final_time?.slotId!==input.slotId||current.final_time?.basedOnRevision!==input.revision)throw new AgentError('stale_revision','The meeting changed during booking.',409,'Read the meeting and slots again.');
- await deliver(id);return {...await getAgentMeeting(id,key),replayed:false};
+ return {replayed:false};
 }
+export async function bookAgentMeeting(id:string,key:string,raw:unknown){const queued=await queueAgentBooking(id,key,raw);await deliver(id);return {...await getAgentMeeting(id,key),...queued}}
 async function deliver(id:string){try{await deliverGoogleEvent(id)}catch(error){if(error instanceof CalendarPermissionRequired)throw new AgentError('calendar_authorization_required','The event is queued, but Google Calendar permission needs renewal.',409,'Use POST /calendar with the same organizer, complete authorization, then retry /book with the original slotId and revision.');throw error}}

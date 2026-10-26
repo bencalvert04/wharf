@@ -44,7 +44,11 @@ export async function deliverGoogleEvent(id:string){
  }catch(error){
   const permission=needsCalendarConsent(error);
   await sql()`UPDATE google_meeting_events SET lease_until=NULL,last_error=${permission?'Google Calendar permission is required. Reconnect to retry.':'Google Calendar creation is unconfirmed. Retry to check the existing event before creating anything new.'} WHERE meeting_id=${id}`;
-  if(permission)throw new CalendarPermissionRequired();
+  if(permission){
+   await sql()`UPDATE google_calendar_connections SET refresh_token=NULL,granted_scopes=NULL,version=version+1,updated_at=now()
+    WHERE google_sub=${job.organizer_sub} AND refresh_token=${connection.refresh_token} AND version=${connection.version}`;
+   throw new CalendarPermissionRequired();
+  }
  }
  return calendarStatus(await googleMeetingEvent(id))!;
 }
