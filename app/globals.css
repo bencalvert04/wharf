@@ -63,3 +63,5 @@
 .pending-card .delete-meeting{position:relative;z-index:2}
 .pending-card:has(.pending-open:focus-visible),.preview-card:has(.preview-link:focus-visible){outline:2px solid var(--accent);outline-offset:4px}
 .preview-card:hover{border-color:var(--muted)}
+
+.meeting-confirmation{margin-bottom:32px}
