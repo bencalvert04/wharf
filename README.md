@@ -27,7 +27,7 @@ Start at `/agents`, `/llms.txt`, or `/api/agent`. The versioned API contract is 
 - `GET /api/v1/meetings/:id/slots`: paginated exact-duration, future-only slots after everyone responds, with explicit local/UTC times and a revision.
 - `POST /api/v1/meetings/:id/finalize`: confirm a returned slot ID with its revision. Conditional updates reject stale responses. Identical retries are safe. No Google event or notification is created.
 
-Personal invitation links bind a verified Google identity to a roster position after that person connects their calendar. They are private claim capabilities, not email identity verification. The organizer sees the actual Google display name. One account cannot fill multiple positions. Withdrawing availability releases that position and clears any confirmed time. Availability remains a snapshot, not live calendar synchronization.
+Personal invitation links bind a verified Google identity to a roster position after that person connects their calendar. They are private claim capabilities, not email identity verification. The organizer sees the actual Google display name. One account cannot fill multiple positions. Before Google booking, withdrawing availability releases that position and clears a saved time. Booking freezes attendance and time. Availability remains a snapshot, not live calendar synchronization.
 
 Finalization stores `requests.final_time`, displays it on the meeting page, and removes the meeting from Pending meetings. Pending lists are scoped to the owning browser session or joined Google identity. Agent keys do not grant access to unrelated browser/account meetings.
 
@@ -72,3 +72,14 @@ Browser planners now create a native event on their primary Google Calendar when
 Run `npm run db:migrate` before deploying. The additive migration stores granted scopes, OAuth flow purpose, and an immutable Google event job. The selected time and guest list are frozen atomically. A deterministic Google event ID plus lookup before insert recovers timed-out calls without intentionally sending duplicate invitations. Pending jobs can be retried from the meeting page. Old SMTP jobs retain their delivery path; new Google events do not also send SMTP/ICS invitations. Existing queued emails are unchanged. Agent finalization still does not send invitations.
 
 The planner must approve the extra permission in Google. The OAuth consent configuration must allow the new scope; production verification may be required by Google. Disconnecting stops future access. Deleting or expiring a Wharf meeting does not cancel the external Google event; planners manage it in Google Calendar.
+
+
+### Agent Google Calendar booking
+
+After everyone joins, call `wharf_prepare_calendar` (REST `POST /api/v1/meetings/:id/calendar`) with `organizerParticipantId`. Share the private `authorizationUrl` with that organizer. They must use the same Google account that joined and explicitly authorize this agent to book this particular meeting, even if Google event permission was previously granted.
+
+Then call `wharf_book_meeting` (REST `POST /api/v1/meetings/:id/book`) with an authorized `slotId` and its `revision`. This atomically freezes the selected time and native event job, creates an event on the organizer's primary Google Calendar, and requests Google invitations to all joined guests. `calendar.status: created` confirms provider acceptance, while `pending` requires retrying the same inputs after 30 seconds. Guest settings control automatic calendar appearance. The existing `finalize` operation remains save-only; its original `finalTime.slotId` and `finalTime.basedOnRevision` can be used to book that choice while it is still in the future.
+
+Organizer selection is fixed for a meeting. Event booking requires verified attendee emails, a complete roster, and a usable organizer grant. Revoked permission can be renewed through the same private authorization link. Calendar event jobs block attendance withdrawal so the external event remains consistent. Deleting Wharf data does not cancel the event.
+
+`node --env-file=.env.production.local --import tsx scripts/verify-agent-booking.mjs` checks organizer identity/consent, grant renewal, stale revisions, concurrent queueing, pending/created retries, privacy and save-only upgrades without contacting Google or sending messages. Run against a local test server with a matching test-only encryption key; the script uses synthetic accounts and cleans its records. Provider transport is independently covered by fake-client tests.
