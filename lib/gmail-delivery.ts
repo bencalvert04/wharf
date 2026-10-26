@@ -15,7 +15,7 @@ export function gmailMessage(payload:Payload,jobId:string){
  if(payload.from!==`Wharf <${process.env.INVITATION_FROM}>`)throw Error('Invitation sender does not match the configured Gmail account.');
  if(!/^[a-zA-Z0-9-]+$/.test(jobId))throw Error('Invalid delivery identifier.');
  if(payload.to.length!==1||!validEmail(payload.to[0]))throw Error('Invalid invitation recipient.');
- return {from:payload.from,to:payload.to,subject:payload.subject,text:payload.text,
+ return {from:payload.from,to:payload.to,subject:payload.subject,text:payload.text,html:payload.html,
   messageId:`<wharf-${jobId}@${process.env.INVITATION_FROM!.split('@')[1]}>`,
   icalEvent:{filename:'invitation.ics',method:'REQUEST',content:Buffer.from(payload.attachments[0].content,'base64').toString('utf8')},
   disableFileAccess:true,disableUrlAccess:true};

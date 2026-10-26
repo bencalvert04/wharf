@@ -10,12 +10,17 @@ test('Gmail message renders as an RSVP calendar request without contacting a ser
  try{
   const payload=invitationEmail({id:'meeting-1',title:'Planning',start:Date.parse('2026-11-02T16:00Z'),end:Date.parse('2026-11-02T16:30Z'),createdAt:Date.parse('2026-10-25T12:00Z'),organizer:'wharfmeetings@gmail.com',recipient:{name:'Test',email:'attendee@example.com'},url:'https://example.com/?meeting=meeting-1'});
   const message=gmailMessage(payload,'job-1');
+  assert.equal(message.html,payload.html);
+  assert.equal(message.text,payload.text);
   const output=await nodemailer.createTransport({streamTransport:true,buffer:true}).sendMail(message);
   const mime=output.message.toString();
   assert.match(mime,/From: Wharf <wharfmeetings@gmail.com>/);
   assert.match(mime,/text\/calendar;[^\r\n]*method=REQUEST/i);
   assert.match(mime,/Message-ID: <wharf-job-1@gmail.com>/i);
   assert.ok(!mime.includes('smtp.gmail.com'));
+  assert.match(mime,/Content-Type: text\/html/i);
+  assert.match(mime,/Content-Type: text\/plain/i);
+  assert.equal(message.icalEvent.method,'REQUEST');
   assert.throws(()=>gmailMessage({...payload,from:'Other <other@example.com>'},'job-1'));
   assert.throws(()=>gmailMessage({...payload,to:['a@example.com','b@example.com']},'job-1'));
  }finally{if(original===undefined)delete process.env.INVITATION_FROM;else process.env.INVITATION_FROM=original}

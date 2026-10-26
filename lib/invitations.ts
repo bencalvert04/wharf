@@ -25,7 +25,7 @@ export async function queueMeetingInvitations(meetingId:string){
  const unique=new Map(people.map(p=>[p.email.toLowerCase(),p]));
  const database=sql();
  await database.transaction([...unique.values()].map(p=>{
-  const payload=invitationEmail({id:meetingId,title:c.title,start,end,createdAt:now,organizer:sender,recipient:{name:p.name,email:p.email},url:appUrl()+'/?meeting='+encodeURIComponent(meetingId)});
+  const payload=invitationEmail({id:meetingId,title:c.title,start,end,createdAt:now,organizer:sender,zone:c.zone,plannerName:row.planner_name,recipient:{name:p.name,email:p.email},url:appUrl()+'/?meeting='+encodeURIComponent(meetingId)});
   return database`INSERT INTO invitation_outbox(id,meeting_id,recipient_key,payload) VALUES(${randomUUID()},${meetingId},${hash(p.email.toLowerCase())},${JSON.stringify(payload)}::jsonb) ON CONFLICT(meeting_id,recipient_key) DO NOTHING`;
  }));
 }
