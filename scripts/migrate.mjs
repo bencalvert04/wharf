@@ -79,3 +79,15 @@ await sql`CREATE TABLE IF NOT EXISTS agent_calendar_authorizations (
  FOREIGN KEY(meeting_id,participant_id) REFERENCES request_invitees(meeting_id,id) ON DELETE CASCADE
 )`;
 console.log('Agent calendar authorization schema is ready.');
+
+// Slack transport records contain encrypted meeting keys, never Google tokens.
+await sql`CREATE TABLE IF NOT EXISTS slack_meetings (
+ id text PRIMARY KEY,team_id text NOT NULL,channel_id text NOT NULL,thread_ts text NOT NULL,
+ organizer_id text NOT NULL,draft jsonb NOT NULL,meeting_id text,key_cipher text NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(),UNIQUE(team_id,channel_id,thread_ts)
+)`;
+await sql`CREATE TABLE IF NOT EXISTS slack_jobs (
+ id text PRIMARY KEY,payload jsonb NOT NULL,status text NOT NULL DEFAULT 'pending',
+ created_at timestamptz NOT NULL DEFAULT now(),lease_until timestamptz,attempts integer NOT NULL DEFAULT 0
+)`;
+console.log('Slack bot schema is ready.');

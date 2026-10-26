@@ -83,3 +83,7 @@ Then call `wharf_book_meeting` (REST `POST /api/v1/meetings/:id/book`) with an a
 Organizer selection is fixed for a meeting. Event booking requires verified attendee emails, a complete roster, and a usable organizer grant. Revoked permission can be renewed through the same private authorization link. Calendar event jobs block attendance withdrawal so the external event remains consistent. Deleting Wharf data does not cancel the event.
 
 `node --env-file=.env.production.local --import tsx scripts/verify-agent-booking.mjs` checks organizer identity/consent, grant renewal, stale revisions, concurrent queueing, pending/created retries, privacy and save-only upgrades without contacting Google or sending messages. Run against a local test server with a matching test-only encryption key; the script uses synthetic accounts and cleans its records. Provider transport is independently covered by fake-client tests.
+
+## Slack bot
+
+The single-workspace Slack integration uses Haiku for request interpretation and organizer-only buttons for creation and booking. See [setup and demo instructions](docs/slack.md) and the [Slack app manifest](docs/slack-manifest.json).
