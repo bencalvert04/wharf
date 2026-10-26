@@ -35,7 +35,7 @@ export async function slackMention(envelope:any){
  if(usage.n>100){await slackMessage(e.channel,'The daily scheduling limit has been reached. Try again tomorrow.',thread);return}
  const owner=humans.find(u=>u.id===e.user);
  const result=await interpretSlackRequest(messages.join('\nFollow-up: ').slice(-12000),e.user,participants,owner?.tz||'UTC');
- if(!result.draft){await slackMessage(e.channel,slackEscape(result.question!),thread);return}
+ if(!result.draft){await sql()`UPDATE slack_context SET messages=${JSON.stringify([...messages,`Wharf asked: ${result.question}`].slice(-6))}::jsonb,updated_at=now() WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user}`;await slackMessage(e.channel,slackEscape(result.question!),thread);return}
  // Resolve names only from Slack; neither user text nor the model controls the recipient IDs.
  for(const p of result.draft.participants){const u=humans.find(u=>u.id===p.id);p.name=(u.real_name||u.name||p.id).slice(0,100)}
  const id=randomUUID(),cipher=sealToken(randomBytes(32).toString('base64url'),`slack:${id}`);
@@ -65,7 +65,7 @@ async function createAndShare(r:any){
 }
 async function invitations(r:any){
  const d=r.draft,url=`${appUrl()}/slack/join/${r.id}`;
- const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes · ${d.startDate} to ${d.endDate||d.startDate}\n${d.dayStart}–${d.dayEnd} (${slackEscape(d.timezone)})\n${d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|Join the meeting> · Choose your name and connect your availability.`;
+ const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes · ${d.startDate} to ${d.endDate||d.startDate}\n${d.windowMode==='continuous'?`${d.startDate} ${d.dayStart} → ${d.endDate||d.startDate} ${d.dayEnd}`:`${d.dayStart}–${d.dayEnd}`} (${slackEscape(d.timezone)})\n${d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|Join the meeting> · Choose your name and connect your availability.`;
  // Post to the main channel so everyone can find the same invitation.
  await slackMessage(r.channel_id,text,undefined,slackBlocks(text,[refresh(r.id)]));
 }

@@ -9,3 +9,16 @@ test('drops fragments shorter than 15 minutes',()=>{assert.equal(shared({...c,to
 test('handles local spring-forward hours',()=>{const windows=allowed({...c,start:'2026-03-08',end:'2026-03-08',zone:'America/Denver',from:'01:00',to:'04:00',days:[0]});assert.equal(windows.reduce((sum,w)=>sum+w.end-w.start,0)/3600000,2)});
 test('handles local fall-back hours',()=>{const windows=allowed({...c,start:'2026-11-01',end:'2026-11-01',zone:'America/Denver',from:'01:00',to:'04:00',days:[0]});assert.equal(windows.reduce((sum,w)=>sum+w.end-w.start,0)/3600000,4)});
 test('rejects invalid dates and unbounded date ranges',()=>{assert.throws(()=>validate({...c,start:'2026-02-30'}));assert.throws(()=>validate({...c,end:'2027-01-01'}));assert.throws(()=>validate({...c,days:[]}));});
+test('continuous deadline includes overnight hours but excludes times outside its endpoints',()=>{
+ const range={...c,start:'2026-10-26',end:'2026-10-27',from:'00:00',to:'24:00',days:[0,1,2,3,4,5,6],windowStart:'2026-10-26T16:37',windowEnd:'2026-10-27T18:00'};
+ validate(range);const windows=allowed(range);
+ assert.deepEqual(windows.map(w=>[new Date(w.start).toISOString(),new Date(w.end).toISOString()]),[['2026-10-26T16:37:00.000Z','2026-10-27T00:00:00.000Z'],['2026-10-27T00:00:00.000Z','2026-10-27T18:00:00.000Z']]);
+});
+test('after 8 PM ends at midnight, including the final minute',()=>{
+ const range={...c,from:'00:00',to:'24:00',windowStart:'2026-10-26T20:00',windowEnd:'2026-10-26T24:00'};validate(range);
+ assert.equal(allowed(range)[0].end,Date.parse('2026-10-27T00:00Z'));
+ assert.equal(allowed(range)[0].start,Date.parse('2026-10-26T20:00Z'));
+ assert.throws(()=>validate({...range,windowEnd:'2026-10-26T19:00'}));
+ assert.throws(()=>validate({...range,windowEnd:'2026-10-27T24:00'}));
+ assert.throws(()=>validate({...range,windowEnd:'2026-10-26T24:01'}));
+});

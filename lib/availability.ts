@@ -1,4 +1,4 @@
-export type Constraints = { title:string; demo?:boolean; sampleCount?:number; start:string; end:string; duration:number; zone:string; from:string; to:string; days:number[] };
+export type Constraints = { title:string; demo?:boolean; sampleCount?:number; start:string; end:string; duration:number; zone:string; from:string; to:string; days:number[]; windowStart?:string; windowEnd?:string };
 export type Interval = {start:number; end:number};
 export type Attendee = {name:string; busy:Interval[]};
 export type Window = Interval & {date:string; people:string[]};
@@ -14,7 +14,7 @@ export function allowed(c:Constraints):Window[] {
  // Scan UTC minutes to respect both skipped and repeated local times around DST.
  const out:Window[]=[]; let active:Window|undefined;
  const lo=Date.parse(c.start+'T00:00:00Z')-86400000, hi=Date.parse(c.end+'T00:00:00Z')+172800000;
- for(let t=lo;t<hi;t+=60000){const p=localParts(t,c.zone);const valid=p.date>=c.start&&p.date<=c.end&&c.days.includes(new Date(p.date+'T12:00:00Z').getUTCDay())&&p.time>=c.from&&p.time<c.to;
+ for(let t=lo;t<hi;t+=60000){const p=localParts(t,c.zone);const valid=p.date>=c.start&&p.date<=c.end&&c.days.includes(new Date(p.date+'T12:00:00Z').getUTCDay())&&p.time>=c.from&&p.time<c.to&&(!c.windowStart||`${p.date}T${p.time}`>=c.windowStart)&&(!c.windowEnd||`${p.date}T${p.time}`<c.windowEnd);
  if(valid){if(active&&active.end===t&&active.date===p.date)active.end=t+60000;else {active={start:t,end:t+60000,date:p.date,people:[]};out.push(active)}}else active=undefined;
  } return out;
 }
@@ -35,7 +35,11 @@ export function validate(c:Constraints) {
  const length=(Date.parse(c.end)-Date.parse(c.start))/86400000;
  if(length<0||length>30)throw Error('Choose a date range of up to 31 days.');
  if(!Number.isInteger(c.duration)||c.duration<15||c.duration>480)throw Error('Duration must be between 15 and 480 minutes.');
- if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(c.from)||!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(c.to)||c.from>=c.to)throw Error('End time must be after start time.');
+ if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(c.from)||!/^(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)$/.test(c.to)||c.from>=c.to)throw Error('End time must be after start time.');
+ if(c.windowStart!==undefined||c.windowEnd!==undefined){
+  const validBound=(v:unknown)=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v.slice(0,10)+'T00:00Z').toISOString().slice(0,10)===v.slice(0,10);
+  if(!validBound(c.windowStart)||!validBound(c.windowEnd)||c.windowStart!>=c.windowEnd!||c.windowStart!.slice(0,10)!==c.start||c.windowEnd!.slice(0,10)!==c.end)throw Error('Choose valid continuous time bounds.');
+ }
  if(!Array.isArray(c.days)||!c.days.length||c.days.some(d=>!Number.isInteger(d)||d<0||d>6))throw Error('Select at least one weekday.');
  try{new Intl.DateTimeFormat('en',{timeZone:c.zone}).format()}catch{throw Error('Choose a valid time zone.')}
 }
