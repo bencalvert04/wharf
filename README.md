@@ -16,7 +16,7 @@ Google sign-in identifies the user. Attending a meeting asks for ongoing primary
 
 Only free/busy intervals within the meeting's working hours are stored. Event titles, descriptions, guests and locations are not read. Planner credentials and joined browser sessions can read aggregate availability and names, not individual busy intervals. Invitation URLs expose meeting constraints and any confirmed time. A personal invitation token additionally reveals its intended participant label.
 
-Requests expire after 30 days and are removed by the daily cleanup route. Browser sessions expire after 30 days. Google Calendar write access is not requested. A separate planner-only endpoint can send RSVP invitations through Gmail SMTP; agent finalization never invokes it. Demo meetings remain private to their creating browser and use clearly labeled sample calendars.
+Requests expire after 30 days and are removed by the daily cleanup route. Browser sessions expire after 30 days. Calendar write access is requested separately from planners who choose native Google Calendar invitations. A separate planner-only endpoint can send RSVP invitations through Gmail SMTP; agent finalization never invokes it. Demo meetings remain private to their creating browser and use clearly labeled sample calendars.
 
 ## Agent workflow
 
@@ -64,3 +64,11 @@ The existing planner-only `POST /api/requests/:id/invitations` queues and sends 
 The planner joins with Google, selects a valid time, and uses Create meeting. `POST /api/requests/:id/finalize` validates the browser’s availability revision, freezes the selected time and attendees, atomically queues the planner and attendee email recipients, and dispatches Gmail invitations. It uses a separate contract from `/api/v1/meetings/:id/finalize`, which only confirms an agent meeting without sending. `scripts/verify-finalization.mjs` verifies the browser transaction, outbox idempotency and frozen-attendee behavior using synthetic data without sending email.
 
 Planners can permanently delete meetings from Pending meetings or the meeting page. The planner-only `DELETE /api/requests/:id` removes the meeting and its saved availability; previously sent calendar invitations are not cancelled. Idempotency recovery ends when a meeting is deliberately deleted or expires.
+
+## Native Google Calendar invitations
+
+Browser planners now create a native event on their primary Google Calendar when they confirm a meeting time. A separate, planner-only consent flow requests `calendar.events.owned` alongside the existing free/busy scope. Guests are invited with `sendUpdates=all`; Google Calendar invitation settings determine whether the event is added automatically or after RSVP. Attendee write permission is not requested, and responses are never accepted on their behalf.
+
+Run `npm run db:migrate` before deploying. The additive migration stores granted scopes, OAuth flow purpose, and an immutable Google event job. The selected time and guest list are frozen atomically. A deterministic Google event ID plus lookup before insert recovers timed-out calls without intentionally sending duplicate invitations. Pending jobs can be retried from the meeting page. Old SMTP jobs retain their delivery path; new Google events do not also send SMTP/ICS invitations. Existing queued emails are unchanged. Agent finalization still does not send invitations.
+
+The planner must approve the extra permission in Google. The OAuth consent configuration must allow the new scope; production verification may be required by Google. Disconnecting stops future access. Deleting or expiring a Wharf meeting does not cancel the external Google event; planners manage it in Google Calendar.

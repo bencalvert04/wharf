@@ -25,7 +25,7 @@ export default function DeleteMeetingButton({id,title,onDeleted}:{id:string;titl
    <div className="delete-dialog-heading"><span className="eyebrow"><Trash2 size={14}/>DELETE MEETING</span><button type="button" className="icon-button" aria-label="Close confirmation" disabled={deleting} onClick={dismiss}><X size={18}/></button></div>
    <h2 id={heading}>Delete this meeting?</h2>
    <div className="delete-dialog-name">{title||'Untitled meeting'}</div>
-   <div id={description}><p>The meeting and everyone’s saved availability will be permanently removed from Wharf.</p><p className="delete-dialog-note">This can’t be undone. Calendar invitations already sent will remain in attendees’ calendars.</p></div>
+   <div id={description}><p>The meeting and everyone’s saved availability will be permanently removed from Wharf.</p><p className="delete-dialog-note">This can’t be undone. Google Calendar events and invitations already sent will remain. Cancel them in Google Calendar.</p></div>
    {error&&<p role="alert" className="delete-dialog-error">{error}</p>}
    <div className="delete-dialog-actions"><button type="button" className="outline" autoFocus disabled={deleting} onClick={dismiss}>Keep meeting</button><button type="button" className="primary" disabled={deleting} onClick={remove}><Trash2 size={14}/>{deleting?'Deleting…':'Delete meeting'}</button></div>
   </dialog>

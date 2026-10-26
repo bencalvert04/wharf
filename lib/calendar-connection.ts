@@ -16,8 +16,8 @@ export async function prepareCalendarConsent(sub:string){
  if(row.disconnecting)throw Error('Calendar disconnection is pending.');
  return Number(row.version);
 }
-export async function saveCalendarGrant(sub:string,refreshToken:string,version:number){
- const [row]=await sql()`UPDATE google_calendar_connections SET refresh_token=${sealToken(refreshToken,sub)},updated_at=now()
+export async function saveCalendarGrant(sub:string,refreshToken:string,version:number,scopes:string=''){
+ const [row]=await sql()`UPDATE google_calendar_connections SET refresh_token=${sealToken(refreshToken,sub)},granted_scopes=${scopes},updated_at=now()
   WHERE google_sub=${sub} AND version=${version} AND NOT disconnecting RETURNING google_sub`;
  if(!row)throw Error('Calendar connection changed. Please try again.');
 }

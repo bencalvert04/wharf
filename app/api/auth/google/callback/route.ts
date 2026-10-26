@@ -1,3 +1,4 @@
+import {grantHasEventWrite} from '@/lib/google-event-payload';
 import {session,sql,hash,meeting,appUrl} from '@/lib/auth';
 import {validEmail} from '@/lib/calendar-invitation';
 import {google} from '@/lib/google';
@@ -26,11 +27,18 @@ export async function GET(req:Request){
   try{const url=new URL(identity.picture||'');if(url.protocol==='https:'&&(url.hostname==='googleusercontent.com'||url.hostname.endsWith('.googleusercontent.com')))picture=url.href}catch{}
   const name=(identity.name||'Guest').slice(0,100);
   await sql()`UPDATE sessions SET google_sub=${identity.sub},name=${name},picture=${picture},email=${identity.email} WHERE id=${s.id}`;
+  if(flow.purpose==='events'){
+   const planned=await meeting(flow.return_meeting_id);
+   if(!planned||planned.owner_session!==s.id||JSON.parse(planned.constraints).demo)return redirect('expired');
+   if(!grantHasFreeBusy(tokens.scope)||!grantHasEventWrite(tokens.scope)||!tokens.refresh_token)return redirect('eventpermission');
+   await saveCalendarGrant(identity.sub,tokens.refresh_token,Number(flow.connection_version),tokens.scope);
+   return redirect('eventready');
+  }
   if(!row)return redirect('signedin');
   if(flow.expected_sub){
    // Google may allow profile sign-in while the user declines calendar permission.
    if(!grantHasFreeBusy(tokens.scope)||!tokens.refresh_token)return redirect('permission');
-   await saveCalendarGrant(identity.sub,tokens.refresh_token,Number(flow.connection_version));
+   await saveCalendarGrant(identity.sub,tokens.refresh_token,Number(flow.connection_version),tokens.scope);
    client.setCredentials(tokens);
    await saveCalendarSnapshot(client,{id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null);
    return redirect('joined');

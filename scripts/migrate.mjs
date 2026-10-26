@@ -61,3 +61,13 @@ await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS invitee_id text`;
 console.log('Agent workflow schema is ready.');
 
 await sql`CREATE UNIQUE INDEX IF NOT EXISTS requests_agent_key_scope ON requests(planner_key) WHERE agent_request_id IS NOT NULL`;
+
+await sql`ALTER TABLE google_calendar_connections ADD COLUMN IF NOT EXISTS granted_scopes text`;
+await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS purpose text NOT NULL DEFAULT 'join'`;
+await sql`CREATE TABLE IF NOT EXISTS google_meeting_events (
+ meeting_id text PRIMARY KEY REFERENCES requests(id) ON DELETE CASCADE,
+ organizer_sub text NOT NULL, event_id text NOT NULL, payload jsonb NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(), delivered_at timestamptz,
+ html_link text, lease_until timestamptz, last_error text
+)`;
+console.log('Native Google Calendar invitation schema is ready.');
