@@ -19,3 +19,6 @@ export const finalizeSchema=z.object({slotId:z.string().min(1).max(100),revision
 export const pageSchema=z.object({offset:z.coerce.number().int().min(0).max(100000).default(0),limit:z.coerce.number().int().min(1).max(100).default(20)}).strict();
 export const createInputSchema=z.toJSONSchema(createMeetingSchema,{io:"input"});
 export const finalizeInputSchema=z.toJSONSchema(finalizeSchema);
+
+export const prepareCalendarSchema=z.object({organizerParticipantId:z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/)}).strict();
+export const prepareCalendarInputSchema=z.toJSONSchema(prepareCalendarSchema);
