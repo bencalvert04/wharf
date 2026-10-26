@@ -95,3 +95,9 @@ console.log('Slack bot schema is ready.');
 
 for(const statement of pendingMeetingSchema)await sql.query(statement);
 console.log('Pending meeting activity and retained membership schema is ready.');
+
+await sql`CREATE TABLE IF NOT EXISTS slack_context (
+ team_id text NOT NULL,channel_id text NOT NULL,thread_ts text NOT NULL,user_id text NOT NULL,
+ messages jsonb NOT NULL,updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(team_id,channel_id,thread_ts,user_id)
+)`;
+console.log('Slack conversation context schema is ready.');

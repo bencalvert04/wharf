@@ -26,3 +26,5 @@ Haiku is called only for new requests, with 900 output tokens and at most 4,000 
 ## Validation
 
 Run `npm test`, `npm run typecheck`, and `npm run build`. Before recording, test in the configured channel with two accounts: automatic creation, shared channel invitation, both joins, organizer consent, slot confirmation, duplicate click, and a click from someone other than the requester. Live provider tests require installed Slack credentials and funded Anthropic API access.
+
+Group DMs: configure SLACK_GROUP_CHANNEL_IDS (comma-separated allowlist) and SLACK_BOT_USER_ID. Install mpim:history and mpim:read and subscribe to message.mpim. Only explicit bot mentions trigger responses; normal conversation is ignored. Group members supply the roster. Before creation, up to six requester messages in the same thread are retained for one day to resolve clarification. Existing meetings remain immutable; requests to change them receive guidance to start a new message. Greetings and status commands are deterministic. No automatic retry worker is configured.

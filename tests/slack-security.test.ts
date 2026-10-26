@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
-import {verifySlackSignature,slackMentions,canControlMeeting,slackEscape} from '../lib/slack-security.ts';
+import {verifySlackSignature,slackMentions,canControlMeeting,slackEscape,allowedSlackChannel,slackIntent} from '../lib/slack-security.ts';
 test('Slack signatures authenticate raw bytes and reject replay, malformed headers, and missing configuration',()=>{
  const body='{"event":"hello"}',ts='1800000000',secret='secret',sig='v0='+createHmac('sha256',secret).update(`v0:${ts}:${body}`).digest('hex');
  assert.ok(verifySlackSignature(body,ts,sig,secret,1800000000000));
@@ -15,4 +15,10 @@ test('Only the organizer in the original workspace and channel controls a meetin
 test('Roster comes from real Slack user mentions, and arbitrary text cannot create mentions in replies',()=>{
  assert.deepEqual(slackMentions('<@U123> @Ray <@U123> <@W456> <!channel>'),['U123','W456']);
  assert.equal(slackEscape('<!channel> & <https://evil.test|click>'),'&lt;!channel&gt; &amp; &lt;https://evil.test|click&gt;');
+});
+
+test('Only configured conversations are accepted and simple chat controls are deterministic',t=>{
+ const old=process.env.SLACK_CHANNEL_ID,groups=process.env.SLACK_GROUP_CHANNEL_IDS;
+ process.env.SLACK_CHANNEL_ID='C1';process.env.SLACK_GROUP_CHANNEL_IDS='G1';
+ try{assert.equal(allowedSlackChannel('C1'),true);assert.equal(allowedSlackChannel('G1'),true);assert.equal(allowedSlackChannel('G2'),false);assert.equal(slackIntent('<@U123> are you there?'),'help');assert.equal(slackIntent('<@U123> check availability'),'status');assert.equal(slackIntent('<@U123> make it tomorrow'),'schedule')}finally{if(old===undefined)delete process.env.SLACK_CHANNEL_ID;else process.env.SLACK_CHANNEL_ID=old;if(groups===undefined)delete process.env.SLACK_GROUP_CHANNEL_IDS;else process.env.SLACK_GROUP_CHANNEL_IDS=groups;}
 });

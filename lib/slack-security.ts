@@ -7,3 +7,11 @@ export function verifySlackSignature(body:string,timestamp:string|null,signature
 export function slackMentions(text:string){return [...new Set([...text.matchAll(/<@([UW][A-Z0-9]+)>/g)].map(m=>m[1]))]}
 export function slackEscape(text:string){return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 export function canControlMeeting(row:{team_id:string;channel_id:string;organizer_id:string},team:string,channel:string,user:string){return row.team_id===team&&row.channel_id===channel&&row.organizer_id===user}
+
+export function allowedSlackChannel(channel:unknown){return typeof channel==='string'&&[process.env.SLACK_CHANNEL_ID,...(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',')].filter(Boolean).includes(channel)}
+export function slackIntent(text:string){
+ const clean=text.replace(/<@[UW][A-Z0-9]+>/g,'').trim().toLowerCase().replace(/[?!.,]+$/,'');
+ if(/^(are you there|hello|hi|hey|ping|help)$/.test(clean))return 'help';
+ if(/^(status|check( this meeting| availability)?|any update|who( is|'s) left|share( this meeting( in the channel)?| link)?)$/.test(clean))return 'status';
+ return 'schedule';
+}
