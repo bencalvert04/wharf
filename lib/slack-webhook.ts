@@ -13,9 +13,9 @@ export async function slackWebhook(req:Request,interactive=false){
  if(payload.type==='url_verification'&&!interactive)return Response.json({challenge:payload.challenge});
  if((interactive?payload.team?.id:payload.team_id)!==team)return new Response('Wrong workspace',{status:403});
  if(interactive){if(payload.type!=='block_actions'||!allowedSlackChannel(payload.channel?.id)||!payload.user?.id||!['wharf_create','wharf_status','wharf_invites','wharf_book'].includes(payload.actions?.[0]?.action_id))return new Response('Ignored')}
- else {const e=payload.event;if(payload.type!=='event_callback'||!['app_mention','message'].includes(e?.type)||e.bot_id||e.subtype||!allowedSlackChannel(e.channel)||(e.type==='message'&&e.channel_type!=='mpim')||!e.user||!e.text||!payload.event_id)return new Response('Ignored')}
+ else {const e=payload.event;if(payload.type!=='event_callback'||!['app_mention','message'].includes(e?.type)||e.bot_id||e.subtype||!allowedSlackChannel(e.channel)||(e.type==='message'&&e.channel_type!=='mpim')||!e.user||!e.text||!e.ts||!payload.event_id)return new Response('Ignored')}
  if(!interactive&&payload.event.type==='message'){const e=payload.event;if(!process.env.SLACK_BOT_USER_ID||!e.text.includes(`<@${process.env.SLACK_BOT_USER_ID}>`)){return new Response('Ignored: mention Wharf to respond')}}
- const id=interactive?createHash('sha256').update(raw).digest('hex'):payload.event_id;
+ const id=interactive?createHash('sha256').update(raw).digest('hex'):createHash('sha256').update([payload.team_id,payload.event.channel,payload.event.ts].join(':')).digest('hex');
  // Persist before acknowledging. Slack retries failed HTTP deliveries; unique IDs deduplicate retries.
  try{await sql()`INSERT INTO slack_jobs(id,payload) VALUES(${id},${JSON.stringify(payload)}::jsonb) ON CONFLICT DO NOTHING`}catch{return new Response('Retry later',{status:503})}
  after(()=>runSlackJob(id));return new Response('');
