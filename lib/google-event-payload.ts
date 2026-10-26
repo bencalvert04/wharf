@@ -10,14 +10,15 @@ export function googleEventPayload(input:{id:string;title:string;start:number;en
   extendedProperties:{private:{wharfMeetingId:input.id}}};
 }
 export type GoogleEventPayload=ReturnType<typeof googleEventPayload>;
-export type EventResult={id?:string;status?:string;htmlLink?:string;extendedProperties?:{private?:{wharfMeetingId?:string}}};
+export type EventResult={id?:string;status?:string;htmlLink?:string;start?:{dateTime?:string};end?:{dateTime?:string};attendees?:{email?:string;organizer?:boolean;responseStatus?:string}[];extendedProperties?:{private?:{wharfMeetingId?:string}}};
 export type EventTransport={request:(options:{url:string;method:'GET'|'POST';data?:GoogleEventPayload;params?:{sendUpdates:string};timeout:number})=>Promise<{data:unknown}>};
 function status(error:unknown){return (error as {response?:{status?:number}})?.response?.status}
 /** A stable provider ID recovers a successful insert even if its response was lost. */
 export async function createOrRecoverGoogleEvent(client:EventTransport,payload:GoogleEventPayload){
  const base='https://www.googleapis.com/calendar/v3/calendars/primary/events';
  const read=()=>client.request({url:base+'/'+payload.id,method:'GET',timeout:15000});
- const verify=(data:unknown)=>{const event=data as EventResult;if(event.id!==payload.id||event.status==='cancelled'||event.extendedProperties?.private?.wharfMeetingId!==payload.extendedProperties.private.wharfMeetingId)throw Error('The Google Calendar event changed or was removed. Check your calendar before retrying.');return event};
+ const guests=(attendees:{email?:string;organizer?:boolean}[])=>[...new Set(attendees.filter(a=>!a.organizer).map(a=>a.email?.toLowerCase()).filter(Boolean))].sort().join('\n');
+ const verify=(data:unknown)=>{const event=data as EventResult;if(event.id!==payload.id||event.status==='cancelled'||Date.parse(event.start?.dateTime||'')!==Date.parse(payload.start.dateTime)||Date.parse(event.end?.dateTime||'')!==Date.parse(payload.end.dateTime)||guests(event.attendees||[])!==guests(payload.attendees)||event.extendedProperties?.private?.wharfMeetingId!==payload.extendedProperties.private.wharfMeetingId)throw Error('The Google Calendar event changed or was removed. Check your calendar before retrying.');return event};
  try{return verify((await read()).data)}catch(error){if(status(error)!==404)throw error}
  try{return verify((await client.request({url:base,method:'POST',data:payload,params:{sendUpdates:'all'},timeout:15000})).data)}catch(error){if(status(error)!==409)throw error;return verify((await read()).data)}
 }

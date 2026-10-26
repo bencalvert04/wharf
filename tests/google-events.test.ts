@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {EVENT_SCOPE,grantHasEventWrite,googleEventPayload,createOrRecoverGoogleEvent,type EventTransport} from '../lib/google-event-payload.ts';
 const input={id:'meeting-one',title:'Team planning',start:Date.parse('2026-11-02T16:00Z'),end:Date.parse('2026-11-02T16:30Z'),zone:'America/Denver',organizerSub:'planner-sub',organizerEmail:'planner@example.com',attendees:[{name:'Planner',email:'planner@example.com'},{name:'Guest',email:'guest@example.com'},{name:'Guest',email:'GUEST@example.com'}],url:'https://wharfmeetings.com/?meeting=meeting-one'};
 const payload=googleEventPayload(input);
-const result={id:payload.id,status:'confirmed',htmlLink:'https://www.google.com/calendar/event?eid=test',extendedProperties:payload.extendedProperties};
+const result={...payload,status:'confirmed',htmlLink:'https://www.google.com/calendar/event?eid=test',extendedProperties:payload.extendedProperties};
 const failure=(status:number)=>Object.assign(new Error('Provider error'),{response:{status}});
 test('Google events have stable provider IDs, local timezone, and a deduplicated guest list',()=>{
  assert.match(payload.id,/^[0-9a-v]{5,1024}$/);
@@ -37,6 +37,15 @@ test('authorization failures never insert events',async()=>{
 });
 test('cancelled or unrelated provider events are not recreated',async()=>{
  for(const event of [{...result,status:'cancelled'},{...result,extendedProperties:{private:{wharfMeetingId:'other'}}}]){
+  let posts=0;const client:EventTransport={async request(options){if(options.method==='POST')posts++;return {data:event}}};
+  await assert.rejects(createOrRecoverGoogleEvent(client,payload));assert.equal(posts,0);
+ }
+});
+
+test('recovery accepts RSVP changes but rejects changed times or guest lists',async()=>{
+ const accepted={...result,attendees:[{email:'guest@example.com',responseStatus:'accepted'},{email:'planner@example.com',organizer:true}]};
+ assert.equal((await createOrRecoverGoogleEvent({async request(){return {data:accepted}}},payload)).id,payload.id);
+ for(const event of [{...result,start:{dateTime:'2026-11-02T17:00:00Z'}},{...result,attendees:[]},{...result,attendees:[...payload.attendees,{email:'extra@example.com'}]}]){
   let posts=0;const client:EventTransport={async request(options){if(options.method==='POST')posts++;return {data:event}}};
   await assert.rejects(createOrRecoverGoogleEvent(client,payload));assert.equal(posts,0);
  }
