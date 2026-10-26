@@ -1,3 +1,4 @@
+import {slackHistory} from './slack-history';
 import {slackMeetingName} from './slack-meeting-name';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {sql,appUrl} from './auth';
@@ -18,6 +19,7 @@ export async function slackMention(envelope:any){
  // Run metadata calls alongside the database/model work, with a bounded fallback.
  const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(e.channel);
  const fallback=group?'Group meeting':process.env.SLACK_CHANNEL_NAME||'all-wharf';
+ const historyPromise=slackHistory(e.channel,e.ts,e.thread_ts);
  const namePromise=Promise.race([
   slackMeetingName(e.channel,group).catch(()=>fallback),
   new Promise<string>(resolve=>{const timer=setTimeout(()=>resolve(fallback),2000);timer.unref?.()})
@@ -32,9 +34,9 @@ export async function slackMention(envelope:any){
  await sql()`INSERT INTO slack_context(team_id,channel_id,thread_ts,user_id,messages) VALUES(${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(messages)}::jsonb) ON CONFLICT(team_id,channel_id,thread_ts,user_id) DO UPDATE SET messages=EXCLUDED.messages,updated_at=now()`;
  // A workspace-level daily cap bounds model spend even when channel members repeatedly mention the bot.
  if(usage.n>100){await slackMessage(e.channel,'The daily scheduling limit has been reached. Try again tomorrow.',thread);return}
- const result=await interpretOpenSlackRequest(messages.join('\nFollow-up: ').slice(-12000),process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver');
+ const result=await interpretOpenSlackRequest(messages.join('\nFollow-up: ').slice(-12000),process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver',Date.now(),await historyPromise);
  if(!result.draft){await sql()`UPDATE slack_context SET messages=${JSON.stringify([...messages,`Wharf asked: ${result.question}`].slice(-6))}::jsonb,updated_at=now() WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user}`;await slackMessage(e.channel,slackEscape(result.question!),thread);return}
- result.draft.title=await namePromise;
+ if(!result.requestedTitle)result.draft.title=await namePromise;
  const id=randomUUID(),cipher=sealToken(randomBytes(32).toString('base64url'),`slack:${id}`);
  const [inserted]=await sql()`INSERT INTO slack_meetings(id,team_id,channel_id,thread_ts,organizer_id,draft,key_cipher) VALUES(${id},${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(result.draft)}::jsonb,${cipher}) ON CONFLICT DO NOTHING RETURNING *`;
  const row=inserted||(await sql()`SELECT * FROM slack_meetings WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread}`)[0];

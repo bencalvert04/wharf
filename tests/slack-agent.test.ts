@@ -5,7 +5,7 @@ const draft={title:'Sync',startDate:'2030-01-07',timezone:'UTC'};
 test('Haiku proposes a validated draft without receiving calendar data or booking authority',async()=>{
  const original=globalThis.fetch;let sent:any;
  globalThis.fetch=async(_url,options)=>{sent=JSON.parse(options?.body as string);return Response.json({content:[{type:'tool_use',name:'propose_meeting',input:draft}]})};
- try{const result=await interpretSlackRequest('30 minutes with <@U2> next Monday','U1',['U1','U2'],'UTC');assert.equal(result.draft?.durationMinutes,30);assert.equal(sent.max_tokens,400);assert.deepEqual(sent.thinking,{type:'disabled'});assert.deepEqual(result.draft?.participants,[{id:'U1',name:'U1'},{id:'U2',name:'U2'}]);assert.equal(sent.tools[0].input_schema.properties.participants,undefined);assert.equal(sent.tools.length,1);assert.equal(sent.tools[0].name,'propose_meeting');assert.match(sent.model,/haiku/);assert.equal(sent.messages.length,1)}finally{globalThis.fetch=original}
+ try{const result=await interpretSlackRequest('30 minutes with <@U2> next Monday','U1',['U1','U2'],'UTC');assert.equal(result.draft?.durationMinutes,30);assert.equal(sent.max_tokens,700);assert.deepEqual(sent.thinking,{type:'disabled'});assert.deepEqual(result.draft?.participants,[{id:'U1',name:'U1'},{id:'U2',name:'U2'}]);assert.equal(sent.tools[0].input_schema.properties.participants,undefined);assert.equal(sent.tools.length,1);assert.equal(sent.tools[0].name,'propose_meeting');assert.match(sent.model,/haiku/);assert.equal(sent.messages.length,1)}finally{globalThis.fetch=original}
 });
 test('Model cannot add a recipient, omit the requester, or return invalid scheduling constraints',async()=>{
  const original=globalThis.fetch;
@@ -34,4 +34,13 @@ test('continuous requests clamp elapsed start times and reject expired deadlines
 test('open Slack meetings contain no reserved people or Slack identities',async()=>{
  const original=globalThis.fetch;
  try{globalThis.fetch=async()=>Response.json({content:[{type:'tool_use',name:'propose_meeting',input:{...draft,durationMinutes:15}}]});const result=await interpretOpenSlackRequest('Fine, 15 minutes. We can meet sometime today.','UTC');assert.equal(result.draft?.durationMinutes,15);assert.equal(result.draft?.openJoin,true);assert.equal('participants' in result.draft!,false)}finally{globalThis.fetch=original}
+});
+
+test('background is separate from current instructions and explicit titles survive validation',async()=>{
+ const original=globalThis.fetch;let sent:any;
+ try{globalThis.fetch=async(_url,options)=>{sent=JSON.parse(options!.body as string);return Response.json({content:[{type:'tool_use',name:'propose_meeting',input:{...draft,title:'Design review',requestedTitle:true}}]})};
+ const result=await interpretOpenSlackRequest('Make it 15 minutes','UTC',Date.now(),'Call it Design review, tomorrow at 6 pm');
+ assert.equal(result.requestedTitle,true);assert.equal(result.draft?.title,'Design review');assert.equal('requestedTitle' in result.draft!,false);
+ assert.deepEqual(JSON.parse(sent.messages[0].content),{olderMessages:'Call it Design review, tomorrow at 6 pm',currentRequestAndFollowups:'Make it 15 minutes'});
+ }finally{globalThis.fetch=original}
 });
