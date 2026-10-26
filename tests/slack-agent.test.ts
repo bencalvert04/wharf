@@ -1,15 +1,15 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {interpretSlackRequest} from '../lib/slack-agent.ts';
-const draft={title:'Sync',startDate:'2030-01-07',timezone:'UTC',participants:[{id:'U1',name:'U1'},{id:'U2',name:'U2'}]};
+const draft={title:'Sync',startDate:'2030-01-07',timezone:'UTC'};
 test('Haiku proposes a validated draft without receiving calendar data or booking authority',async()=>{
  const original=globalThis.fetch;let sent:any;
  globalThis.fetch=async(_url,options)=>{sent=JSON.parse(options?.body as string);return Response.json({content:[{type:'tool_use',name:'propose_meeting',input:draft}]})};
- try{const result=await interpretSlackRequest('30 minutes with <@U2> next Monday','U1',['U1','U2'],'UTC');assert.equal(result.draft?.durationMinutes,30);assert.equal(sent.max_tokens,900);assert.equal(sent.tools.length,1);assert.equal(sent.tools[0].name,'propose_meeting');assert.match(sent.model,/haiku/);assert.equal(sent.messages.length,1)}finally{globalThis.fetch=original}
+ try{const result=await interpretSlackRequest('30 minutes with <@U2> next Monday','U1',['U1','U2'],'UTC');assert.equal(result.draft?.durationMinutes,30);assert.equal(sent.max_tokens,400);assert.deepEqual(result.draft?.participants,[{id:'U1',name:'U1'},{id:'U2',name:'U2'}]);assert.equal(sent.tools[0].input_schema.properties.participants,undefined);assert.equal(sent.tools.length,1);assert.equal(sent.tools[0].name,'propose_meeting');assert.match(sent.model,/haiku/);assert.equal(sent.messages.length,1)}finally{globalThis.fetch=original}
 });
 test('Model cannot add a recipient, omit the requester, or return invalid scheduling constraints',async()=>{
  const original=globalThis.fetch;
- try{for(const input of [{...draft,participants:[{id:'U2',name:'U2'}]},{...draft,participants:[...draft.participants,{id:'U3',name:'U3'}]},{...draft,timezone:'not/a-zone'}]){globalThis.fetch=async()=>Response.json({content:[{type:'tool_use',name:'propose_meeting',input}]});await assert.rejects(()=>interpretSlackRequest('schedule','U1',['U1','U2'],'UTC'))}}finally{globalThis.fetch=original}
+ try{for(const input of [{...draft,participants:[{id:'U2',name:'U2'}]},{...draft,participants:[{id:'U1',name:'U1'},{id:'U2',name:'U2'},{id:'U3',name:'U3'}]},{...draft,timezone:'not/a-zone'}]){globalThis.fetch=async()=>Response.json({content:[{type:'tool_use',name:'propose_meeting',input}]});await assert.rejects(()=>interpretSlackRequest('schedule','U1',['U1','U2'],'UTC'))}}finally{globalThis.fetch=original}
 });
 test('Missing details produce a question and provider failures do not produce fabricated success',async()=>{
  const original=globalThis.fetch;
