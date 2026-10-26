@@ -13,7 +13,7 @@ const refresh=(id:string)=>slackButton('Check availability','wharf_status',id);
 export async function slackMention(envelope:any){
  const e=envelope.event,thread=e.thread_ts||e.ts;
  const [existing]=await sql()`SELECT * FROM slack_meetings WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND created_at>now()-interval '30 days'`;
- if(existing){if(existing.organizer_id!==e.user){await reply(existing,'The requester controls this meeting. Use your private join link to share availability.');return}await status(existing);return}
+ if(existing){if(existing.organizer_id!==e.user){await reply(existing,'The requester controls this meeting. Use the shared join link in the channel to share availability.');return}await status(existing);return}
  const auth=await slack('auth.test',{});
  const participants=[...new Set([e.user,...slackMentions(e.text).filter(id=>id!==auth.user_id)])];
  if(participants.length<2){await slackMessage(e.channel,'Mention the people to invite, plus a date range. For example: “Schedule 30 minutes with @Ray next week.”',thread);return}
@@ -32,10 +32,10 @@ export async function slackMention(envelope:any){
  await status(row);
 }
 async function status(r:any){
- if(!r.meeting_id){const d=r.draft;await reply(r,`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes · ${d.startDate} to ${d.endDate||d.startDate}\n${d.dayStart}–${d.dayEnd} (${slackEscape(d.timezone)}), days: ${d.weekdays.map((n:number)=>['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][n]).join(', ')}\n${d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\nCreate this meeting and send each person a private join link?`,[slackButton('Create meeting','wharf_create',r.id)]);return}
+ if(!r.meeting_id){await createAndShare(r);return}
  const key=keyFor(r),m=await getAgentMeeting(r.meeting_id,key);
  if(m.calendarEventCreated){await reply(r,'The Google Calendar event is created and invitations have been requested for everyone.');return}
- if(m.status==='awaiting_responses'){await reply(r,`Waiting for ${m.responseSummary.waitingFor.map(id=>`<@${id}>`).join(', ')} to connect their availability.`,[refresh(r.id),slackButton('Resend join links','wharf_invites',r.id)]);return}
+ if(m.status==='awaiting_responses'){await reply(r,`Waiting for ${m.responseSummary.waitingFor.map(id=>`<@${id}>`).join(', ')} to connect their availability.`,[refresh(r.id),slackButton('Share join link','wharf_invites',r.id)]);return}
  if(m.status==='no_overlap'){await reply(r,'No shared time fits. Start a new thread with a wider date range or shorter duration.');return}
  const authorization=await prepareAgentCalendar(r.meeting_id,key,{organizerParticipantId:r.organizer_id});
  if(!authorization.authorized){await slackDM(r.organizer_id,`Authorize Wharf to create one calendar event for “${slackEscape(m.title)}”: ${authorization.authorizationUrl}`);await reply(r,'All participants have responded. I sent the requester a private calendar authorization link. Complete that step, then check availability.',[refresh(r.id)]);return}
@@ -44,15 +44,24 @@ async function status(r:any){
  await reply(r,'These times fit everyone. Only the requester can confirm a time. Confirmation creates the calendar event and sends invitations.');
  for(const s of slots.slots){const label=new Date(s.start).toLocaleString('en-US',{timeZone:s.timezone,dateStyle:'medium',timeStyle:'short'});await reply(r,`${label} (${s.timezone}), ${r.draft.durationMinutes} minutes`,[slackButton('Confirm and send invites','wharf_book',JSON.stringify({id:r.id,slotId:s.id,revision:slots.revision}))])}
 }
-async function invitations(r:any){const m=await getAgentMeeting(r.meeting_id,keyFor(r));for(const p of m.participants){if(p.status==='awaiting_response')await slackDM(p.id,`<@${r.organizer_id}> invited you to “${slackEscape(m.title)}”. Connect your availability using your private link: ${p.invitationUrl}`)}await reply(r,'Private join links sent. Click below after everyone has joined.',[refresh(r.id)])}
+async function createAndShare(r:any){
+ const m=await createAgentMeeting(new Request(appUrl()+'/api/v1/meetings',{headers:{authorization:`Bearer ${keyFor(r)}`,'idempotency-key':`slack:${r.id}`}}),r.draft);
+ await sql()`UPDATE slack_meetings SET meeting_id=${m.id} WHERE id=${r.id}`;
+ r.meeting_id=m.id;
+ await invitations(r);
+}
+async function invitations(r:any){
+ const d=r.draft,url=`${appUrl()}/slack/join/${r.id}`;
+ const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes · ${d.startDate} to ${d.endDate||d.startDate}\n${d.dayStart}–${d.dayEnd} (${slackEscape(d.timezone)})\n${d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|Join the meeting> · Choose your name and connect your availability.`;
+ // Post to the main channel so everyone can find the same invitation.
+ await slackMessage(r.channel_id,text,undefined,slackBlocks(text,[refresh(r.id)]));
+}
 export async function slackAction(payload:any){
  const a=payload.actions?.[0];if(!a)return;
  const value=a.action_id==='wharf_book'?JSON.parse(a.value):{id:a.value};
  const [r]=await sql()`SELECT * FROM slack_meetings WHERE id=${value.id} AND created_at>now()-interval '30 days'`;
  if(!r||!canControlMeeting({team_id:r.team_id,channel_id:r.channel_id,organizer_id:r.organizer_id},payload.team.id,payload.channel.id,payload.user.id)){await slack('chat.postEphemeral',{channel:payload.channel.id,user:payload.user.id,text:'Only the original requester can control this meeting.'});return}
- if(a.action_id==='wharf_create'){
-  const m=await createAgentMeeting(new Request(appUrl()+'/api/v1/meetings',{headers:{authorization:`Bearer ${keyFor(r)}`,'idempotency-key':`slack:${r.id}`}}),r.draft);
-  await sql()`UPDATE slack_meetings SET meeting_id=${m.id} WHERE id=${r.id}`;r.meeting_id=m.id;await invitations(r);
+ if(a.action_id==='wharf_create'){await createAndShare(r);
  }else if(a.action_id==='wharf_invites'&&r.meeting_id)await invitations(r);
  else if(a.action_id==='wharf_status')await status(r);
  else if(a.action_id==='wharf_book'&&r.meeting_id){await bookAgentMeeting(r.meeting_id,keyFor(r),{slotId:value.slotId,revision:value.revision});await status(r)}
