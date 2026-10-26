@@ -1,6 +1,6 @@
 export async function slack(method:string,body:Record<string,unknown>,attempt=0):Promise<any>{
  // users.info ignores JSON POST arguments in Slack. Send its user ID as form data.
- const form=['users.info','conversations.members'].includes(method);
+ const form=['users.info','conversations.members','conversations.info'].includes(method);
  const encoded=form?new URLSearchParams(Object.entries(body).map(([key,value])=>[key,String(value)])):JSON.stringify(body);
  const response=await fetch(`https://slack.com/api/${method}`,{method:'POST',headers:{Authorization:`Bearer ${process.env.SLACK_BOT_TOKEN}`,'Content-Type':form?'application/x-www-form-urlencoded':'application/json'},body:encoded,signal:AbortSignal.timeout(12000)});
  if(response.status===429&&attempt<2){const delay=Math.min(5,Math.max(1,Number(response.headers.get('retry-after'))||1));await new Promise(resolve=>setTimeout(resolve,delay*1000));return slack(method,body,attempt+1)}
