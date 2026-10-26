@@ -1,10 +1,11 @@
+import {toConstraints} from './agent-contract';
 import {randomUUID,randomBytes} from 'node:crypto';
-import {sql,appUrl} from './auth';
+import {sql,appUrl,hash} from './auth';
 import {sealToken,openToken} from './token-vault';
 import {createAgentMeeting,getAgentMeeting,getAgentSlots,AgentError} from './agent-api';
 import {prepareAgentCalendar,bookAgentMeeting} from './agent-booking';
-import {interpretSlackRequest} from './slack-agent';
-import {slackMentions,slackEscape,canControlMeeting,slackIntent} from './slack-security';
+import {interpretOpenSlackRequest} from './slack-agent';
+import {slackEscape,canControlMeeting,slackIntent} from './slack-security';
 import {slack,slackMessage,slackDM,slackBlocks,slackButton} from './slack-client';
 const keyFor=(r:any)=>openToken(r.key_cipher,`slack:${r.id}`);
 const reply=(r:any,text:string,buttons:unknown[]=[])=>slackMessage(r.channel_id,text,r.thread_ts,buttons.length?slackBlocks(text,buttons):undefined);
@@ -12,32 +13,20 @@ const refresh=(id:string)=>slackButton('Check availability','wharf_status',id);
 
 export async function slackMention(envelope:any){
  const e=envelope.event,thread=e.thread_ts||e.ts;
- if(slackIntent(e.text)==='help'){await slackMessage(e.channel,"I’m here. Mention me with a duration and date range. In this group DM I include the people in the conversation. For a follow-up, reply in the same thread.",thread);return}
+ if(slackIntent(e.text)==='help'){await slackMessage(e.channel,"Tell me when you want to meet, like “15 minutes sometime today.” I’ll share a link anyone can join.",thread);return}
  const started=Date.now();
- const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(e.channel);
- const [[existing],[context],[usage],members]=await Promise.all([
+ const [[existing],[context],[usage]]=await Promise.all([
  sql()`SELECT * FROM slack_meetings WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND created_at>now()-interval '30 days'`,
  sql()`SELECT messages FROM slack_context WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user} AND updated_at>now()-interval '1 day'`,
- sql()`SELECT count(*)::int AS n FROM slack_jobs WHERE created_at>date_trunc('day',now()) AND payload->>'team_id'=${envelope.team_id} AND payload->>'type'='event_callback'`,
- group?slack('conversations.members',{channel:e.channel,limit:100}):Promise.resolve(null)
+ sql()`SELECT count(*)::int AS n FROM slack_jobs WHERE created_at>date_trunc('day',now()) AND payload->>'team_id'=${envelope.team_id} AND payload->>'type'='event_callback'`
  ]);
  if(existing){if(existing.organizer_id!==e.user){await reply(existing,'The requester controls this meeting. Use the shared join link in the channel to share availability.');return}if(slackIntent(e.text)==='schedule'){await reply(existing,'This meeting’s details are fixed. Start a new message with the revised details to create a new meeting. Use Check availability for this meeting.',[refresh(existing.id)]);return}await status(existing);return}
  const messages=[...(context?.messages||[]),e.text.slice(0,4000)].slice(-6);
  await sql()`INSERT INTO slack_context(team_id,channel_id,thread_ts,user_id,messages) VALUES(${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(messages)}::jsonb) ON CONFLICT(team_id,channel_id,thread_ts,user_id) DO UPDATE SET messages=EXCLUDED.messages,updated_at=now()`;
- if(members?.response_metadata?.next_cursor)throw Error('Group is too large');
- const ids=group?members.members:slackMentions(messages.join(' '));
- const profiles=await Promise.all([...new Set<string>([e.user,...ids.filter((id:string)=>id!==process.env.SLACK_BOT_USER_ID)])].map(async id=>(await slack('users.info',{user:id})).user));
- const humans=profiles.filter(u=>!u.deleted&&!u.is_bot),participants=humans.map(u=>u.id);
-
- if(participants.length<2){await slackMessage(e.channel,'Mention the people to invite, plus a date range. For example: “Schedule 30 minutes with @Ray next week.”',thread);return}
- if(participants.length>20){await slackMessage(e.channel,'Please invite at most 20 people.',thread);return}
  // A workspace-level daily cap bounds model spend even when channel members repeatedly mention the bot.
  if(usage.n>100){await slackMessage(e.channel,'The daily scheduling limit has been reached. Try again tomorrow.',thread);return}
- const owner=humans.find(u=>u.id===e.user);
- const result=await interpretSlackRequest(messages.join('\nFollow-up: ').slice(-12000),e.user,participants,owner?.tz||'UTC');
+ const result=await interpretOpenSlackRequest(messages.join('\nFollow-up: ').slice(-12000),process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver');
  if(!result.draft){await sql()`UPDATE slack_context SET messages=${JSON.stringify([...messages,`Wharf asked: ${result.question}`].slice(-6))}::jsonb,updated_at=now() WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user}`;await slackMessage(e.channel,slackEscape(result.question!),thread);return}
- // Resolve names only from Slack; neither user text nor the model controls the recipient IDs.
- for(const p of result.draft.participants){const u=humans.find(u=>u.id===p.id);p.name=(u.real_name||u.name||p.id).slice(0,100)}
  const id=randomUUID(),cipher=sealToken(randomBytes(32).toString('base64url'),`slack:${id}`);
  const [inserted]=await sql()`INSERT INTO slack_meetings(id,team_id,channel_id,thread_ts,organizer_id,draft,key_cipher) VALUES(${id},${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(result.draft)}::jsonb,${cipher}) ON CONFLICT DO NOTHING RETURNING *`;
  const row=inserted||(await sql()`SELECT * FROM slack_meetings WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread}`)[0];
@@ -46,6 +35,7 @@ export async function slackMention(envelope:any){
 }
 async function status(r:any){
  if(!r.meeting_id){await createAndShare(r);return}
+ if(r.draft.openJoin){await reply(r,`Open the meeting to see everyone who has joined and find a shared time: ${appUrl()}/?meeting=${r.meeting_id}`);return}
  const key=keyFor(r),m=await getAgentMeeting(r.meeting_id,key);
  if(m.calendarEventCreated){await reply(r,'The Google Calendar event is created and invitations have been requested for everyone.');return}
  if(m.status==='awaiting_responses'){await reply(r,`Waiting for ${m.responseSummary.waitingFor.map(id=>`<@${id}>`).join(', ')} to connect their availability.`,[refresh(r.id),slackButton('Share join link','wharf_invites',r.id)]);return}
@@ -58,16 +48,33 @@ async function status(r:any){
  for(const s of slots.slots){const label=new Date(s.start).toLocaleString('en-US',{timeZone:s.timezone,dateStyle:'medium',timeStyle:'short'});await reply(r,`${label} (${s.timezone}), ${r.draft.durationMinutes} minutes`,[slackButton('Confirm and send invites','wharf_book',JSON.stringify({id:r.id,slotId:s.id,revision:slots.revision}))])}
 }
 async function createAndShare(r:any){
+ if(r.draft.openJoin){
+  // Ordinary public-link meeting. No Slack roster or invitation slots to reserve.
+  const constraints=toConstraints(r.draft);
+  await sql()`WITH created AS (
+   INSERT INTO requests(id,constraints,created_at,planner_key)
+   VALUES(${r.id},${JSON.stringify(constraints)},${new Date().toISOString()},${'sha256:'+hash(keyFor(r))}) ON CONFLICT DO NOTHING
+  ) UPDATE slack_meetings SET meeting_id=${r.id} WHERE id=${r.id}`;
+  r.meeting_id=r.id;await invitations(r);return;
+ }
+
  const m=await createAgentMeeting(new Request(appUrl()+'/api/v1/meetings',{headers:{authorization:`Bearer ${keyFor(r)}`,'idempotency-key':`slack:${r.id}`}}),r.draft);
  await sql()`UPDATE slack_meetings SET meeting_id=${m.id} WHERE id=${r.id}`;
  r.meeting_id=m.id;
  await invitations(r);
 }
 async function invitations(r:any){
+ const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(r.channel_id);
  const d=r.draft,url=`${appUrl()}/slack/join/${r.id}`;
- const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes · ${d.startDate} to ${d.endDate||d.startDate}\n${d.windowMode==='continuous'?`${d.startDate} ${d.dayStart} → ${d.endDate||d.startDate} ${d.dayEnd}`:`${d.dayStart}–${d.dayEnd}`} (${slackEscape(d.timezone)})\n${d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|Join the meeting> · Choose your name and connect your availability.`;
+ const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes · ${d.startDate} to ${d.endDate||d.startDate}\n${d.windowMode==='continuous'?`${d.startDate} ${d.dayStart} → ${d.endDate||d.startDate} ${d.dayEnd}`:`${d.dayStart}–${d.dayEnd}`} (${slackEscape(d.timezone)})\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please mark attendance in the link.'):d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|Join the meeting> · ${d.openJoin?'Connect your calendar to join.':'Choose your name and connect your availability.'}`;
  // Post to the main channel so everyone can find the same invitation.
- await slackMessage(r.channel_id,text,undefined,slackBlocks(text,[refresh(r.id)]));
+ const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,[refresh(r.id)]));
+ // Membership is only for notification, after the usable link is already visible.
+ if(d.openJoin&&group){try{
+  const members=await slack('conversations.members',{channel:r.channel_id,limit:100});
+  const mentions=members.members.filter((id:string)=>id!==process.env.SLACK_BOT_USER_ID).map((id:string)=>`<@${id}>`).join(' ');
+  if(mentions)await slackMessage(r.channel_id,`${mentions}, please mark attendance in the <${url}|meeting link>.`,posted.ts);
+ }catch{console.warn('Slack attendance notification failed; meeting link was delivered')}}
 }
 export async function slackAction(payload:any){
  const a=payload.actions?.[0];if(!a)return;

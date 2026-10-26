@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {interpretSlackRequest} from '../lib/slack-agent.ts';
+import {interpretSlackRequest,interpretOpenSlackRequest} from '../lib/slack-agent.ts';
 const draft={title:'Sync',startDate:'2030-01-07',timezone:'UTC'};
 test('Haiku proposes a validated draft without receiving calendar data or booking authority',async()=>{
  const original=globalThis.fetch;let sent:any;
@@ -29,4 +29,9 @@ test('continuous requests clamp elapsed start times and reject expired deadlines
   globalThis.fetch=async()=>Response.json({content:[{type:'tool_use',name:'propose_meeting',input:{startDate:'2026-10-26',dayStart:'09:00',dayEnd:'18:00',windowMode:'continuous',timezone:'UTC'}}]});
   assert.deepEqual(await interpretSlackRequest('before 6 pm','U1',['U1','U2'],'UTC',now),{question:'That deadline has passed. What later time should I use?'});
  }finally{globalThis.fetch=original}
+});
+
+test('open Slack meetings contain no reserved people or Slack identities',async()=>{
+ const original=globalThis.fetch;
+ try{globalThis.fetch=async()=>Response.json({content:[{type:'tool_use',name:'propose_meeting',input:{...draft,durationMinutes:15}}]});const result=await interpretOpenSlackRequest('Fine, 15 minutes. We can meet sometime today.','UTC');assert.equal(result.draft?.durationMinutes,15);assert.equal(result.draft?.openJoin,true);assert.equal('participants' in result.draft!,false)}finally{globalThis.fetch=original}
 });

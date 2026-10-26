@@ -29,7 +29,9 @@ export async function persistCalendarSnapshot(id:string,sub:string,name:string,b
  }
  const [identity]=await sql()`SELECT email FROM sessions WHERE id=${sessionId} AND google_sub=${sub}`;
  const [result]=await sql()`WITH changed AS (
-  UPDATE requests SET revision=revision+1,planner_name=CASE WHEN owner_session=${sessionId} THEN ${name.slice(0,100)} ELSE planner_name END
+  UPDATE requests SET revision=revision+1,
+  owner_session=CASE WHEN owner_session IS NULL AND agent_request_id IS NULL AND EXISTS(SELECT 1 FROM slack_meetings s WHERE s.meeting_id=requests.id AND s.draft->>'openJoin'='true') THEN ${sessionId} ELSE owner_session END,
+  planner_name=CASE WHEN owner_session=${sessionId} OR (owner_session IS NULL AND agent_request_id IS NULL AND EXISTS(SELECT 1 FROM slack_meetings s WHERE s.meeting_id=requests.id AND s.draft->>'openJoin'='true')) THEN ${name.slice(0,100)} ELSE planner_name END
   WHERE id=${id} AND revision=${row.revision} AND final_time IS NULL RETURNING id
  ), saved AS (
   INSERT INTO attendees(meeting_id,google_sub,name,busy,email)
