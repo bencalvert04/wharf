@@ -1,6 +1,6 @@
 import {createHmac} from 'node:crypto';
 import {sql,hash,appUrl} from './auth';
-import {eventConnection} from './google-meeting-events';
+import {eventConnection,CalendarPermissionRequired} from './google-meeting-events';
 import {saveCalendarGrant} from './calendar-connection';
 import {grantHasFreeBusy} from './calendar-access';
 import {grantHasEventWrite} from './google-event-payload';
@@ -30,4 +30,9 @@ export async function publicAgentAuthorization(id:string,token:string){
  FROM agent_calendar_authorizations c JOIN requests r ON r.id=c.meeting_id JOIN request_invitees p ON p.meeting_id=c.meeting_id AND p.id=c.participant_id
  WHERE r.id=${id} AND c.token_hash=${hash(token)} AND r.created_at::timestamptz>now()-interval '30 days'`;
  return row||null;
+}
+
+export async function hasAgentCalendarPermission(sub:string|null){
+ if(!sub)return false;
+ try{await eventConnection(sub);return true}catch(error){if(error instanceof CalendarPermissionRequired)return false;throw error}
 }

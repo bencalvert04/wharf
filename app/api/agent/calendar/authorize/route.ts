@@ -1,12 +1,12 @@
 import {session,sameOrigin,json} from '@/lib/auth';
-import {publicAgentAuthorization,authorizeAgentCalendar} from '@/lib/agent-calendar-authorization';
+import {publicAgentAuthorization,authorizeAgentCalendar,hasAgentCalendarPermission} from '@/lib/agent-calendar-authorization';
 import {eventConnection,CalendarPermissionRequired} from '@/lib/google-meeting-events';
 import {beginGoogleFlow} from '@/lib/google-flow';
 export async function GET(req:Request){
  const p=new URL(req.url).searchParams;
  try{const row=await publicAgentAuthorization(p.get('meeting')||'',p.get('token')||'');
  if(!row)return json({error:'This authorization link is invalid or expired.'},404);
- const s=await session();return json({title:JSON.parse(row.constraints).title,organizer:row.name,signedIn:!!s?.google_sub,correctAccount:!!s?.google_sub&&s.google_sub===row.google_sub,authorized:!!row.authorized_at&&row.authorized_sub===row.google_sub});
+ const s=await session();return json({title:JSON.parse(row.constraints).title,organizer:row.name,signedIn:!!s?.google_sub,correctAccount:!!s?.google_sub&&s.google_sub===row.google_sub,authorized:!!row.authorized_at&&row.authorized_sub===row.google_sub&&await hasAgentCalendarPermission(row.authorized_sub)});
  }catch{return json({error:'Could not load this authorization. Try again.'},503)}
 }
 export async function POST(req:Request){

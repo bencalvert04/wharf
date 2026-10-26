@@ -11,7 +11,7 @@ export async function agentResponse(run:()=>Promise<unknown>,status=200){try{ret
 export const invitationToken=(key:string,id:string,participantId:string)=>createHmac('sha256',key).update(`wharf-invite-v1:${id}:${participantId}`).digest('base64url');
 export async function loadAgentMeeting(id:string,key:string){
  const [row]=await sql()`SELECT r.*,
-  (SELECT jsonb_build_object('participantId',c.participant_id,'authorized',c.authorized_at IS NOT NULL AND c.authorized_sub=p.google_sub) FROM agent_calendar_authorizations c JOIN request_invitees p ON p.meeting_id=c.meeting_id AND p.id=c.participant_id WHERE c.meeting_id=r.id) AS calendar_authorization,
+  (SELECT jsonb_build_object('participantId',c.participant_id,'authorized',COALESCE(c.authorized_at IS NOT NULL AND c.authorized_sub=p.google_sub,false)) FROM agent_calendar_authorizations c JOIN request_invitees p ON p.meeting_id=c.meeting_id AND p.id=c.participant_id WHERE c.meeting_id=r.id) AS calendar_authorization,
   (SELECT jsonb_build_object('status',CASE WHEN e.delivered_at IS NULL THEN 'pending' ELSE 'created' END,'eventId',e.event_id,'htmlLink',e.html_link,'error',e.last_error) FROM google_meeting_events e WHERE e.meeting_id=r.id) AS calendar_event,
   COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'name',p.name,'googleSub',p.google_sub) ORDER BY p.position) FROM request_invitees p WHERE p.meeting_id=r.id),'[]'::jsonb) AS invitees,
   COALESCE((SELECT jsonb_agg(jsonb_build_object('googleSub',a.google_sub,'name',a.name,'busy',a.busy,'capturedAt',a.captured_at) ORDER BY a.google_sub) FROM attendees a WHERE a.meeting_id=r.id),'[]'::jsonb) AS people

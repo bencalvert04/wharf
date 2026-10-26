@@ -30,6 +30,13 @@ try{
  await assert.rejects(()=>completeAgentCalendarAuthorization(flow,{sub:planner.sub},{scope:'https://www.googleapis.com/auth/calendar.freebusy',refresh_token:'synthetic'}));
  await completeAgentCalendarAuthorization(flow,{sub:planner.sub},{scope:'https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/calendar.events.owned',refresh_token:'synthetic-never-sent'});
  assert.equal((await api(path)).data.calendarAuthorization.authorized,true);
+ // A revoked grant must show the approval button again, even though meeting consent was saved.
+ await db`UPDATE google_calendar_connections SET refresh_token=NULL,granted_scopes=NULL,version=version+1 WHERE google_sub=${planner.sub}`;
+ const renewView=await fetch(base+'/api/agent/calendar/authorize?'+authUrl.searchParams,{headers:{Cookie:planner.cookie}}).then(r=>r.json());assert.equal(renewView.authorized,false);
+ assert.equal((await api(path+'/calendar',{organizerParticipantId:'planner'})).data.authorized,false);
+ const renewal=await requestAuth(planner.cookie);assert.equal(renewal.status,200);assert.ok((await renewal.json()).url);
+ const [renewFlow]=await db`SELECT * FROM oauth_states WHERE session_id=${planner.sid} ORDER BY connection_version DESC LIMIT 1`;
+ await completeAgentCalendarAuthorization(renewFlow,{sub:planner.sub},{scope:'https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/calendar.events.owned',refresh_token:'synthetic-never-sent'});
  await persistCalendarSnapshot(id,guest.sub,'Guest',[],guest.sid,'guest');
  assert.equal((await api(path+'/book',choice)).data.error.code,'stale_revision');
  const fresh=(await api(path+'/slots')).data,chosen={slotId:fresh.slots[0].id,revision:fresh.revision};

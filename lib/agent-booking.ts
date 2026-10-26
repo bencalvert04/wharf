@@ -1,7 +1,7 @@
 import {sql,hash,appUrl} from './auth';
 import {AgentError,loadAgentMeeting,describeMeeting,getAgentMeeting} from './agent-api';
 import {prepareCalendarSchema,finalizeSchema} from './agent-contract';
-import {agentCalendarAuthorization,organizerToken,organizerAuthorizationUrl} from './agent-calendar-authorization';
+import {agentCalendarAuthorization,organizerToken,organizerAuthorizationUrl,hasAgentCalendarPermission} from './agent-calendar-authorization';
 import {eventConnection,CalendarPermissionRequired,googleMeetingEvent,deliverGoogleEvent} from './google-meeting-events';
 import {googleEventPayload} from './google-event-payload';
 import {meetingSlots} from './agent-slots';
@@ -16,7 +16,7 @@ export async function prepareAgentCalendar(id:string,key:string,raw:unknown){
  await sql()`INSERT INTO agent_calendar_authorizations(meeting_id,participant_id,token_hash) VALUES(${id},${organizerParticipantId},${tokenHash}) ON CONFLICT(meeting_id) DO NOTHING`;
  const auth=await agentCalendarAuthorization(id);
  if(auth.participant_id!==organizerParticipantId)throw new AgentError('organizer_already_selected','This meeting already has a different organizer.',409,'Keep the original organizer, or create a separate meeting if the organizer must change.');
- return {meetingId:id,organizerParticipantId,authorized:!!auth.authorized_at&&auth.authorized_sub===person.googleSub,authorizationUrl:organizerAuthorizationUrl(id,key,organizerParticipantId),nextAction:{type:'authorize_calendar',message:'Give this private link only to the organizer. They explicitly authorize this agent to create one event and invite everyone. Never automate their consent.'}};
+ return {meetingId:id,organizerParticipantId,authorized:!!auth.authorized_at&&auth.authorized_sub===person.googleSub&&await hasAgentCalendarPermission(auth.authorized_sub),authorizationUrl:organizerAuthorizationUrl(id,key,organizerParticipantId),nextAction:{type:'authorize_calendar',message:'Give this private link only to the organizer. They explicitly authorize this agent to create one event and invite everyone. Never automate their consent.'}};
 }
 
 export async function queueAgentBooking(id:string,key:string,raw:unknown){
