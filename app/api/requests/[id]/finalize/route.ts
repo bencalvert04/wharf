@@ -1,3 +1,4 @@
+import {deliverySummary} from '@/lib/delivery-summary';
 import {commitFinalization} from '@/lib/commit-finalization';
 import {session,meeting,sql,sameOrigin,json} from '@/lib/auth';
 import {availabilityRevision,validFinalSlot,type Participant} from '@/lib/finalization';
@@ -26,7 +27,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    if(!validFinalSlot(c,people,start,end))return json({error:'Choose a future time that fits the meeting length and everyone’s availability.'},400);
    if(!await commitFinalization(id,c,people,start,end))return json({error:'Availability changed. Refresh and select a time again.'},409);
   }
-  const delivery=await deliverInvitations(id);
+  await deliverInvitations(id);
+  const delivery=await deliverySummary(id,true);
   return json({finalTime:{start,end},delivery},delivery.pending?202:200);
  }catch{return json({error:'Could not confirm invitation delivery. Reload the meeting to check its status before trying again.'},503)}
 }

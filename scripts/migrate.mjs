@@ -61,3 +61,16 @@ await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS invitee_id text`;
 console.log('Agent workflow schema is ready.');
 
 await sql`CREATE UNIQUE INDEX IF NOT EXISTS requests_agent_key_scope ON requests(planner_key) WHERE agent_request_id IS NOT NULL`;
+
+// Durable invitation state. Historical ambiguous SMTP sends are not blindly resent.
+await sql`ALTER TABLE invitation_outbox ADD COLUMN IF NOT EXISTS state text NOT NULL DEFAULT 'queued'`;
+await sql`ALTER TABLE invitation_outbox ADD COLUMN IF NOT EXISTS provider text`;
+await sql`ALTER TABLE invitation_outbox ADD COLUMN IF NOT EXISTS attempt_token text`;
+await sql`ALTER TABLE invitation_outbox ADD COLUMN IF NOT EXISTS retry_at timestamptz NOT NULL DEFAULT now()`;
+await sql`ALTER TABLE invitation_outbox ADD COLUMN IF NOT EXISTS last_error_code text`;
+await sql`ALTER TABLE invitation_outbox ADD COLUMN IF NOT EXISTS delivered_at timestamptz`;
+await sql`ALTER TABLE invitation_outbox ADD COLUMN IF NOT EXISTS webhook_event_at timestamptz`;
+await sql`UPDATE invitation_outbox SET state='accepted',provider='gmail' WHERE state='queued' AND provider IS NULL AND sent_at IS NOT NULL`;
+await sql`UPDATE invitation_outbox SET state='review',provider='gmail',last_error_code='legacy_uncertain',last_error='A previous SMTP send was not confirmed. Check the sender logs before resending.' WHERE state='queued' AND provider IS NULL AND sent_at IS NULL AND first_attempt_at IS NOT NULL`;
+await sql`CREATE INDEX IF NOT EXISTS invitation_retry_idx ON invitation_outbox(retry_at) WHERE state IN ('queued','retry')`;
+await sql`CREATE INDEX IF NOT EXISTS invitation_provider_id_idx ON invitation_outbox(provider_id) WHERE provider_id IS NOT NULL`;

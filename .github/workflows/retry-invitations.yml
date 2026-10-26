@@ -1,0 +1,32 @@
+name: Retry invitation delivery
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: wharf-invitation-worker
+  cancel-in-progress: false
+jobs:
+  dispatch:
+    if: ${{ vars.WHARF_DELIVERY_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      DELIVERY_WORKER_URL: ${{ secrets.WHARF_DELIVERY_WORKER_URL }}
+      DELIVERY_CRON_SECRET: ${{ secrets.WHARF_DELIVERY_CRON_SECRET }}
+    steps:
+      - name: Process ready invitations
+        shell: bash
+        run: |
+          if [[ -z "$DELIVERY_WORKER_URL" || -z "$DELIVERY_CRON_SECRET" ]]; then
+            echo 'Set WHARF_DELIVERY_WORKER_URL and WHARF_DELIVERY_CRON_SECRET to enable scheduled delivery.'
+            exit 1
+          fi
+          if [[ "$DELIVERY_WORKER_URL" != https://* ]]; then
+            echo 'The delivery worker URL must use HTTPS.'
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 55 \
+            --header "Authorization: Bearer $DELIVERY_CRON_SECRET" \
+            "$DELIVERY_WORKER_URL"

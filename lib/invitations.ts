@@ -1,9 +1,12 @@
+import {recoverInterruptedInvitations,claimInvitations,recordAccepted} from './invitation-store';
 import {randomUUID} from 'node:crypto';
-import {gmailConfigured,sendGmailInvitation} from './gmail-delivery';
+import {configuredProvider,providerConfigured,sendInvitation,InvitationSendError} from './invitation-provider';
+import {boundedFailure,retryDelay,classifyResendFailure} from './delivery-policy';
+import {deliverySummary} from './delivery-summary';
 import {sql,appUrl,hash} from './auth';
 import {invitationEmail,validEmail} from './calendar-invitation';
 
-export const invitationsConfigured=gmailConfigured;
+export const invitationsConfigured=providerConfigured;
 /** Call after Ben's finalization transaction has committed. final_time is {start,end} in UTC. */
 export async function queueMeetingInvitations(meetingId:string){
  if(!invitationsConfigured())throw Error('Calendar invitation delivery is not configured.');
@@ -30,27 +33,22 @@ export async function queueMeetingInvitations(meetingId:string){
  }));
 }
 
-/** SMTP has no idempotency key. Claim once; ambiguous failures require manual review. */
+/** A database lease fences concurrent workers; Resend retries reuse one immutable key. */
 export async function deliverInvitations(meetingId?:string){
  if(!invitationsConfigured())throw Error('Calendar invitation delivery is not configured.');
- const jobs=await sql()`UPDATE invitation_outbox SET lease_until=now()+interval '2 minutes',
-  first_attempt_at=COALESCE(first_attempt_at,now()),attempts=attempts+1
-  WHERE id IN (SELECT id FROM invitation_outbox WHERE sent_at IS NULL
-   AND (${meetingId||null}::text IS NULL OR meeting_id=${meetingId||null})
-   AND first_attempt_at IS NULL
-   ORDER BY created_at LIMIT 4 FOR UPDATE SKIP LOCKED) RETURNING *`;
- let accepted=0;
+ const db=sql(),provider=configuredProvider(),token=randomUUID();
+ await recoverInterruptedInvitations(db);
+ const jobs=await claimInvitations(db,provider,token,meetingId);
  await Promise.all(jobs.map(async job=>{
   try{
-   const messageId=await sendGmailInvitation(job.payload,job.id);
-   await sql()`UPDATE invitation_outbox SET sent_at=now(),provider_id=${messageId},lease_until=NULL,last_error=NULL WHERE id=${job.id}`;
-   accepted++;
-  }catch{
-   await sql()`UPDATE invitation_outbox SET lease_until=NULL,last_error='Delivery unconfirmed. Review Gmail Sent before attempting any resend.' WHERE id=${job.id}`;
+   const messageId=await sendInvitation(job.payload,job.id,job.provider);
+   await recordAccepted(db,job.id,token,messageId);
+  }catch(error){
+   const failure=boundedFailure(error instanceof InvitationSendError?error.failure:job.provider==='resend'?classifyResendFailure(0):{state:'review',code:'submission_uncertain',reason:'The send result could not be recorded. Check sender logs before resending.'},job.attempts,new Date(job.first_attempt_at).getTime(),job.provider);
+   const next=new Date(Date.now()+retryDelay(job.attempts)).toISOString();
+   await db`UPDATE invitation_outbox SET state=${failure.state},retry_at=${next},lease_until=NULL,last_error=${failure.reason},last_error_code=${failure.code}
+    WHERE id=${job.id} AND attempt_token=${token} AND state='sending'`;
   }
  }));
- const [counts]=await sql()`SELECT count(*) FILTER(WHERE sent_at IS NULL)::int AS pending,
-  count(*) FILTER(WHERE sent_at IS NULL AND first_attempt_at IS NOT NULL AND (lease_until IS NULL OR lease_until<now()))::int AS needs_review
-  FROM invitation_outbox WHERE (${meetingId||null}::text IS NULL OR meeting_id=${meetingId||null})`;
- return {accepted,pending:counts.pending,needsReview:counts.needs_review};
+ return deliverySummary(meetingId);
 }

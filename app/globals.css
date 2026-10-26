@@ -56,3 +56,5 @@
  footer{margin:0 20px;padding-bottom:calc(24px + env(safe-area-inset-bottom));font-size:10px}.agent-docs{padding-top:28px}.agent-docs h1{font-size:32px;overflow-wrap:anywhere}.agent-docs pre,.api-block{padding:16px}.agent-links{gap:16px}.docs .outline{white-space:normal;text-align:left}
 }
 @media(max-width:360px){header{padding-left:16px;padding-right:16px;gap:6px}.header-left>nav{margin:0 -16px;padding:0 16px}.brand{font-size:19px}.brandmark{width:23px}.account .account-login{padding:8px}.hours input{font-size:14px}.demo-panel{padding:14px}.week-nav .icon-button{min-width:32px}}
+
+.delivery-recipients{list-style:none;margin:18px 0 0;padding:0}.delivery-recipients li{padding:12px 0;border-top:1px solid var(--border);font-size:11px}.delivery-recipients li>span{display:block;margin-top:6px;color:var(--muted)}.delivery-recipients li>small{display:block;margin-top:6px;color:var(--muted)}
