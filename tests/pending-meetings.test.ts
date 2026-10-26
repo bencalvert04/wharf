@@ -18,3 +18,11 @@ test('clearing a final time makes a request pending again',()=>{
 test('sample meetings stay out of the personal pending list',()=>{
  assert.equal(isPendingMeeting({...c,demo:true}),false);
 });
+
+test('unfinished requests disappear at the seven-day inactivity boundary',()=>{
+ const now=Date.parse('2026-10-26T12:00:00Z');
+ assert.equal(isPendingMeeting(c,null,now-7*86400000+1,now),true);
+ assert.equal(isPendingMeeting(c,null,now-7*86400000,now),false);
+ assert.equal(isPendingMeeting(c,null,now-8*86400000,now),false);
+ assert.equal(isPendingMeeting(c,{start:now},now,now),false);
+});

@@ -1,3 +1,4 @@
+import {rememberedInvitation} from './pending-meeting-store';
 import {sql,hash} from './auth';
 import type {Interval} from './availability';
 
@@ -7,6 +8,10 @@ export async function resolveInvitation(meetingId:string,invitationToken:unknown
  if(!row?.agent_request_id)return null;
  const [invite]=typeof invitationToken==='string'?await sql()`SELECT id FROM request_invitees WHERE meeting_id=${meetingId} AND token_hash=${hash(invitationToken)}`:
   googleSub?await sql()`SELECT id FROM request_invitees WHERE meeting_id=${meetingId} AND google_sub=${googleSub}`:[];
+ if(!invite&&googleSub){
+  const [previous]=await rememberedInvitation(sql(),meetingId,googleSub);
+  if(previous)return previous.id as string;
+ }
  if(!invite)throw Error('Open your personal invitation link to join this meeting.');
  return invite.id as string;
 }

@@ -5,13 +5,14 @@ export type PendingMeeting = {
  constraints:Constraints;
  isPlanner:boolean;
  joined:boolean;
+ canRejoin:boolean;
+ lastActivityAt:string;
  attendeeCount:number;
  plannerName:string|null;
  attendees:{name:string}[];
 };
 
-// Keep the final-time integration here so it can follow the planner feature's
-// storage contract when that feature lands. No separate meeting status is needed.
-export function isPendingMeeting(c:Constraints, finalTime:unknown=null) {
- return !c.demo && finalTime == null;
+// Hidden after seven elapsed days without a deliberate visit or scheduling change.
+export function isPendingMeeting(c:Constraints, finalTime:unknown=null,lastActivity?:string|number,now=Date.now()) {
+ return !c.demo && finalTime == null && (lastActivity===undefined||now-(typeof lastActivity==='number'?lastActivity:Date.parse(lastActivity))<7*86400000);
 }

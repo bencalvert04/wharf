@@ -1,3 +1,4 @@
+import {pendingMeetingSchema} from '../db/pending-meeting-schema.mjs';
 import {neon} from '@neondatabase/serverless';
 if(!process.env.DATABASE_URL)throw new Error('Set DATABASE_URL before running migrations.');
 const sql=neon(process.env.DATABASE_URL);
@@ -91,3 +92,6 @@ await sql`CREATE TABLE IF NOT EXISTS slack_jobs (
  created_at timestamptz NOT NULL DEFAULT now(),lease_until timestamptz,attempts integer NOT NULL DEFAULT 0
 )`;
 console.log('Slack bot schema is ready.');
+
+for(const statement of pendingMeetingSchema)await sql.query(statement);
+console.log('Pending meeting activity and retained membership schema is ready.');

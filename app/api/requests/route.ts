@@ -1,3 +1,4 @@
+import {pendingMeetings} from '@/lib/pending-meeting-store';
 import {session,sql,hash,sameOrigin} from '@/lib/auth';
 import { getDb } from '@/db';
 import { requests } from '@/db/schema';
@@ -8,22 +9,12 @@ import {isPendingMeeting} from '@/lib/pending-meetings';
 export async function GET(){
  try{
   // The browser session and verified Google identity are the only list credentials.
-  // Visiting an invitation alone never adds it to this list.
+  // A prior participant remains known after leaving; invitation visits alone do not add membership.
   if(!process.env.DATABASE_URL)return json({error:'Meeting storage is not connected yet.'},503);
   const s=await session();
   if(!s)return json({meetings:[]});
-  const rows=await sql()`SELECT r.id,r.constraints,
-   to_jsonb(r)->'final_time' AS final_time,
-   COALESCE(to_jsonb(r)->>'planner_name',(SELECT owner.name FROM sessions owner WHERE owner.id=r.owner_session),(SELECT a.name FROM sessions owner JOIN attendees a ON a.google_sub=owner.google_sub WHERE owner.id=r.owner_session ORDER BY a.captured_at DESC LIMIT 1)) AS planner_name,
-   COALESCE((SELECT jsonb_agg(jsonb_build_object('name',a.name) ORDER BY a.captured_at,a.google_sub) FROM attendees a WHERE a.meeting_id=r.id),'[]'::jsonb) AS attendees,
-   (r.owner_session=${s.id}) AS is_planner,
-   EXISTS(SELECT 1 FROM attendees a WHERE a.meeting_id=r.id AND a.google_sub=${s.google_sub}) AS joined,
-   (SELECT count(*)::int FROM attendees a WHERE a.meeting_id=r.id) AS attendee_count
-   FROM requests r
-   WHERE r.created_at::timestamptz>now()-interval '30 days'
-   AND (r.owner_session=${s.id} OR EXISTS(SELECT 1 FROM attendees a WHERE a.meeting_id=r.id AND a.google_sub=${s.google_sub}))
-   ORDER BY r.created_at::timestamptz DESC`;
-  const meetings=rows.filter(row=>isPendingMeeting(JSON.parse(row.constraints),row.final_time)).map(row=>({id:row.id,constraints:JSON.parse(row.constraints) as Constraints,isPlanner:row.is_planner,joined:row.joined,attendeeCount:row.attendee_count,plannerName:row.planner_name||null,attendees:row.attendees}));
+  const rows=await pendingMeetings(sql(),s.id,s.google_sub||null);
+  const meetings=rows.filter(row=>isPendingMeeting(JSON.parse(row.constraints),row.final_time,row.last_activity_at)).map(row=>({id:row.id,constraints:JSON.parse(row.constraints) as Constraints,isPlanner:row.is_planner,joined:row.joined,canRejoin:!row.joined&&row.known_participant,lastActivityAt:row.last_activity_at,attendeeCount:row.attendee_count,plannerName:row.planner_name||null,attendees:row.attendees}));
   return json({meetings});
  }catch{return json({error:'Unable to load pending meetings. Please try again.'},503)}
 }

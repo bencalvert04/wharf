@@ -87,3 +87,15 @@ Organizer selection is fixed for a meeting. Event booking requires verified atte
 ## Slack bot
 
 The single-workspace Slack integration uses Haiku for request interpretation and organizer-only buttons for creation and booking. See [setup and demo instructions](docs/slack.md) and the [Slack app manifest](docs/slack-manifest.json).
+
+## Pending meeting retention and re-entry
+
+Before deploying, run the additive migration for `requests.last_activity_at`, retained `meeting_memberships`, and their activity/history triggers. Existing current attendees are backfilled; memberships for people who already left before the migration cannot be reconstructed from deleted attendee records. Initial activity for old requests uses the later of creation and the latest recorded calendar snapshot. No production migration has been run for this change.
+
+Leaving removes the attendee’s availability but retains a private Google-identity membership association so their unfinished meeting remains in Pending meetings with a Rejoin meeting link. Former participants cannot read aggregate availability until they rejoin. Agent-roster invitations remember the original slot; re-entry cannot steal a slot claimed by someone else. Signing out hides identity-scoped membership cards until the same account signs in again. Memberships cascade away when the meeting is deleted or expires.
+
+Pending lists exclude all finalized requests and requests with no activity for seven elapsed days (7 × 24 hours). Activity means creation, joining/reconnecting, leaving, changing scheduling constraints/finalization, or a deliberate page entry by the planner or a current/former participant. The timer is meeting-wide: meaningful activity by any participant resets it for everyone. GET polling, focus refreshes, and opening the Pending meetings list do not touch activity.
+
+The seven-day rule hides cards, rather than deleting meeting records. A deliberate visit using the original link can restore an unfinished meeting to Pending while it remains within the existing 30-day retention period. The pre-existing 30-day expiry still applies even if activity is recent. The explicit POST activity endpoint checks same-origin and session membership and cannot reactivate a finalized meeting or let an unrelated visitor keep one alive.
+
+Every Pending card also offers **Remove from Pending**, which persists a dismissal for the current Google identity (or the creator’s browser session when signed out). It does not withdraw availability, cancel invitations, delete the meeting, or affect anyone else’s list. Other participants’ activity does not undo this personal removal. Opening the original meeting link deliberately, or joining again, restores only that user’s card. The planner’s separate **Delete for everyone** action still performs permanent global deletion with its existing confirmation. Dismissals cascade away with the meeting.
