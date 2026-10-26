@@ -8,7 +8,7 @@ export async function POST(req:Request){
   const {meetingId}=await req.json();if(typeof meetingId!=='string')return json({error:'Invalid meeting.'},400);
   const row=await meeting(meetingId);if(!row)return json({error:'Meeting not found or expired.'},404);
   if(row.owner_session!==s.id)return json({error:'Only the planner can enable calendar invitations.'},403);
-  if(JSON.parse(row.constraints).demo||row.agent_request_id)return json({error:'Calendar invitations are available for planner-created meetings.'},400);
+  if(JSON.parse(row.constraints).demo||(row.agent_request_id&&!JSON.parse(row.constraints).openJoin))return json({error:'Calendar invitations are available for planner-created meetings.'},400);
   if(!configured())return json({error:'Google Calendar is not configured.'},503);
   return json({url:await beginGoogleFlow(s.id,null,row.id,s.google_sub,null,'events')});
  }catch{return json({error:'Could not start Google Calendar permission. Please try again.'},503)}

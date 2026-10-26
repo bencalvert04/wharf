@@ -3,9 +3,9 @@ import {sql,hash} from './auth';
 import type {Interval} from './availability';
 
 export async function resolveInvitation(meetingId:string,invitationToken:unknown,googleSub?:string|null){
- const [row]=await sql()`SELECT agent_request_id,final_time FROM requests WHERE id=${meetingId}`;
+ const [row]=await sql()`SELECT agent_request_id,final_time,constraints FROM requests WHERE id=${meetingId}`;
  if(row?.final_time)throw Error('This meeting already has a confirmed time.');
- if(!row?.agent_request_id)return null;
+ if(!row?.agent_request_id||JSON.parse(row.constraints).openJoin)return null;
  const [invite]=typeof invitationToken==='string'?await sql()`SELECT id FROM request_invitees WHERE meeting_id=${meetingId} AND token_hash=${hash(invitationToken)}`:
   googleSub?await sql()`SELECT id FROM request_invitees WHERE meeting_id=${meetingId} AND google_sub=${googleSub}`:[];
  if(!invite&&googleSub){
@@ -21,7 +21,8 @@ export async function resolveInvitation(meetingId:string,invitationToken:unknown
 export async function persistCalendarSnapshot(id:string,sub:string,name:string,busy:Interval[],sessionId:string,inviteeId:string|null=null){
  const [row]=await sql()`SELECT * FROM requests WHERE id=${id} AND created_at::timestamptz>now()-interval '30 days'`;
  if(!row||row.final_time)throw Error('Meeting expired or already finalized.');
- if(row.agent_request_id){
+ const openJoin=!!JSON.parse(row.constraints).openJoin;
+ if(row.agent_request_id&&!openJoin){
   if(!inviteeId)throw Error('A personal invitation is required.');
   const invites=await sql()`SELECT id,google_sub FROM request_invitees WHERE meeting_id=${id}`;
   const target=invites.find(p=>p.id===inviteeId);
@@ -30,23 +31,27 @@ export async function persistCalendarSnapshot(id:string,sub:string,name:string,b
  const [identity]=await sql()`SELECT email FROM sessions WHERE id=${sessionId} AND google_sub=${sub}`;
  const [result]=await sql()`WITH changed AS (
   UPDATE requests SET revision=revision+1,
-  owner_session=CASE WHEN owner_session IS NULL AND agent_request_id IS NULL AND EXISTS(SELECT 1 FROM slack_meetings s WHERE s.meeting_id=requests.id AND s.draft->>'openJoin'='true') THEN ${sessionId} ELSE owner_session END,
-  planner_name=CASE WHEN owner_session=${sessionId} OR (owner_session IS NULL AND agent_request_id IS NULL AND EXISTS(SELECT 1 FROM slack_meetings s WHERE s.meeting_id=requests.id AND s.draft->>'openJoin'='true')) THEN ${name.slice(0,100)} ELSE planner_name END
+  owner_session=CASE WHEN owner_session IS NULL AND (${openJoin} OR (agent_request_id IS NULL AND EXISTS(SELECT 1 FROM slack_meetings s WHERE s.meeting_id=requests.id AND s.draft->>'openJoin'='true'))) THEN ${sessionId} ELSE owner_session END,
+  planner_name=CASE WHEN owner_session=${sessionId} OR (owner_session IS NULL AND (${openJoin} OR (agent_request_id IS NULL AND EXISTS(SELECT 1 FROM slack_meetings s WHERE s.meeting_id=requests.id AND s.draft->>'openJoin'='true')))) THEN ${name.slice(0,100)} ELSE planner_name END
   WHERE id=${id} AND revision=${row.revision} AND final_time IS NULL RETURNING id
  ), saved AS (
   INSERT INTO attendees(meeting_id,google_sub,name,busy,email)
   SELECT id,${sub},${name.slice(0,100)},${JSON.stringify(busy)}::jsonb,${identity?.email||null} FROM changed
   ON CONFLICT(meeting_id,google_sub) DO UPDATE SET email=COALESCE(EXCLUDED.email,attendees.email),name=EXCLUDED.name,busy=CASE WHEN ${!!row.agent_request_id} THEN EXCLUDED.busy ELSE attendees.busy END,captured_at=CASE WHEN ${!!row.agent_request_id} THEN now() ELSE attendees.captured_at END RETURNING meeting_id
+ ), open_invitee AS (
+  INSERT INTO request_invitees(meeting_id,id,name,position,token_hash,google_sub)
+  SELECT meeting_id,${hash(id+':'+sub).slice(0,32)},${name.slice(0,100)},${Number(row.revision)},${hash('open:'+id+':'+sub)},${sub} FROM saved WHERE ${openJoin}
+  ON CONFLICT(meeting_id,id) DO UPDATE SET name=EXCLUDED.name,google_sub=EXCLUDED.google_sub
  ), claimed AS (
   UPDATE request_invitees SET google_sub=${sub} WHERE meeting_id IN (SELECT meeting_id FROM saved) AND id=${inviteeId} RETURNING id
  ) SELECT (SELECT count(*) FROM saved)::int AS saved`;
  if(!result.saved)throw Error('The meeting changed while connecting. Please try again.');
 }
 export async function withdrawSnapshot(id:string,sub:string){
- const [row]=await sql()`SELECT revision,final_time,agent_request_id FROM requests WHERE id=${id} AND EXISTS(SELECT 1 FROM attendees WHERE meeting_id=${id} AND google_sub=${sub})`;
+ const [row]=await sql()`SELECT revision,final_time,agent_request_id,constraints FROM requests WHERE id=${id} AND EXISTS(SELECT 1 FROM attendees WHERE meeting_id=${id} AND google_sub=${sub})`;
  if(!row)return;
  const [booked]=await sql()`SELECT 1 FROM google_meeting_events WHERE meeting_id=${id}`;
- if(booked||(row.final_time&&!row.agent_request_id))throw Error('This meeting has already been finalized.');
+ if(booked||(row.final_time&&(!row.agent_request_id||JSON.parse(row.constraints).openJoin)))throw Error('This meeting has already been finalized.');
  const [result]=await sql()`WITH changed AS (
   UPDATE requests SET revision=revision+1,final_time=CASE WHEN agent_request_id IS NOT NULL THEN NULL ELSE final_time END WHERE id=${id} AND revision=${row.revision} AND NOT EXISTS(SELECT 1 FROM google_meeting_events WHERE meeting_id=${id}) RETURNING id
  ), removed AS (

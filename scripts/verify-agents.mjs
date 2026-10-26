@@ -1,3 +1,4 @@
+import {commitGoogleFinalization} from '../lib/google-meeting-events.ts';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {neon} from '@neondatabase/serverless';
@@ -46,5 +47,24 @@ try{
  await sql`INSERT INTO requests(id,constraints,created_at,planner_key) VALUES(${legacy},${JSON.stringify(legacyConstraints)},${new Date().toISOString()},'test-only')`;
  await persistCalendarSnapshot(legacy,sub1,'Actual Ben',[],sessionId);await persistCalendarSnapshot(legacy,sub1,'Actual Ben',[{start:0,end:999}],sessionId);assert.deepEqual((await sql`SELECT busy FROM attendees WHERE meeting_id=${legacy}`)[0].busy,[]);
  await sql`UPDATE requests SET final_time=${JSON.stringify({start:'2030-01-07T09:00:00Z',end:'2030-01-07T09:45:00Z'})}::jsonb WHERE id=${legacy}`;await assert.rejects(()=>withdrawSnapshot(legacy,sub1));assert.ok((await sql`SELECT final_time FROM requests WHERE id=${legacy}`)[0].final_time);
+ const openKey=randomBytes(32).toString('base64url'),openRequest=randomUUID();
+ const openBody={...body,participants:undefined,openJoin:true};
+ const started=Date.now(),opened=await call('/api/v1/meetings',{method:'POST',token:openKey,idempotencyKey:openRequest,data:openBody});
+ assert.equal(opened.status,201,JSON.stringify(opened.data));const openId=opened.data.id;ids.push(openId);assert.equal(opened.data.openJoin,true);assert.equal(opened.data.participants.length,0);assert.ok(opened.data.invitationUrl);assert.equal(await resolveInvitation(openId,null),null);
+ const replay=await call('/api/v1/meetings',{method:'POST',token:openKey,idempotencyKey:openRequest,data:openBody});assert.equal(replay.data.id,openId);assert.equal(replay.data.replayed,true);
+ await persistCalendarSnapshot(openId,sub1,'Open planner',[],sessionId);
+ const [owned]=await sql`SELECT owner_session FROM requests WHERE id=${openId}`;assert.equal(owned.owner_session,sessionId);
+ await persistCalendarSnapshot(openId,sub2,'Open guest',[],'synthetic');
+ assert.equal((await sql`SELECT owner_session FROM requests WHERE id=${openId}`)[0].owner_session,sessionId);
+ const openView=(await call('/api/v1/meetings/'+openId,{token:openKey})).data;assert.equal(openView.participants.length,2);assert.ok(!JSON.stringify(openView).includes(sub1));assert.equal(openView.status,'ready');
+ assert.equal((await fetch(base+'/api/requests/'+openId).then(r=>r.json())).tracked,false);
+ await withdrawSnapshot(openId,sub2);assert.equal((await call('/api/v1/meetings/'+openId,{token:openKey})).data.participants.length,1);
+ // Queue only, never deliver email or contact Google in this synthetic check.
+ const [stored]=await sql`SELECT constraints FROM requests WHERE id=${openId}`;
+ const people=await sql`SELECT google_sub,name,email,busy FROM attendees WHERE meeting_id=${openId}`;
+ assert.equal(await commitGoogleFinalization(openId,JSON.parse(stored.constraints),people,Date.parse('2030-01-07T09:00Z'),Date.parse('2030-01-07T09:45Z'),sub1,'synthetic@example.com'),true);
+ assert.equal((await sql`SELECT count(*)::int AS n FROM google_meeting_events WHERE meeting_id=${openId}`)[0].n,1);
+ await assert.rejects(()=>withdrawSnapshot(openId,sub1));
+ console.log('Open meeting integration passed: API creation, replay, self-join, planner ownership, guest join/leave, human finalization queue. Total '+(Date.now()-started)+'ms.');
  console.log('Agent integration passed: concurrent retries, privacy, roster claims, partial responses, exact slots/pagination, stale revisions, concurrent finalization, withdrawal, no overlap, expiry.');
 }finally{for(const id of new Set(ids))await sql`DELETE FROM requests WHERE id=${id}`;for(const sid of sessionIds)await sql`DELETE FROM sessions WHERE id=${sid}`}

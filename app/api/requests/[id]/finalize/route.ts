@@ -11,7 +11,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   if(!row)return json({error:'Meeting not found or expired.'},404);
   if(!s||s.id!==row.owner_session)return json({error:'Only the planner can create this meeting.'},403);
   const c=JSON.parse(row.constraints);
-  if(c.demo||row.agent_request_id)return json({error:'Use a planner-created meeting to send calendar invitations.'},400);
+  if(c.demo||(row.agent_request_id&&!c.openJoin))return json({error:'Use a planner-created meeting to send calendar invitations.'},400);
   let input;try{input=await req.json()}catch{return json({error:'Invalid meeting time.'},400)}
   if(!input||typeof input!=='object')return json({error:'Invalid meeting time.'},400);
   const {start,end,revision}=input;

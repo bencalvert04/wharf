@@ -23,3 +23,9 @@ test('a conflict blocks only intersecting exact slots',()=>{
  const slots=meetingSlots('m',c,[{name:'Ray',busy:[{start:Date.parse('2030-01-07T10:00Z'),end:Date.parse('2030-01-07T10:30Z')}]}],0);
  assert.equal(slots.length,2);assert.ok(slots.every(s=>Date.parse(s.end)<=Date.parse('2030-01-07T10:00Z')));
 });
+test('open API meetings accept no roster while preserving human meeting constraints',()=>{
+ const v=createMeetingSchema.parse({startDate:'2030-01-07',timezone:'UTC',openJoin:true});
+ assert.deepEqual(v.participants,[]);assert.equal(toConstraints(v).openJoin,true);
+ assert.equal(createMeetingSchema.safeParse({...basic,openJoin:true}).success,false);
+ assert.equal(createMeetingSchema.safeParse({startDate:'2030-01-07',timezone:'UTC'}).success,false);
+});

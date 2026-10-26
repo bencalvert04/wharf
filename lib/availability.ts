@@ -1,4 +1,4 @@
-export type Constraints = { title:string; demo?:boolean; sampleCount?:number; start:string; end:string; duration:number; zone:string; from:string; to:string; days:number[]; windowStart?:string; windowEnd?:string };
+export type Constraints = { title:string; openJoin?:boolean; demo?:boolean; sampleCount?:number; start:string; end:string; duration:number; zone:string; from:string; to:string; days:number[]; windowStart?:string; windowEnd?:string };
 export type Interval = {start:number; end:number};
 export type Attendee = {name:string; busy:Interval[]};
 export type Window = Interval & {date:string; people:string[]};

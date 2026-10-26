@@ -1,7 +1,7 @@
 import {localParts} from './availability.ts';
 import {createInputSchema,createMeetingSchema} from './agent-contract.ts';
-const {participants:_participants,...detailProperties}=createInputSchema.properties!;
-const detailSchema={...createInputSchema,properties:detailProperties,required:(createInputSchema.required||[]).filter((key:string)=>key!=='participants')};
+const {participants:_participants,openJoin:_openJoin,...detailProperties}=createInputSchema.properties!;
+const detailSchema={...createInputSchema,properties:detailProperties,required:(createInputSchema.required||[]).filter((key:string)=>key!=='participants'&&key!=='openJoin')};
 export async function interpretSlackRequest(text:string,organizer:string,participants:string[],timezone:string,now=Date.now()){
  const response=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'x-api-key':process.env.ANTHROPIC_API_KEY!,'anthropic-version':'2023-06-01','content-type':'application/json'},signal:AbortSignal.timeout(25000),body:JSON.stringify({
  model:process.env.SLACK_AGENT_MODEL||'claude-haiku-5-5',max_tokens:400,thinking:{type:'disabled'},output_config:{effort:'low'},

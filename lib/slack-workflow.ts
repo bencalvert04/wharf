@@ -1,6 +1,5 @@
-import {toConstraints} from './agent-contract';
 import {randomUUID,randomBytes} from 'node:crypto';
-import {sql,appUrl,hash} from './auth';
+import {sql,appUrl} from './auth';
 import {sealToken,openToken} from './token-vault';
 import {createAgentMeeting,getAgentMeeting,getAgentSlots,AgentError} from './agent-api';
 import {prepareAgentCalendar,bookAgentMeeting} from './agent-booking';
@@ -48,16 +47,6 @@ async function status(r:any){
  for(const s of slots.slots){const label=new Date(s.start).toLocaleString('en-US',{timeZone:s.timezone,dateStyle:'medium',timeStyle:'short'});await reply(r,`${label} (${s.timezone}), ${r.draft.durationMinutes} minutes`,[slackButton('Confirm and send invites','wharf_book',JSON.stringify({id:r.id,slotId:s.id,revision:slots.revision}))])}
 }
 async function createAndShare(r:any){
- if(r.draft.openJoin){
-  // Ordinary public-link meeting. No Slack roster or invitation slots to reserve.
-  const constraints=toConstraints(r.draft);
-  await sql()`WITH created AS (
-   INSERT INTO requests(id,constraints,created_at,planner_key)
-   VALUES(${r.id},${JSON.stringify(constraints)},${new Date().toISOString()},${'sha256:'+hash(keyFor(r))}) ON CONFLICT DO NOTHING
-  ) UPDATE slack_meetings SET meeting_id=${r.id} WHERE id=${r.id}`;
-  r.meeting_id=r.id;await invitations(r);return;
- }
-
  const m=await createAgentMeeting(new Request(appUrl()+'/api/v1/meetings',{headers:{authorization:`Bearer ${keyFor(r)}`,'idempotency-key':`slack:${r.id}`}}),r.draft);
  await sql()`UPDATE slack_meetings SET meeting_id=${m.id} WHERE id=${r.id}`;
  r.meeting_id=m.id;

@@ -9,13 +9,15 @@ export const createMeetingSchema=z.object({
  dayEnd:z.string().regex(/^(?:([01]\d|2[0-3]):[0-5]\d|24:00)$/).default('17:00'),
  windowMode:z.enum(['daily','continuous']).optional().describe('continuous means one uninterrupted interval from startDate/dayStart through endDate/dayEnd, including overnight hours; daily repeats the hours each day.'),
  weekdays:z.array(z.number().int().min(0).max(6)).min(1).max(7).default([0,1,2,3,4,5,6]),
- participants:z.array(z.object({id:z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/),name:z.string().trim().min(1).max(100)}).strict()).min(1).max(20)
+ openJoin:z.boolean().optional().describe('Anyone with invitationUrl may join. Omit participants for an open meeting; first person to connect becomes the human planner.'),
+ participants:z.array(z.object({id:z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/),name:z.string().trim().min(1).max(100)}).strict()).max(20).default([])
 }).strict().superRefine((v,ctx)=>{
+ if(v.openJoin?v.participants.length>0:v.participants.length===0)ctx.addIssue({code:'custom',path:['participants'],message:v.openJoin?'Open meetings do not reserve participants.':'Include at least one participant.'});
  if(new Set(v.participants.map(p=>p.id)).size!==v.participants.length)ctx.addIssue({code:'custom',path:['participants'],message:'Participant IDs must be unique.'});
  try{validate(toConstraints(v))}catch(e){ctx.addIssue({code:'custom',message:(e as Error).message})}
 });
 export type CreateMeeting=z.infer<typeof createMeetingSchema>;
-export function toConstraints(v:CreateMeeting):Constraints{return {title:v.title,start:v.startDate,end:v.endDate||v.startDate,duration:v.durationMinutes,zone:v.timezone,from:v.windowMode==='continuous'?'00:00':v.dayStart,to:v.windowMode==='continuous'?'24:00':v.dayEnd,...(v.windowMode==='continuous'?{windowStart:`${v.startDate}T${v.dayStart}`,windowEnd:`${v.endDate||v.startDate}T${v.dayEnd}`}:{ }),days:[...new Set(v.weekdays)].sort()}}
+export function toConstraints(v:CreateMeeting):Constraints{return {...(v.openJoin?{openJoin:true}:{}),title:v.title,start:v.startDate,end:v.endDate||v.startDate,duration:v.durationMinutes,zone:v.timezone,from:v.windowMode==='continuous'?'00:00':v.dayStart,to:v.windowMode==='continuous'?'24:00':v.dayEnd,...(v.windowMode==='continuous'?{windowStart:`${v.startDate}T${v.dayStart}`,windowEnd:`${v.endDate||v.startDate}T${v.dayEnd}`}:{ }),days:[...new Set(v.weekdays)].sort()}}
 export const finalizeSchema=z.object({slotId:z.string().min(1).max(100),revision:z.number().int().min(0)}).strict();
 export const pageSchema=z.object({offset:z.coerce.number().int().min(0).max(100000).default(0),limit:z.coerce.number().int().min(1).max(100).default(20)}).strict();
 export const createInputSchema=z.toJSONSchema(createMeetingSchema,{io:"input"});

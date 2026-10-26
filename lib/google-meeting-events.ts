@@ -17,11 +17,11 @@ export async function commitGoogleFinalization(id:string,c:Constraints,people:Pa
  const snapshot=JSON.stringify(people),final=JSON.stringify({start,end}),db=sql();
  const results=await db.transaction([
   db`SELECT id FROM requests WHERE id=${id} FOR UPDATE`,
-  db`UPDATE requests SET final_time=${final}::jsonb,revision=revision+1 WHERE id=${id} AND final_time IS NULL AND agent_request_id IS NULL
+  db`UPDATE requests SET final_time=${final}::jsonb,revision=revision+1 WHERE id=${id} AND final_time IS NULL AND (agent_request_id IS NULL OR constraints::jsonb->>'openJoin'='true')
    AND (SELECT COALESCE(jsonb_agg(jsonb_build_object('google_sub',google_sub,'name',name,'email',email,'busy',busy) ORDER BY google_sub),'[]'::jsonb) FROM attendees WHERE meeting_id=${id})=${snapshot}::jsonb RETURNING id`,
   db`INSERT INTO google_meeting_events(meeting_id,organizer_sub,event_id,payload)
    SELECT ${id},${sub},${payload.id},${JSON.stringify(payload)}::jsonb
-   WHERE EXISTS(SELECT 1 FROM requests WHERE id=${id} AND final_time=${final}::jsonb AND agent_request_id IS NULL)
+   WHERE EXISTS(SELECT 1 FROM requests WHERE id=${id} AND final_time=${final}::jsonb AND (agent_request_id IS NULL OR constraints::jsonb->>'openJoin'='true'))
    AND NOT EXISTS(SELECT 1 FROM invitation_outbox WHERE meeting_id=${id})
    ON CONFLICT(meeting_id) DO NOTHING`
  ]);
