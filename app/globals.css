@@ -64,7 +64,7 @@ main.framed:has(.hero)::before,main.framed:has(.hero)::after{content:"";position
 main.framed:has(.hero)::before{left:-11px}main.framed:has(.hero)::after{right:-11px}
 
 /* Gravity clock */
-.gravity-clock{display:block;width:176px;height:176px;margin:0 auto;overflow:visible}
+.gravity-clock{display:block;width:204px;height:204px;margin:0 auto;overflow:visible}
 .clock-face{fill:var(--bg);stroke:var(--border-strong);stroke-width:1}
 .clock-tick{stroke:var(--faint);stroke-width:1.25;stroke-linecap:round}
 .clock-tick.major{stroke:var(--text);stroke-width:1.75}
@@ -375,10 +375,10 @@ html[data-navigating] .view{animation:none}
 
  main{padding:32px 16px 56px}
  main.framed{border:0}
- .hero{padding:40px 20px 48px}
+ .hero{padding:32px 20px 40px}
  .hero h1{margin-top:32px;font-size:clamp(36px,11vw,48px)}
  .hero-actions{flex-direction:column;align-items:stretch;width:100%;max-width:320px;margin:32px auto 0}
- .gravity-clock{width:136px;height:136px}
+ .gravity-clock{width:152px;height:152px}
  .hero{min-height:0}
  main.framed::before,main.framed::after{display:none}
  .framed .setup,.framed .preview-aside{padding:36px 20px}

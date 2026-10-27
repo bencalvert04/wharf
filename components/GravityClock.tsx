@@ -3,7 +3,7 @@ import {useEffect,useRef} from 'react';
 
 // The hand is a frictionless pendulum pivoting at the centre with just enough
 // energy to clear twelve o’clock: it falls, whips through six, and creeps over the top.
-const LAP=5200; // ms per revolution
+const LAP=4400; // ms per revolution
 const CREST=0.2; // angular speed at twelve, relative to gravity; smaller hangs longer at the top
 const STEPS=1440;
 const GHOSTS=[18,36,54,72,90];
