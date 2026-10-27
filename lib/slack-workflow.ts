@@ -89,7 +89,6 @@ async function createAndShare(r:any){
  const m=await createAgentMeeting(new Request(appUrl()+'/api/v1/meetings',{headers:{authorization:`Bearer ${keyFor(r)}`,'idempotency-key':`slack:${r.id}`}}),r.draft);
  await sql()`UPDATE slack_meetings SET meeting_id=${m.id} WHERE id=${r.id}`;
  r.meeting_id=m.id;
- await slackMessage(r.channel_id,`I’ll arrange a ${r.draft.durationMinutes}-minute meeting: ${slackEscape(slackMeetingWhen(r.draft))}. I’ll check everyone’s calendars, then you can choose the time.`,r.thread_ts);
  await invitations(r);
  await enrollRoster(r.draft.participants||[],user=>attendFromSlack(r,{user:{id:user}},true),async user=>{
   await slack('chat.postEphemeral',{channel:r.channel_id,user,text:'You are included in this meeting, but I could not connect your calendar yet. Click Link Google Calendar to retry.',blocks:slackBlocks('You are included in this meeting. Link Google Calendar to share your availability.',[slackButton('Link Google Calendar','wharf_attend',r.id)])}).catch(()=>console.warn('Private calendar prompt could not be delivered'));
@@ -99,7 +98,7 @@ async function createAndShare(r:any){
 async function invitations(r:any){
  const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(r.channel_id);
  const d=r.draft,url=`${appUrl()}/?meeting=${encodeURIComponent(r.meeting_id)}`;
- const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes\n${slackEscape(slackMeetingWhen(d))}\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):`Everyone in this conversation is included (${d.participants.length} people). I’m checking everyone’s calendars. Only people who need to connect will receive a private prompt.`}\n<${url}|Open calendar on Wharf>`;
+ const text=`I’m on it. Planning a ${d.durationMinutes}-minute meeting ${slackEscape(slackMeetingWhen(d,true))}. ${d.openJoin?'Click to attend so I can find a time that works for everyone.':'I’ll check everyone’s calendars to find a time that works.'}\n\n<${url}|Open calendar on Wharf>`;
  // Post to the main channel so everyone can find the same invitation.
  const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,d.openJoin?[refresh(r.id)]:[]));
  await sql()`UPDATE slack_meetings SET invitation_ts=${posted.ts} WHERE id=${r.id}`;
