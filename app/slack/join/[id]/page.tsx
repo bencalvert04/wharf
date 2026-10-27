@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import {notFound} from 'next/navigation';
+import {notFound,redirect} from 'next/navigation';
 import {sql,session} from '@/lib/auth';
 import {openToken} from '@/lib/token-vault';
 import {invitationToken} from '@/lib/agent-api';
@@ -12,7 +12,7 @@ export default async function JoinSlackMeeting({params}:{params:Promise<{id:stri
  const [row]=await sql()`SELECT s.id,s.draft,s.key_cipher,s.meeting_id,r.constraints,r.final_time FROM slack_meetings s JOIN requests r ON r.id=s.meeting_id WHERE s.id=${id} AND r.created_at::timestamptz>now()-interval '30 days'`;
  if(!row)notFound();
  const c=JSON.parse(row.constraints);
- if(row.draft.openJoin)return <div className="app light agent-shell"><header><Link className="brand" href="/">Wharf</Link></header><main className="agent-docs" style={{maxWidth:640,padding:'32px 20px',margin:'0 auto'}}><span className="small-tag">YOU'RE INVITED</span><h1>{c.title}</h1><p>{c.duration} minutes · {c.start} to {c.end}<br/>{c.windowStart?`${c.windowStart.replace('T',' ')} to ${c.windowEnd.replace('T',' ')}`:`${c.from}–${c.to}`} ({c.zone})</p><p>Anyone with this link can join as themselves. The first person to connect their calendar becomes the planner.</p><Link className="primary" href={`/?meeting=${row.meeting_id}`}>Join the meeting →</Link></main></div>;
+ if(row.draft.openJoin)redirect(`/?meeting=${encodeURIComponent(row.meeting_id)}`);
  const viewer=await session();
  const people=await sql()`SELECT id,name,google_sub FROM request_invitees WHERE meeting_id=${row.meeting_id} ORDER BY position`;
  const key=openToken(row.key_cipher,`slack:${row.id}`);
