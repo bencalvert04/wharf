@@ -56,26 +56,21 @@ main.framed:has(.hero),.framed .view:has(.hero){display:flex;flex-direction:colu
 .framed .view:has(.hero){flex:1}
 .hero{position:relative;flex:1;min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 24px 88px;text-align:center;overflow:hidden;isolation:isolate}
 .hero::before{content:"";position:absolute;inset:0;z-index:-1;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:56px 56px;background-position:center -1px;mask-image:radial-gradient(ellipse 60% 70% at 50% 40%,#000 30%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 60% 70% at 50% 40%,#000 30%,transparent 100%)}
-.hero h1{font-size:clamp(40px,6.2vw,72px);line-height:1.02;letter-spacing:-.055em;max-width:12ch;margin:56px auto 24px}
+.hero h1{font-size:clamp(40px,6.2vw,72px);line-height:1.02;letter-spacing:-.055em;max-width:12ch;margin:40px auto 24px}
 .hero p{font-size:clamp(16px,1.6vw,20px);line-height:1.55;color:var(--muted);max-width:34em;margin:0 auto;text-wrap:balance}
 .hero-actions{display:flex;justify-content:center;gap:12px;margin-top:40px}
 .framed,.framed .setup-grid{position:relative}
 main.framed:has(.hero)::before,main.framed:has(.hero)::after{content:"";position:absolute;bottom:-11px;width:21px;height:21px;z-index:2;background:linear-gradient(currentColor,currentColor) center/1px 100% no-repeat,linear-gradient(currentColor,currentColor) center/100% 1px no-repeat;color:var(--faint)}
 main.framed:has(.hero)::before{left:-11px}main.framed:has(.hero)::after{right:-11px}
 
-/* Gravity clock: a weighted hand, so the fall reads as mass */
-.gravity-clock{display:block;width:248px;height:248px;margin:0 auto;overflow:visible;filter:drop-shadow(0 1px 1px #0000000a) drop-shadow(0 12px 24px #0000000f) drop-shadow(0 40px 64px #00000014)}
-.app:not(.light) .gravity-clock{filter:drop-shadow(0 24px 64px #000)}
-.clock-rim{fill:var(--bg);stroke:var(--border-strong);stroke-width:1}
-.clock-face{stroke:var(--border);stroke-width:1}
-.clock-tick{stroke:var(--border-strong);stroke-width:1;stroke-linecap:round}
-.clock-tick.hour{stroke:var(--faint);stroke-width:1.5}
-.clock-tick.major{stroke:var(--text);stroke-width:2.5}
-.clock-hand line{stroke:var(--text);stroke-width:4;stroke-linecap:round}
-.clock-hand circle{fill:var(--text)}
-.clock-ghost line{stroke:var(--text);stroke-width:3;stroke-linecap:round}
-.clock-ghost circle{fill:var(--text)}
-.clock-pivot{fill:var(--bg);stroke:var(--text);stroke-width:3}
+/* Gravity clock */
+.gravity-clock{display:block;width:176px;height:176px;margin:0 auto;overflow:visible}
+.clock-face{fill:var(--bg);stroke:var(--border-strong);stroke-width:1}
+.clock-tick{stroke:var(--faint);stroke-width:1.25;stroke-linecap:round}
+.clock-tick.major{stroke:var(--text);stroke-width:1.75}
+.clock-hand line,.clock-ghost line{stroke:var(--text);stroke-width:3;stroke-linecap:round}
+.clock-ghost line{stroke-width:2.5}
+.clock-pivot{fill:var(--bg);stroke:var(--text);stroke-width:2.5}
 .gravity-clock[data-still] .clock-ghost{display:none}
 
 /* Setup */
@@ -383,7 +378,7 @@ html[data-navigating] .view{animation:none}
  .hero{padding:40px 20px 48px}
  .hero h1{margin-top:32px;font-size:clamp(36px,11vw,48px)}
  .hero-actions{flex-direction:column;align-items:stretch;width:100%;max-width:320px;margin:32px auto 0}
- .gravity-clock{width:184px;height:184px}
+ .gravity-clock{width:136px;height:136px}
  .hero{min-height:0}
  main.framed::before,main.framed::after{display:none}
  .framed .setup,.framed .preview-aside{padding:36px 20px}
