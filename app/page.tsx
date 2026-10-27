@@ -1,8 +1,10 @@
 'use client';
 import {calendarDisplayRange,calendarTickLabel} from '@/lib/calendar-display';
-import {useState,useMemo,useEffect} from 'react';
+import {useState,useMemo,useEffect,useRef} from 'react';
 import {samplePeople} from '@/lib/demo';
 import AccountButton from '@/components/AccountButton';
+import AnchorMark from '@/components/AnchorMark';
+import AnchorEntrance from '@/components/AnchorEntrance';
 import DatePicker from '@/components/DatePicker';
 import AvailabilityWindow from '@/components/AvailabilityWindow';
 import DeleteMeetingButton from '@/components/DeleteMeetingButton';
@@ -18,6 +20,7 @@ function timeLabel(t:number,z:string){return new Intl.DateTimeFormat('en-US',{ti
 
 function Google(){return <span className="google">G</span>}
 export default function Home(){
+ const brandRef=useRef<SVGSVGElement>(null);
  const [c,setC]=useState<Constraints>(initial),[view,setView]=useState<'create'|'results'|'docs'|'pending'>('create'),[theme,setTheme]=useState<'system'|'light'|'dark'>('light'),[systemDark,setSystemDark]=useState(false),[demo,setDemo]=useState(false),[meeting,setMeeting]=useState(''),[loading,setLoading]=useState(false),[error,setError]=useState(''),[modal,setModal]=useState(false),[calendarPermission,setCalendarPermission]=useState(false),[copied,setCopied]=useState(false),[count,setCount]=useState(1),[adjustedDemo,setAdjustedDemo]=useState(false),[week,setWeek]=useState(0),[daysPerPage,setDaysPerPage]=useState(5),[mode,setMode]=useState('everyone'),[selected,setSelected]=useState<Window|null>(null),[notice,setNotice]=useState(''),[invitationName,setInvitationName]=useState('');
  const [backTarget,setBackTarget]=useState<'create'|'pending'>('pending');
  useEffect(()=>{const pop=()=>location.reload();window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop)},[]);
@@ -81,8 +84,9 @@ export default function Home(){
  async function copy(){try{await navigator.clipboard.writeText(`${location.origin}/?meeting=${meeting}`);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{setNotice('Copy the invitation URL from your address bar.')}}
  const {startMinute,endMinute,ticks}=calendarDisplayRange(c,shownDates);
  return <div className={dark?'app':'app light'}>
- <header><div className="header-left"><button className="brand" onClick={reset} aria-label="Wharf home"><svg className="brandmark" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="6" r="3"/><path d="M16 9v18M10 13h12M5 19c0 5 5 9 11 9s11-4 11-9"/><path d="m2 22 3-5 4 4m14 0 4-4 3 5"/></svg>Wharf</button><nav><button className={view==='create'||view==='results'?'active':''} onClick={reset}>Scheduler</button><button className={view==='pending'?'active':''} aria-current={view==='pending'?'page':undefined} onClick={showPending}>Pending meetings</button></nav></div><nav aria-label="Utilities"><button className={view==='docs'?'active':''} onClick={()=>{setView('docs');history.pushState({},'','/?view=docs')}}>API <ArrowUpRight size={12}/></button><span className="nav-divider"/><button type="button" className="icon-button" aria-label={`Appearance: ${theme}. Switch to ${theme==='light'?'dark':theme==='dark'?'system':'light'} mode`} onClick={()=>changeTheme(theme==='light'?'dark':theme==='dark'?'system':'light')}>{theme==='light'?<Sun size={16}/>:theme==='dark'?<Moon size={16}/>:<Monitor size={16}/>}</button><AccountButton/></nav></header>
- <main>
+ <AnchorEntrance target={brandRef}/>
+ <header><div className="header-left"><button className="brand" onClick={reset} aria-label="Wharf home"><AnchorMark key={view} ref={brandRef} className="brandmark brandmark-enter"/>Wharf</button><nav><button className={view==='create'||view==='results'?'active':''} onClick={reset}>Scheduler</button><button className={view==='pending'?'active':''} aria-current={view==='pending'?'page':undefined} onClick={showPending}>Pending meetings</button></nav></div><nav aria-label="Utilities"><button className={view==='docs'?'active':''} onClick={()=>{setView('docs');history.pushState({},'','/?view=docs')}}>API <ArrowUpRight size={12}/></button><span className="nav-divider"/><button type="button" className="icon-button" aria-label={`Appearance: ${theme}. Switch to ${theme==='light'?'dark':theme==='dark'?'system':'light'} mode`} onClick={()=>changeTheme(theme==='light'?'dark':theme==='dark'?'system':'light')}>{theme==='light'?<Sun size={16}/>:theme==='dark'?<Moon size={16}/>:<Monitor size={16}/>}</button><AccountButton/></nav></header>
+ <main key={view} className="page-enter">
  {view==='pending'&&<PendingMeetings onCreate={reset}/>}
  {view==='create'&&<>
  <div className="setup-grid"><section className="setup">

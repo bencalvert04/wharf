@@ -1,0 +1,28 @@
+/* A one-time anchor arrival, followed by quick, unobtrusive view changes. */
+.anchor-entrance{
+ position:fixed;z-index:40;pointer-events:none;color:var(--accent);
+ transform-origin:center;animation:anchor-arrive 1150ms cubic-bezier(.22,1,.36,1) both;
+}
+.anchor-entrance::before{
+ content:"";position:absolute;inset:-6px;border-radius:50%;z-index:-1;background:var(--panel);
+ box-shadow:0 0 16px 9px color-mix(in srgb,var(--highlight) 75%,transparent),9px 5px 18px 3px color-mix(in srgb,var(--lilac) 65%,transparent),-8px 8px 18px 2px color-mix(in srgb,var(--peach) 65%,transparent);
+ animation:anchor-halo 1150ms ease both;
+}
+.entrance-mark{display:block;width:100%;height:100%;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.app:has(.anchor-entrance) header .brandmark{opacity:0}
+@keyframes anchor-arrive{
+ 0%{opacity:0;transform:translate(var(--anchor-x),-180px) scale(3.5) rotate(-160deg)}
+ 28%{opacity:1;transform:translate(var(--anchor-x),var(--anchor-y)) scale(4.5) rotate(-20deg)}
+ 57%{opacity:1;transform:translate(var(--anchor-x),calc(var(--anchor-y) + 8px)) scale(4.5) rotate(340deg)}
+ 100%{opacity:1;transform:translate(0,0) scale(1) rotate(360deg)}
+}
+@keyframes anchor-halo{0%,60%{opacity:1}100%{opacity:0}}
+.page-enter{animation:wharf-page-enter 280ms cubic-bezier(.22,1,.36,1) both}
+.brandmark-enter{animation:wharf-mark-turn 440ms cubic-bezier(.22,1,.36,1)}
+@keyframes wharf-page-enter{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@keyframes wharf-mark-turn{from{transform:rotate(-22deg)}to{transform:rotate(0)}}
+@media(prefers-reduced-motion:reduce){
+ .anchor-entrance{display:none}
+ .app:has(.anchor-entrance) header .brandmark{opacity:1}
+ .page-enter,.brandmark-enter{animation:none}
+}
