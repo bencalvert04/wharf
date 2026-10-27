@@ -1,3 +1,4 @@
+import {calendarConnectPrompt} from './slack-connect-prompt';
 import {completeAttendanceLink} from './slack-attendance-store';
 export {canAttendSlackMeeting} from './slack-attendance-policy';
 import {sql,token,hash,appUrl,meeting} from './auth';
@@ -25,9 +26,8 @@ export async function attendFromSlack(r:any,payload:any,automatic=false){
  const secret=token();
  await sql()`INSERT INTO slack_attendance_links(id,team_id,user_id,slack_meeting_id) VALUES(${hash(secret)},${r.team_id},${user},${r.id})`;
  const url=`${appUrl()}/api/slack/attend?token=${encodeURIComponent(secret)}`;
- await slack('chat.postEphemeral',{channel:r.channel_id,user,text:`Connect your Google account to attend: <${url}|Link Google Calendar>`,
- blocks:[{type:'section',text:{type:'mrkdwn',text:'You’ve been included in this meeting. Please link your Google Calendar. Future meetings in this conversation will include your availability automatically.'}},
- {type:'actions',elements:[{type:'button',text:{type:'plain_text',text:'Link Google Calendar'},url,action_id:'wharf_google_connect'}]}]});
+ // Keep context and action in one payload: Slack renders private and public messages independently.
+ await slack('chat.postEphemeral',{channel:r.channel_id,user,...calendarConnectPrompt(r.draft,url)});
 }
 
 export async function notifyCalendarsReady(r:any){
