@@ -13,7 +13,8 @@ export function missingMeetingDetail(text:string){
 const timePresets={
  workday:{label:'Workday: 9am - 5pm',start:'09:00',end:'17:00'},
  lunchtime:{label:'Lunchtime: 11:30am - 2:30pm',start:'11:30',end:'14:30'},
- anytime:{label:'Any-Time: 5:00am - 9:00pm',start:'05:00',end:'21:00'}
+ anytime:{label:'Any-Time: 5:00am - 10:00pm',start:'05:00',end:'22:00'},
+ evening:{label:'Evening: 5pm - 10pm',start:'17:00',end:'22:00'}
 };
 export function timeRangeBlocks(thread:string,question:string){
  const needsDay=question==='What day and time range should I use?';
@@ -22,7 +23,8 @@ export function timeRangeBlocks(thread:string,question:string){
   {type:'context',elements:[{type:'mrkdwn',text:`Times are in ${process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver'}.`}]},
   {type:'actions',block_id:'wharf_time_range',elements:[
    ...(needsDay?[{type:'datepicker',action_id:'wharf_range_day',placeholder:{type:'plain_text',text:'Choose day'}}]:[]),
-   ...Object.entries(timePresets).map(([preset,{label}])=>slackButton(label,`wharf_preset_${preset}`,JSON.stringify({thread,needsDay})))
+   ...Object.entries(timePresets).map(([preset,{label}])=>slackButton(label,`wharf_preset_${preset}`,JSON.stringify({thread,needsDay}))),
+   slackButton('Other','wharf_answer',thread)
   ]}
  ];
 }

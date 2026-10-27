@@ -121,7 +121,7 @@ export async function slackAction(payload:any){
   await continuePrivateAnswer(meta.team,meta.channel,meta.thread,meta.user,payload.view.state.values.details.answer.value);return;
  }
  const a=payload.actions?.[0];if(!a)return;
- if(a.action_id==='wharf_time_range'||['wharf_preset_workday','wharf_preset_lunchtime','wharf_preset_anytime'].includes(a.action_id)){
+ if(a.action_id==='wharf_time_range'||['wharf_preset_workday','wharf_preset_lunchtime','wharf_preset_anytime','wharf_preset_evening'].includes(a.action_id)){
   let selection;try{selection=a.action_id==='wharf_time_range'?timeRangeAnswer(payload):timePresetAnswer(payload)}catch(error){await slackPrivateMessage(payload.channel.id,payload.user.id,(error as Error).message);return}
   await continuePrivateAnswer(payload.team.id,payload.channel.id,selection.thread,payload.user.id,selection.answer);return;
  }

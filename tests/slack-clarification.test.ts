@@ -27,12 +27,13 @@ test('time presets submit exact ranges directly and preserve the scheduling thre
  const {timeRangeBlocks,timePresetAnswer}=await import('../lib/slack-clarification.ts');
  const blocks=timeRangeBlocks('123.456','Between what start and end times should I look?') as any[];
  const buttons=blocks.at(-1).elements;
- assert.equal(buttons.length,3);assert.ok(buttons.every((b:any)=>b.type==='button'));
- assert.deepEqual(buttons.map((b:any)=>b.text.text),['Workday: 9am - 5pm','Lunchtime: 11:30am - 2:30pm','Any-Time: 5:00am - 9:00pm']);
- for(const [i,range] of ['09:00 and 17:00','11:30 and 14:30','05:00 and 21:00'].entries()){
+ assert.equal(buttons.length,5);assert.ok(buttons.every((b:any)=>b.type==='button'));
+ assert.deepEqual(buttons.map((b:any)=>b.text.text),['Workday: 9am - 5pm','Lunchtime: 11:30am - 2:30pm','Any-Time: 5:00am - 10:00pm','Evening: 5pm - 10pm','Other']);
+ for(const [i,range] of ['09:00 and 17:00','11:30 and 14:30','05:00 and 22:00','17:00 and 22:00'].entries()){
   const answer=timePresetAnswer({actions:[buttons[i]]});
   assert.equal(answer.thread,'123.456');assert.ok(answer.answer.includes('between '+range));
  }
+ assert.equal(buttons[4].action_id,'wharf_answer');assert.equal(buttons[4].value,'123.456');
  const dated=timeRangeBlocks('123','What day and time range should I use?') as any[];
  const payload:any={actions:[dated.at(-1).elements[1]]};
  assert.throws(()=>timePresetAnswer(payload),/Choose a day/);
@@ -41,5 +42,5 @@ test('time presets submit exact ranges directly and preserve the scheduling thre
  assert.throws(()=>timePresetAnswer({actions:[{action_id:'wharf_preset_unknown',value:'{}'}]}),/Choose one/);
  const calls:any[]=[];t.mock.method(globalThis,'fetch',async(url:any,init:any)=>{calls.push(JSON.parse(init.body));return Response.json({ok:true})});
  await askPrivately('C123','U123','123.456','Between what start and end times should I look?');
- assert.equal(calls[0].blocks.at(-1).elements.length,3);
+ assert.equal(calls[0].blocks.at(-1).elements.length,5);
 });
