@@ -47,14 +47,14 @@ export async function GET(req:Request){
    const planned=await meeting(flow.return_meeting_id);
    if(!planned||!(await plannerAccess(planned,s)).allowed||JSON.parse(planned.constraints).demo)return redirect('expired');
    if(!grantHasFreeBusy(tokens.scope)||!grantHasEventWrite(tokens.scope)||!tokens.refresh_token)return redirect('eventpermission');
-   await saveCalendarGrant(identity.sub,tokens.refresh_token,Number(flow.connection_version),tokens.scope);
+   await saveCalendarGrant(identity.sub,tokens.refresh_token,{version:Number(flow.connection_version),connectionId:flow.connection_id},tokens.scope);
    return redirect('eventready');
   }
   if(!row)return redirect('signedin');
   if(flow.expected_sub){
    // Google may allow profile sign-in while the user declines calendar permission.
    if(!grantHasFreeBusy(tokens.scope)||!tokens.refresh_token)return redirect('permission');
-   await saveCalendarGrant(identity.sub,tokens.refresh_token,Number(flow.connection_version),tokens.scope);
+   await saveCalendarGrant(identity.sub,tokens.refresh_token,{version:Number(flow.connection_version),connectionId:flow.connection_id},tokens.scope);
    client.setCredentials(tokens);
    await saveCalendarSnapshot(client,{id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null);
    await finishAttendance(flow,s.id,identity.sub);

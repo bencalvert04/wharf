@@ -22,7 +22,7 @@ export async function authorizeAgentCalendar(id:string,participantId:string,sub:
 export async function completeAgentCalendarAuthorization(flow:any,identity:{sub:string},tokens:{scope?:string;refresh_token?:string|null}){
  const auth=await agentCalendarAuthorization(flow.return_meeting_id);
  if(!auth||auth.participant_id!==flow.invitee_id||auth.participant_sub!==identity.sub||flow.expected_sub!==identity.sub||!grantHasFreeBusy(tokens.scope)||!grantHasEventWrite(tokens.scope)||!tokens.refresh_token)throw Error('Calendar invitation permission was not granted to the organizer.');
- await saveCalendarGrant(identity.sub,tokens.refresh_token,Number(flow.connection_version),tokens.scope);
+ await saveCalendarGrant(identity.sub,tokens.refresh_token,{version:Number(flow.connection_version),connectionId:flow.connection_id},tokens.scope);
  await authorizeAgentCalendar(flow.return_meeting_id,flow.invitee_id,identity.sub);
 }
 export async function publicAgentAuthorization(id:string,token:string){

@@ -4,6 +4,7 @@ import {google,parseBusy} from './google';
 import {allowed,type Constraints} from './availability';
 import {openToken,sealToken} from './token-vault';
 import {needsCalendarConsent,revocationComplete} from './calendar-access';
+import {prepareCalendarConnection,storeCalendarGrant,disconnectCalendarConnection,type CalendarGeneration} from './calendar-connection-store';
 import type {OAuth2Client} from 'google-auth-library';
 
 export async function calendarConnection(sub:string){
@@ -11,15 +12,10 @@ export async function calendarConnection(sub:string){
  return row||null;
 }
 export async function prepareCalendarConsent(sub:string){
- await sql()`INSERT INTO google_calendar_connections(google_sub) VALUES(${sub}) ON CONFLICT DO NOTHING`;
- const row=await calendarConnection(sub);
- if(row.disconnecting)throw Error('Calendar disconnection is pending.');
- return Number(row.version);
+ return prepareCalendarConnection(sql(),sub);
 }
-export async function saveCalendarGrant(sub:string,refreshToken:string,version:number,scopes:string=''){
- const [row]=await sql()`UPDATE google_calendar_connections SET refresh_token=${sealToken(refreshToken,sub)},granted_scopes=${scopes},updated_at=now()
-  WHERE google_sub=${sub} AND version=${version} AND NOT disconnecting RETURNING google_sub`;
- if(!row)throw Error('Calendar connection changed. Please try again.');
+export async function saveCalendarGrant(sub:string,refreshToken:string,generation:CalendarGeneration,scopes:string=''){
+ await storeCalendarGrant(sql(),sub,sealToken(refreshToken,sub),generation,scopes);
 }
 
 export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null){
@@ -49,19 +45,11 @@ export async function joinWithSavedCalendar(row:{id:string;constraints:string;ow
 }
 
 export async function disconnectCalendar(sub:string){
- // Block further use before contacting Google. Keep encrypted credentials on a transient
- // failure so the user can retry revocation, rather than claiming it succeeded.
- const [row]=await sql()`UPDATE google_calendar_connections SET disconnecting=true,version=version+1,updated_at=now()
-  WHERE google_sub=${sub} RETURNING *`;
- await sql()`DELETE FROM oauth_states WHERE expected_sub=${sub}`;
- if(!row)return;
- if(row.refresh_token){
+ await disconnectCalendarConnection(sql(),sub,async (encryptedToken,signal)=>{
   const result=await fetch('https://oauth2.googleapis.com/revoke',{method:'POST',
    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-   body:new URLSearchParams({token:openToken(row.refresh_token,sub)}),signal:AbortSignal.timeout(10000)});
+   body:new URLSearchParams({token:openToken(encryptedToken,sub)}),signal});
   const body=await result.json().catch(()=>null);
   if(!revocationComplete(result.status,body))throw Error('Google could not confirm disconnection. Please retry.');
- }
- await sql()`UPDATE google_calendar_connections SET refresh_token=NULL,disconnecting=false,updated_at=now()
-  WHERE google_sub=${sub} AND version=${row.version}`;
+ });
 }

@@ -1,3 +1,4 @@
+import {calendarConnectionSchema} from '../db/calendar-connection-schema.mjs';
 import {pendingMeetingSchema} from '../db/pending-meeting-schema.mjs';
 import {neon} from '@neondatabase/serverless';
 if(!process.env.DATABASE_URL)throw new Error('Set DATABASE_URL before running migrations.');
@@ -22,6 +23,7 @@ await sql`CREATE TABLE IF NOT EXISTS google_calendar_connections (
 )`;
 await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS expected_sub text`;
 await sql`ALTER TABLE oauth_states ADD COLUMN IF NOT EXISTS connection_version integer`;
+for(const statement of calendarConnectionSchema)await sql.query(statement);
 console.log('Persistent calendar connection schema is ready.');
 
 await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS email text`;
