@@ -62,6 +62,10 @@ main.framed:has(.hero),.framed .view:has(.hero){display:flex;flex-direction:colu
 .framed .view:has(.hero){flex:1}
 .hero{position:relative;flex:1;min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 24px 88px;text-align:center;isolation:isolate}
 .hero::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:56px 56px;background-position:center -1px;mask-image:radial-gradient(ellipse 900px 640px at 50% 42%,#000 40%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 900px 640px at 50% 42%,#000 40%,transparent 100%)}
+/* Hover fills share the static grid's geometry and edge fade. */
+.hero-grid-hover{position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;color:var(--text);mask-image:radial-gradient(ellipse 900px 640px at 50% 42%,#000 40%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 900px 640px at 50% 42%,#000 40%,transparent 100%)}
+.hero-grid-hover canvas{display:block;width:100%;height:100%;color:inherit}
+@media(prefers-reduced-motion:reduce),(hover:none),(pointer:coarse){.hero-grid-hover{display:none}}
 .hero h1{font-size:clamp(40px,6.2vw,72px);line-height:1.02;letter-spacing:-.055em;max-width:12ch;margin:40px auto 24px}
 .hero p{font-size:clamp(16px,1.6vw,20px);line-height:1.55;color:var(--muted);max-width:34em;margin:0 auto;text-wrap:balance}
 .hero-actions{display:flex;justify-content:center;gap:12px;margin-top:40px}
@@ -440,3 +444,5 @@ html[data-navigating] .view{animation:none}
  .agent-docs h1{font-size:34px;overflow-wrap:anywhere}
 }
 @media(max-width:380px){.date-trigger{font-size:14px;gap:6px;padding:0 8px}.date-trigger>svg:first-child{display:none}.date-separator{padding:0}}
+
+@media(max-width:620px){.hero-grid-hover{mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%)}}
