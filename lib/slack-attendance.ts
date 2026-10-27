@@ -36,6 +36,6 @@ export async function notifyCalendarsReady(r:any){
  AND EXISTS(SELECT 1 FROM request_invitees p WHERE p.meeting_id=s.meeting_id)
  AND NOT EXISTS(SELECT 1 FROM request_invitees p WHERE p.meeting_id=s.meeting_id AND NOT EXISTS(SELECT 1 FROM attendees a WHERE a.meeting_id=p.meeting_id AND a.google_sub=p.google_sub)) RETURNING s.id`;
  if(!claimed)return;
- try{await slack('chat.postEphemeral',{channel:r.channel_id,user:r.organizer_id,text:`Everyone’s calendar is connected. <${appUrl()}/?meeting=${r.meeting_id}|View shared availability>. You can choose the time next.`})}
+ try{await slack('chat.postEphemeral',{channel:r.channel_id,user:r.organizer_id,text:`Everyone’s calendar is connected. <${appUrl()}/?meeting=${r.meeting_id}|Choose a time on Wharf>. Only you, the requester, can book the meeting.`})}
  catch(error){await sql()`UPDATE slack_meetings SET ready_notified=false WHERE id=${r.id}`;throw error}
 }
