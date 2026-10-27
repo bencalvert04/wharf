@@ -12,6 +12,11 @@ export function allowedSlackChannel(channel:unknown){return typeof channel==='st
 export function slackIntent(text:string){
  const clean=text.replace(/<@[UW][A-Z0-9]+>/g,'').trim().toLowerCase().replace(/[?!.,]+$/,'');
  if(/^(are you there|hello|hi|hey|ping|help)$/.test(clean))return 'help';
+ if(/\b(book|finali[sz]e|confirm|send (?:the )?invites|schedule)\b/.test(clean)){
+  if(/\b(?:do not|don't|dont|not yet|never|cancel)\b/.test(clean))return 'hold';
+  if(/\b(?:new|another) (?:meeting|time|event)\b/.test(clean)||/\b(?:tomorrow|today|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week)\b|\d{4}-\d{2}-\d{2}/.test(clean)&&! /\b(?:this|that|it|responded|joined|ready)\b/.test(clean))return 'schedule';
+  return 'book';
+ }
  if(/^(status|check( this meeting| availability)?|any update|who( is|'s) left|share( this meeting( in the channel)?| link)?)$/.test(clean))return 'status';
  return 'schedule';
 }

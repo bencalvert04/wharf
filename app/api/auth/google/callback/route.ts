@@ -1,3 +1,5 @@
+import {after} from 'next/server';
+import {resumeSlackBooking} from '@/lib/slack-workflow';
 import {completeSlackAttendance} from '@/lib/slack-attendance';
 import {completeAgentCalendarAuthorization} from '@/lib/agent-calendar-authorization';
 import {grantHasEventWrite} from '@/lib/google-event-payload';
@@ -7,6 +9,8 @@ import {google} from '@/lib/google';
 import {beginGoogleFlow} from '@/lib/google-flow';
 import {joinWithSavedCalendar,saveCalendarGrant,saveCalendarSnapshot} from '@/lib/calendar-connection';
 import {grantHasFreeBusy} from '@/lib/calendar-access';
+
+export const maxDuration=120;
 
 export async function GET(req:Request){
  let id='',agentAuthorization=false;
@@ -37,7 +41,7 @@ export async function GET(req:Request){
   try{const url=new URL(identity.picture||'');if(url.protocol==='https:'&&(url.hostname==='googleusercontent.com'||url.hostname.endsWith('.googleusercontent.com')))picture=url.href}catch{}
   const name=(identity.name||'Guest').slice(0,100);
   await sql()`UPDATE sessions SET google_sub=${identity.sub},name=${name},picture=${picture},email=${identity.email} WHERE id=${s.id}`;
-  if(agentAuthorization){await completeAgentCalendarAuthorization(flow,identity,tokens);return redirect('eventready')}
+  if(agentAuthorization){await completeAgentCalendarAuthorization(flow,identity,tokens);after(()=>resumeSlackBooking(flow.return_meeting_id));return redirect('eventready')}
   if(flow.purpose==='events'){
    const planned=await meeting(flow.return_meeting_id);
    if(!planned||planned.owner_session!==s.id||JSON.parse(planned.constraints).demo)return redirect('expired');

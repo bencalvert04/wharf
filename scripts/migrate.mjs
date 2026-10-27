@@ -105,3 +105,6 @@ console.log('Slack conversation context schema is ready.');
 const {slackAttendanceSchema}=await import('../db/slack-attendance-schema.mjs');
 for(const statement of slackAttendanceSchema)await sql.query(statement);
 console.log('Slack attendance schema is ready.');
+
+await sql`ALTER TABLE slack_meetings ADD COLUMN IF NOT EXISTS pending_booking boolean NOT NULL DEFAULT false`;
+await sql`ALTER TABLE slack_meetings ADD COLUMN IF NOT EXISTS invitation_ts text`;

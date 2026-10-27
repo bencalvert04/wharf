@@ -1,3 +1,6 @@
+import {resolveSlackFollowup,runSlackBooking} from './slack-booking-flow';
+import {refreshAgentAvailability} from './agent-refresh';
+import {authorizeAgentCalendar,hasAgentCalendarPermission} from './agent-calendar-authorization';
 import {attendFromSlack,canAttendSlackMeeting} from './slack-attendance';
 import {slackMeetingWhen} from './slack-meeting-when';
 import {slackHistory} from './slack-history';
@@ -5,7 +8,7 @@ import {slackMeetingName} from './slack-meeting-name';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {sql,appUrl} from './auth';
 import {sealToken,openToken} from './token-vault';
-import {createAgentMeeting,getAgentMeeting,getAgentSlots,AgentError} from './agent-api';
+import {createAgentMeeting,getAgentMeeting,getAgentSlots,loadAgentMeeting,AgentError} from './agent-api';
 import {prepareAgentCalendar,bookAgentMeeting} from './agent-booking';
 import {interpretOpenSlackRequest} from './slack-agent';
 import {slackEscape,canControlMeeting,slackIntent} from './slack-security';
@@ -15,7 +18,16 @@ const reply=(r:any,text:string,buttons:unknown[]=[])=>slackMessage(r.channel_id,
 const refresh=(id:string)=>slackButton('Click to attend','wharf_attend',id);
 
 export async function slackMention(envelope:any){
- const e=envelope.event,thread=e.thread_ts||e.ts;
+ const e=envelope.event,thread=e.thread_ts||e.ts,intent=slackIntent(e.text);
+ if(intent==='hold'){await sql()`UPDATE slack_meetings SET pending_booking=false WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND organizer_id=${e.user} AND (${!e.thread_ts} OR thread_ts=${thread} OR invitation_ts=${thread})`;await slackMessage(e.channel,'I cleared the pending booking request in this conversation. This does not cancel an event already created in Google Calendar.',thread);return}
+ if(intent==='book'||intent==='status'){
+  const candidates=await sql()`SELECT s.*,r.final_time IS NOT NULL AS finalized FROM slack_meetings s LEFT JOIN requests r ON r.id=s.meeting_id WHERE s.team_id=${envelope.team_id} AND s.channel_id=${e.channel} AND s.created_at>now()-interval '30 days' ORDER BY s.created_at DESC`;
+  const resolved=resolveSlackFollowup(candidates,{team:envelope.team_id,channel:e.channel,user:e.user,thread:e.thread_ts});
+  if(!resolved.meeting){await slackMessage(e.channel,resolved.ambiguous?'There are several open meetings here. Reply in the thread of the meeting you want me to book and mention @Wharf so I use the right attendees.':'I could not find one open meeting you requested here. Reply in the original meeting thread and mention @Wharf, or tell me the details for a new meeting.',thread);return}
+  const r=resolved.meeting;
+  if(r.organizer_id!==e.user){await slackMessage(e.channel,'Only the original requester can ask me to book this meeting.',thread);return}
+  if(intent==='book')await bookFromSlack(r);else await status(r);return;
+ }
  if(slackIntent(e.text)==='help'){await slackMessage(e.channel,"Tell me when you want to meet, like “15 minutes sometime today.” I’ll share a link anyone can join.",thread);return}
  const started=Date.now();
  // Run metadata calls alongside the database/model work, with a bounded fallback.
@@ -47,7 +59,8 @@ export async function slackMention(envelope:any){
 }
 async function status(r:any){
  if(!r.meeting_id){await createAndShare(r);return}
- if(r.draft.openJoin){await reply(r,`Open the meeting to see everyone who has joined and find a shared time: ${appUrl()}/?meeting=${r.meeting_id}`);return}
+ if(r.pending_booking){await bookFromSlack(r);return}
+ if(r.draft.openJoin){const m=await getAgentMeeting(r.meeting_id,keyFor(r));await reply(r,m.calendarEventCreated?'The Google Calendar event is created and invitations have been requested.':`${m.responseSummary.responded} people have joined. Availability covers only those people. When the group is ready, reply in this thread: @Wharf book a time that works for us. <${appUrl()}/?meeting=${r.meeting_id}|View meeting>`);return}
  const key=keyFor(r),m=await getAgentMeeting(r.meeting_id,key);
  if(m.calendarEventCreated){await reply(r,'The Google Calendar event is created and invitations have been requested for everyone.');return}
  if(m.status==='awaiting_responses'){await reply(r,`Waiting for ${m.responseSummary.waitingFor.map(id=>`<@${id}>`).join(', ')} to connect their availability.`,[refresh(r.id),slackButton('Share join link','wharf_invites',r.id)]);return}
@@ -71,6 +84,7 @@ async function invitations(r:any){
  const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes\n${slackEscape(slackMeetingWhen(d))}\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|view availability>`;
  // Post to the main channel so everyone can find the same invitation.
  const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,[refresh(r.id)]));
+ await sql()`UPDATE slack_meetings SET invitation_ts=${posted.ts} WHERE id=${r.id}`;
  // Membership is only for notification, after the usable link is already visible.
  if(d.openJoin&&group){try{
   const members=await slack('conversations.members',{channel:r.channel_id,limit:100});
@@ -92,6 +106,61 @@ export async function slackAction(payload:any){
  else if(a.action_id==='wharf_status')await status(r);
  else if(a.action_id==='wharf_book'&&r.meeting_id){await bookAgentMeeting(r.meeting_id,keyFor(r),{slotId:value.slotId,revision:value.revision});await status(r)}
 }
+
+async function slackOrganizer(r:any){
+ const row=await loadAgentMeeting(r.meeting_id,keyFor(r));
+ const [identity]=await sql()`SELECT a.google_sub FROM slack_google_accounts a JOIN sessions s ON s.id=a.session_id AND s.google_sub=a.google_sub WHERE a.team_id=${r.team_id} AND a.user_id=${r.organizer_id} AND s.expires_at>now()`;
+ if(!identity)return null;
+ const person=row.invitees.find((p:any)=>p.googleSub===identity.google_sub&&row.people.some((a:any)=>a.googleSub===p.googleSub));
+ return person?{participantId:person.id,sub:identity.google_sub}:null;
+}
+async function bookFromSlack(r:any){
+ if(!r.meeting_id){await reply(r,'This meeting is still being prepared. Try again shortly.');return}
+ const [stored]=await sql()`SELECT agent_request_id FROM requests WHERE id=${r.meeting_id}`;
+ if(!stored?.agent_request_id){await reply(r,`This older meeting uses the website booking flow. <${appUrl()}/?meeting=${r.meeting_id}|Open the meeting> to finish it. New meetings support booking here in Slack.`);return}
+ let organizer:{participantId:string;sub:string}|null=null;
+ const result=await runSlackBooking({
+  read:()=>getAgentMeeting(r.meeting_id,keyFor(r)),
+  refresh:()=>refreshAgentAvailability(r.meeting_id,keyFor(r)),
+  organizer:async()=>{organizer=await slackOrganizer(r);return organizer?.participantId||null},
+  authorize:async participant=>{
+   let auth=await prepareAgentCalendar(r.meeting_id,keyFor(r),{organizerParticipantId:participant});
+   // The authenticated Slack request authorizes this meeting only on the requester's
+   // linked, joined Google identity. Google event-write consent remains mandatory.
+   if(!auth.authorized&&organizer&&await hasAgentCalendarPermission(organizer.sub)){
+    await authorizeAgentCalendar(r.meeting_id,participant,organizer.sub);
+    auth={...auth,authorized:true};
+   }
+   return auth;
+  },
+  slots:()=>getAgentSlots(r.meeting_id,keyFor(r),{limit:1}),
+  book:choice=>bookAgentMeeting(r.meeting_id,keyFor(r),choice),
+  pending:async value=>{await sql()`UPDATE slack_meetings SET pending_booking=${value} WHERE id=${r.id}`}
+ });
+ const m=result.meeting;
+ if(result.kind==='booked'){
+  const when=m.finalTime?.start?new Date(m.finalTime.start).toLocaleString('en-US',{timeZone:m.constraints.zone,dateStyle:'medium',timeStyle:'short'}):'the confirmed time';
+  await reply(r,`Booked ${when} (${m.constraints.zone}). Google Calendar invitations were requested for the ${m.responseSummary.responded} people who joined.`);
+ }else if(result.kind==='consent'){
+  await slackDM(r.organizer_id,`Allow Google Calendar invitations for “${slackEscape(m.title)}”: ${result.authorizationUrl} . Your requested booking will continue automatically after authorization.`);
+  await reply(r,'I sent the requester a private Google Calendar authorization link. After approval, I will refresh the joined attendees’ calendars and book the earliest shared time.');
+ }else if(result.kind==='waiting')await reply(r,`I cannot book yet. ${m.responseSummary.responded} people have joined${m.responseSummary.waitingFor.length?`; still waiting for ${m.responseSummary.waitingFor.map((id:string)=>`<@${id}>`).join(', ')}`:''}. Ask the intended attendees to click to attend, then ask me to book again. I can only include people who actually joined.`,[refresh(r.id)]);
+ else if(result.kind==='organizer_missing')await reply(r,'The requester must click to attend with their Google account before I can book on their calendar.',[refresh(r.id)]);
+ else if(result.kind==='no_overlap')await reply(r,'I refreshed the joined attendees’ calendars, but no future time fits everyone in this meeting’s window. Ask for a new meeting with a wider window or shorter duration.');
+ else if(result.kind==='web_finalized')await reply(r,`This meeting already has a selected time. <${appUrl()}/?meeting=${r.meeting_id}|Open the meeting> to see its calendar delivery status.`);
+ else await reply(r,'The time is saved, but calendar delivery is not confirmed yet. Ask me to book again to retry the same event without creating a duplicate.');
+}
+export async function resumeSlackBooking(meetingId:string){
+ try{
+  const rows=await sql()`SELECT * FROM slack_meetings WHERE meeting_id=${meetingId} AND pending_booking=true AND created_at>now()-interval '30 days'`;
+  for(const r of rows)await bookFromSlack(r);
+ }catch(error){
+  console.error('Slack booking resume failed',{code:error instanceof AgentError?error.code:'integration_error'});
+  try{const rows=await sql()`SELECT * FROM slack_meetings WHERE meeting_id=${meetingId} AND pending_booking=true`;
+  for(const r of rows)await reply(r,error instanceof AgentError?`${slackEscape(error.message)} ${slackEscape(error.nextAction)}`:'Calendar authorization succeeded, but booking could not finish. Ask me to book again to retry.')}catch{console.error('Slack booking resume notification failed')}
+ }
+}
+
 export async function runSlackJob(id:string){
  const started=Date.now();
  const [job]=await sql()`UPDATE slack_jobs SET status='running',lease_until=now()+interval '3 minutes',attempts=attempts+1 WHERE id=${id} AND status<>'done' AND (lease_until IS NULL OR lease_until<now()) AND attempts<3 RETURNING *`;
