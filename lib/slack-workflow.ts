@@ -122,7 +122,7 @@ export async function slackAction(payload:any){
   await continuePrivateAnswer(meta.team,meta.channel,meta.thread,meta.user,payload.view.state.values.details.answer.value);return;
  }
  const a=payload.actions?.[0];if(!a)return;
- if(a.action_id==='wharf_duration'){const value=JSON.parse(a.value);if(![15,30,45,60].includes(value.minutes))return;await continuePrivateAnswer(payload.team.id,payload.channel.id,value.thread,payload.user.id,`${value.minutes} minutes`);return}
+ if(/^wharf_duration_(15|30|45|60)$/.test(a.action_id)){const value=JSON.parse(a.value);if(![15,30,45,60].includes(value.minutes))return;await continuePrivateAnswer(payload.team.id,payload.channel.id,value.thread,payload.user.id,`${value.minutes} minutes`);return}
  const value=a.action_id==='wharf_book'?JSON.parse(a.value):{id:a.value};
  const [r]=await sql()`SELECT * FROM slack_meetings WHERE id=${value.id} AND created_at>now()-interval '30 days'`;
  if(r&&['wharf_attend','wharf_status'].includes(a.action_id)){

@@ -11,7 +11,7 @@ export function missingMeetingDetail(text:string){
  return null;
 }
 export async function askPrivately(channel:string,user:string,thread:string,question:string,duration=false){
- const buttons=duration?[15,30,45,60].map(minutes=>slackButton(`${minutes} min`,'wharf_duration',JSON.stringify({thread,minutes}))):[];
+ const buttons=duration?[15,30,45,60].map(minutes=>slackButton(`${minutes} min`,`wharf_duration_${minutes}`,JSON.stringify({thread,minutes}))):[];
  buttons.push(slackButton(duration?'Other duration':'Answer privately','wharf_answer',thread));
  await slack('chat.postEphemeral',{channel,user,text:question,blocks:slackBlocks(question,buttons)});
 }

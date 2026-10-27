@@ -16,7 +16,7 @@ test('clarifications target only the requester in the original channel and offer
  t.mock.method(globalThis,'fetch',async(url:any,init:any)=>{calls.push({url,body:JSON.parse(init.body)});return Response.json({ok:true})});
  await askPrivately('C123','U123','123.456','How long should the meeting be?',true);
  assert.match(calls[0].url,/chat.postEphemeral$/);assert.equal(calls[0].body.channel,'C123');assert.equal(calls[0].body.user,'U123');
- const buttons=calls[0].body.blocks[1].elements;assert.equal(buttons[0].action_id,'wharf_duration');assert.equal(JSON.parse(buttons[0].value).thread,'123.456');assert.equal(buttons.at(-1).action_id,'wharf_answer');
+ const buttons=calls[0].body.blocks[1].elements;assert.equal(new Set(buttons.map((b:any)=>b.action_id)).size,buttons.length,'Slack requires unique action IDs within a block');assert.equal(buttons[0].action_id,'wharf_duration_15');assert.equal(JSON.parse(buttons[0].value).thread,'123.456');assert.equal(buttons.at(-1).action_id,'wharf_answer');
  await openPrivateAnswer({team:{id:'T'},channel:{id:'C'},user:{id:'U'},trigger_id:'trigger',actions:[{value:'thread'}]});
  assert.match(calls[1].url,/views.open$/);assert.deepEqual(JSON.parse(calls[1].body.view.private_metadata),{team:'T',channel:'C',user:'U',thread:'thread'});
 });
