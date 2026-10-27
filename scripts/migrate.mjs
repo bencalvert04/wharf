@@ -101,3 +101,7 @@ await sql`CREATE TABLE IF NOT EXISTS slack_context (
  messages jsonb NOT NULL,updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(team_id,channel_id,thread_ts,user_id)
 )`;
 console.log('Slack conversation context schema is ready.');
+
+const {slackAttendanceSchema}=await import('../db/slack-attendance-schema.mjs');
+for(const statement of slackAttendanceSchema)await sql.query(statement);
+console.log('Slack attendance schema is ready.');

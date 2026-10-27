@@ -1,3 +1,4 @@
+import {attendFromSlack,canAttendSlackMeeting} from './slack-attendance';
 import {slackHistory} from './slack-history';
 import {slackMeetingName} from './slack-meeting-name';
 import {randomUUID,randomBytes} from 'node:crypto';
@@ -10,7 +11,7 @@ import {slackEscape,canControlMeeting,slackIntent} from './slack-security';
 import {slack,slackMessage,slackDM,slackBlocks,slackButton} from './slack-client';
 const keyFor=(r:any)=>openToken(r.key_cipher,`slack:${r.id}`);
 const reply=(r:any,text:string,buttons:unknown[]=[])=>slackMessage(r.channel_id,text,r.thread_ts,buttons.length?slackBlocks(text,buttons):undefined);
-const refresh=(id:string)=>slackButton('Check availability','wharf_status',id);
+const refresh=(id:string)=>slackButton('Click to attend','wharf_attend',id);
 
 export async function slackMention(envelope:any){
  const e=envelope.event,thread=e.thread_ts||e.ts;
@@ -29,7 +30,7 @@ export async function slackMention(envelope:any){
  sql()`SELECT messages FROM slack_context WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user} AND updated_at>now()-interval '1 day'`,
  sql()`SELECT count(*)::int AS n FROM slack_jobs WHERE created_at>date_trunc('day',now()) AND payload->>'team_id'=${envelope.team_id} AND payload->>'type'='event_callback'`
  ]);
- if(existing){if(existing.organizer_id!==e.user){await reply(existing,'The requester controls this meeting. Use the shared join link in the channel to share availability.');return}if(slackIntent(e.text)==='schedule'){await reply(existing,'This meeting’s details are fixed. Start a new message with the revised details to create a new meeting. Use Check availability for this meeting.',[refresh(existing.id)]);return}await status(existing);return}
+ if(existing){if(existing.organizer_id!==e.user){await reply(existing,'The requester controls this meeting. Use the shared join link in the channel to share availability.');return}if(slackIntent(e.text)==='schedule'){await reply(existing,'This meeting’s details are fixed. Start a new message with the revised details to create a new meeting. Click to attend this meeting.',[refresh(existing.id)]);return}await status(existing);return}
  const messages=[...(context?.messages||[]),e.text.slice(0,4000)].slice(-6);
  await sql()`INSERT INTO slack_context(team_id,channel_id,thread_ts,user_id,messages) VALUES(${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(messages)}::jsonb) ON CONFLICT(team_id,channel_id,thread_ts,user_id) DO UPDATE SET messages=EXCLUDED.messages,updated_at=now()`;
  // A workspace-level daily cap bounds model spend even when channel members repeatedly mention the bot.
@@ -51,7 +52,7 @@ async function status(r:any){
  if(m.status==='awaiting_responses'){await reply(r,`Waiting for ${m.responseSummary.waitingFor.map(id=>`<@${id}>`).join(', ')} to connect their availability.`,[refresh(r.id),slackButton('Share join link','wharf_invites',r.id)]);return}
  if(m.status==='no_overlap'){await reply(r,'No shared time fits. Start a new thread with a wider date range or shorter duration.');return}
  const authorization=await prepareAgentCalendar(r.meeting_id,key,{organizerParticipantId:r.organizer_id});
- if(!authorization.authorized){await slackDM(r.organizer_id,`Authorize Wharf to create one calendar event for “${slackEscape(m.title)}”: ${authorization.authorizationUrl}`);await reply(r,'All participants have responded. I sent the requester a private calendar authorization link. Complete that step, then check availability.',[refresh(r.id)]);return}
+ if(!authorization.authorized){await slackDM(r.organizer_id,`Authorize Wharf to create one calendar event for “${slackEscape(m.title)}”: ${authorization.authorizationUrl}`);await reply(r,'All participants have responded. I sent the requester a private calendar authorization link. Complete that step, then ask me to check availability.',[refresh(r.id)]);return}
  if(m.finalTime){await reply(r,'The selected time is saved, but calendar delivery needs another attempt.',[slackButton('Retry calendar delivery','wharf_book',JSON.stringify({id:r.id,slotId:m.finalTime.slotId,revision:m.finalTime.basedOnRevision}))]);return}
  const slots=await getAgentSlots(r.meeting_id,key,{limit:3});
  await reply(r,'These times fit everyone. Only the requester can confirm a time. Confirmation creates the calendar event and sends invitations.');
@@ -80,6 +81,10 @@ export async function slackAction(payload:any){
  const a=payload.actions?.[0];if(!a)return;
  const value=a.action_id==='wharf_book'?JSON.parse(a.value):{id:a.value};
  const [r]=await sql()`SELECT * FROM slack_meetings WHERE id=${value.id} AND created_at>now()-interval '30 days'`;
+ if(r&&['wharf_attend','wharf_status'].includes(a.action_id)){
+  if(!canAttendSlackMeeting(r,payload.team.id,payload.channel.id,payload.user.id)){await slack('chat.postEphemeral',{channel:payload.channel.id,user:payload.user.id,text:'This invitation is not available to your Slack account.'});return}
+  try{await attendFromSlack(r,payload)}catch{await slack('chat.postEphemeral',{channel:payload.channel.id,user:payload.user.id,text:'Could not join this meeting. It may already be confirmed or expired. Please try again if it is still open.'})}return;
+ }
  if(!r||!canControlMeeting({team_id:r.team_id,channel_id:r.channel_id,organizer_id:r.organizer_id},payload.team.id,payload.channel.id,payload.user.id)){await slack('chat.postEphemeral',{channel:payload.channel.id,user:payload.user.id,text:'Only the original requester can control this meeting.'});return}
  if(a.action_id==='wharf_create'){await createAndShare(r);
  }else if(a.action_id==='wharf_invites'&&r.meeting_id)await invitations(r);

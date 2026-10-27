@@ -1,3 +1,4 @@
+import {completeSlackAttendance} from '@/lib/slack-attendance';
 import {completeAgentCalendarAuthorization} from '@/lib/agent-calendar-authorization';
 import {grantHasEventWrite} from '@/lib/google-event-payload';
 import {session,sql,hash,meeting,appUrl} from '@/lib/auth';
@@ -9,12 +10,19 @@ import {grantHasFreeBusy} from '@/lib/calendar-access';
 
 export async function GET(req:Request){
  let id='',agentAuthorization=false;
- const redirect=(message:string)=>agentAuthorization?Response.redirect(appUrl()+'/agent/authorize?status='+(['eventready'].includes(message)?'authorized':'failed'),303):Response.redirect(appUrl()+'/?'+new URLSearchParams({...(id?{meeting:id}:{}),calendar:message}),303);
+ let slackReturn:string|null=null;
+ const finishAttendance=async(flow:any,sessionId:string,sub:string)=>{if(flow.slack_attendance_id){await completeSlackAttendance(flow.slack_attendance_id,sessionId,sub)}};
+ const redirect=(message:string)=>slackReturn&&message==='joined'?Response.redirect(slackReturn,303):agentAuthorization?Response.redirect(appUrl()+'/agent/authorize?status='+(['eventready'].includes(message)?'authorized':'failed'),303):Response.redirect(appUrl()+'/?'+new URLSearchParams({...(id?{meeting:id}:{}),calendar:message}),303);
  try{
   const p=new URL(req.url).searchParams,s=await session(),state=p.get('state');
   if(!s||!state)return redirect('expired');
   const [flow]=await sql()`DELETE FROM oauth_states WHERE id=${hash(state)} AND session_id=${s.id} AND expires_at>now() RETURNING *`;
   if(!flow)return redirect('expired');
+  if(flow.slack_attendance_id){
+   const [link]=await sql()`SELECT s.team_id,s.channel_id FROM slack_attendance_links l JOIN slack_meetings s ON s.id=l.slack_meeting_id WHERE l.id=${flow.slack_attendance_id} AND l.session_id=${s.id} AND l.expires_at>now() AND l.completed_at IS NULL`;
+   if(!link)return redirect('expired');
+   slackReturn=`https://app.slack.com/client/${encodeURIComponent(link.team_id)}/${encodeURIComponent(link.channel_id)}`;
+  }
   agentAuthorization=flow.purpose==='agent_events';
   id=flow.meeting_id||flow.return_meeting_id||'';
   if(p.has('error'))return redirect('cancelled');
@@ -44,9 +52,10 @@ export async function GET(req:Request){
    await saveCalendarGrant(identity.sub,tokens.refresh_token,Number(flow.connection_version),tokens.scope);
    client.setCredentials(tokens);
    await saveCalendarSnapshot(client,{id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null);
+   await finishAttendance(flow,s.id,identity.sub);
    return redirect('joined');
   }
-  if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null))return redirect('joined');
-  return Response.redirect(await beginGoogleFlow(s.id,row.id,null,identity.sub,flow.invitee_id||null),303);
+  if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null)){await finishAttendance(flow,s.id,identity.sub);return redirect('joined')}
+  return Response.redirect(await beginGoogleFlow(s.id,row.id,null,identity.sub,flow.invitee_id||null,'join',flow.slack_attendance_id||null),303);
  }catch{return redirect('failed')}
 }
