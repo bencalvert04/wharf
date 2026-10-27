@@ -1,4 +1,4 @@
-import {missingMeetingDetail,askPrivately,timeRangeAnswer} from './slack-clarification';
+import {missingMeetingDetail,askPrivately,timeRangeAnswer,timePresetAnswer} from './slack-clarification';
 import {channelRoster,enrollRoster} from './slack-roster';
 import {resolveSlackFollowup,runSlackBooking} from './slack-booking-flow';
 import {refreshAgentAvailability} from './agent-refresh';
@@ -121,8 +121,8 @@ export async function slackAction(payload:any){
   await continuePrivateAnswer(meta.team,meta.channel,meta.thread,meta.user,payload.view.state.values.details.answer.value);return;
  }
  const a=payload.actions?.[0];if(!a)return;
- if(a.action_id==='wharf_time_range'){
-  let selection;try{selection=timeRangeAnswer(payload)}catch(error){await slackPrivateMessage(payload.channel.id,payload.user.id,(error as Error).message);return}
+ if(a.action_id==='wharf_time_range'||['wharf_preset_workday','wharf_preset_lunchtime','wharf_preset_anytime'].includes(a.action_id)){
+  let selection;try{selection=a.action_id==='wharf_time_range'?timeRangeAnswer(payload):timePresetAnswer(payload)}catch(error){await slackPrivateMessage(payload.channel.id,payload.user.id,(error as Error).message);return}
   await continuePrivateAnswer(payload.team.id,payload.channel.id,selection.thread,payload.user.id,selection.answer);return;
  }
  if(/^wharf_duration_(15|30|45|60)$/.test(a.action_id)){const value=JSON.parse(a.value);if(![15,30,45,60].includes(value.minutes))return;await continuePrivateAnswer(payload.team.id,payload.channel.id,value.thread,payload.user.id,`${value.minutes} minutes`);return}

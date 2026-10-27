@@ -10,21 +10,31 @@ export function missingMeetingDetail(text:string){
  if(day&&!window)return {question:'Between what start and end times should I look?',duration:false};
  return null;
 }
+const timePresets={
+ workday:{label:'Workday: 9am - 5pm',start:'09:00',end:'17:00'},
+ lunchtime:{label:'Lunchtime: 11:30am - 2:30pm',start:'11:30',end:'14:30'},
+ anytime:{label:'Any-Time: 5:00am - 9:00pm',start:'05:00',end:'21:00'}
+};
 export function timeRangeBlocks(thread:string,question:string){
- const option=(minute:number)=>({text:{type:'plain_text',text:minute===1440?'12:00 AM (end of day)':`${Math.floor(minute/60)%12||12}:${String(minute%60).padStart(2,'0')} ${minute<720?'AM':'PM'}`},value:`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`});
- const choices=Array.from({length:97},(_,i)=>option(i*15));
  const needsDay=question==='What day and time range should I use?';
  return [
-  {type:'section',text:{type:'mrkdwn',text:question}},
-  {type:'context',elements:[{type:'mrkdwn',text:`Choose a start and end time, from midnight to midnight. Times are in ${process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver'}.`}]},
+  {type:'section',text:{type:'mrkdwn',text:needsDay?'Choose a day and a time range.':'Choose a time range.'}},
+  {type:'context',elements:[{type:'mrkdwn',text:`Times are in ${process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver'}.`}]},
   {type:'actions',block_id:'wharf_time_range',elements:[
    ...(needsDay?[{type:'datepicker',action_id:'wharf_range_day',placeholder:{type:'plain_text',text:'Choose day'}}]:[]),
-   {type:'static_select',action_id:'wharf_range_start',placeholder:{type:'plain_text',text:'Start time'},options:choices.slice(0,-1)},
-   {type:'static_select',action_id:'wharf_range_end',placeholder:{type:'plain_text',text:'End time'},options:choices.slice(1)},
-   slackButton('Continue','wharf_time_range',JSON.stringify({thread,needsDay}))
+   ...Object.entries(timePresets).map(([preset,{label}])=>slackButton(label,`wharf_preset_${preset}`,JSON.stringify({thread,needsDay})))
   ]}
  ];
 }
+export function timePresetAnswer(payload:any){
+ const action=payload.actions[0],meta=JSON.parse(action.value);
+ const preset=timePresets[action.action_id.replace('wharf_preset_','') as keyof typeof timePresets];
+ if(!preset)throw Error('Choose one of the time range buttons.');
+ const day=payload.state?.values?.wharf_time_range?.wharf_range_day?.selected_date;
+ if(meta.needsDay&&!/^\d{4}-\d{2}-\d{2}$/.test(day||''))throw Error('Choose a day, then press a time range button.');
+ return {thread:meta.thread,answer:`${meta.needsDay?`On ${day}, `:''}between ${preset.start} and ${preset.end} (${process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver'}).`};
+}
+// Keep existing dropdown messages functional after the preset rollout.
 export function timeRangeAnswer(payload:any){
  const meta=JSON.parse(payload.actions[0].value);
  const values=payload.state?.values?.wharf_time_range;
