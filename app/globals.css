@@ -155,8 +155,7 @@ main.framed:has(.hero),.framed .view:has(.hero){display:flex;flex-direction:colu
 .availability{min-width:0}
 .result-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px}
 .result-toolbar h2{font-size:16px;font-weight:600;letter-spacing:-.02em;margin:0 0 2px}
-.result-toolbar p{font-size:13px;color:var(--muted);margin:0}
-.week-nav{display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.week-nav{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .calendar-scroll{overflow:auto;padding:1px}
 .calendar{border:1px solid var(--border);border-radius:12px;min-width:530px;background:var(--bg);overflow:hidden}
 .cal-head{display:flex;height:64px;border-bottom:1px solid var(--border)}
