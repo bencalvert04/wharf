@@ -17,6 +17,10 @@
  color-scheme:light}
 
 /* Base */
+/* Safari rubber-band scrolling exposes the document canvas behind .app. */
+html{background:#fff;color-scheme:light}
+html:has(.app:not(.light)){background:#0a0a0a;color-scheme:dark}
+body{background:inherit}
 *{box-sizing:border-box}
 body{margin:0;font-family:Geist,ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 button,input,select{font:inherit;color:inherit}
