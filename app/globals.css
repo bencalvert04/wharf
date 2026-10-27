@@ -253,8 +253,8 @@ input[type=range]{width:100%;accent-color:var(--text);margin:14px 0 6px}
 
 /* Delete */
 .delete-meeting{margin:12px 0 0}
-.result-intro:has(+ .delete-meeting){margin-bottom:0}
-.result-intro + .delete-meeting{display:flex;justify-content:flex-start;align-items:center;margin:0;padding:20px 0}
+.meeting-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;flex-shrink:0}
+.meeting-header-actions .delete-meeting{margin:0}
 .delete-meeting .outline{min-height:32px;padding:0 10px;font-size:13px;color:var(--muted)}
 .delete-meeting .outline:hover:not(:disabled){color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent);background:color-mix(in srgb,var(--danger) 6%,var(--bg))}
 .pending-card .delete-meeting{display:inline-block;margin-right:8px}
@@ -405,7 +405,7 @@ html[data-navigating] .view{animation:none}
  .back-row{margin:0 0 20px}
  .result-intro{gap:16px;margin-bottom:24px;padding-bottom:24px}
  .result-intro h1{font-size:28px}
- .result-intro>.primary{width:100%}
+ .meeting-header-actions{justify-content:flex-start;flex-shrink:1}
  .result-grid{gap:28px}
  .result-toolbar{gap:8px}
  .calendar{min-width:0;width:100%}
