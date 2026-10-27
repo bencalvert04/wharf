@@ -198,6 +198,8 @@ main.framed:has(.hero),.framed .view:has(.hero){display:flex;flex-direction:colu
 .app:not(.light) .meeting-confirmation{--bg:#29230f;--text:#f4e8b5;--muted:#c9b982;--border:#514520;--border-strong:#716031;--soft:#382e14}
 .meeting-confirmation a.outline{background:#000;border-color:#000;color:#fff}
 .meeting-confirmation a.outline:hover{background:#222;border-color:#222;color:#fff}
+.app:not(.light) .meeting-confirmation a.outline{background:#fff;border-color:#fff;color:#000}
+.app:not(.light) .meeting-confirmation a.outline:hover{background:#e5e5e5;border-color:#e5e5e5;color:#000}
 .fallback{padding:16px;border:1px solid var(--border);border-radius:12px;margin-bottom:16px;font-size:13px;color:var(--muted);line-height:1.6}
 .fallback p{margin:0 0 12px}
 .tabs{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--soft);border:1px solid var(--border)}
