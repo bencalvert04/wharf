@@ -14,6 +14,7 @@ export function slackIntent(text:string){
  if(/^(are you there|hello|hi|hey|ping|help)$/.test(clean))return 'help';
  if(/\b(book|finali[sz]e|confirm|send (?:the )?invites|schedule)\b/.test(clean)){
   if(/\b(?:do not|don't|dont|not yet|never|cancel)\b/.test(clean))return 'hold';
+  if(/\b(?:schedule|book|create|make|set up)\s+(?:us\s+)?(?:a|an)\s+(?:(?:\d+|half an?|an?)\s*(?:-?minutes?|hours?)\s+)?meeting\b/.test(clean))return 'schedule';
   if(/\b(?:new|another) (?:meeting|time|event)\b/.test(clean)||/\b(?:tomorrow|today|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week)\b|\d{4}-\d{2}-\d{2}/.test(clean)&&! /\b(?:this|that|it|responded|joined|ready)\b/.test(clean))return 'schedule';
   return 'book';
  }

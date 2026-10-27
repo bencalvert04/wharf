@@ -1,8 +1,9 @@
+import {missingMeetingDetail,askPrivately} from './slack-clarification';
 import {channelRoster,enrollRoster} from './slack-roster';
 import {resolveSlackFollowup,runSlackBooking} from './slack-booking-flow';
 import {refreshAgentAvailability} from './agent-refresh';
 import {authorizeAgentCalendar,hasAgentCalendarPermission} from './agent-calendar-authorization';
-import {attendFromSlack,canAttendSlackMeeting} from './slack-attendance';
+import {attendFromSlack,canAttendSlackMeeting,notifyCalendarsReady} from './slack-attendance';
 import {slackMeetingWhen} from './slack-meeting-when';
 import {slackHistory} from './slack-history';
 import {slackMeetingName} from './slack-meeting-name';
@@ -19,6 +20,7 @@ const reply=(r:any,text:string,buttons:unknown[]=[])=>slackMessage(r.channel_id,
 const refresh=(id:string)=>slackButton('Click to attend','wharf_attend',id);
 
 export async function slackMention(envelope:any){
+ const promptStarted=Date.now();
  const e=envelope.event,thread=e.thread_ts||e.ts,intent=slackIntent(e.text);
  if(intent==='hold'){await sql()`UPDATE slack_meetings SET pending_booking=false WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND organizer_id=${e.user} AND (${!e.thread_ts} OR thread_ts=${thread} OR invitation_ts=${thread})`;await slackMessage(e.channel,'I cleared the pending booking request in this conversation. This does not cancel an event already created in Google Calendar.',thread);return}
  if(intent==='book'||intent==='status'){
@@ -28,6 +30,14 @@ export async function slackMention(envelope:any){
   const r=resolved.meeting;
   if(r.organizer_id!==e.user){await slackMessage(e.channel,'Only the original requester can ask me to book this meeting.',thread);return}
   if(intent==='book')await bookFromSlack(r);else await status(r);return;
+ }
+ // Ask the common missing-detail question before history, roster, or model calls.
+ const [early]=await sql()`SELECT c.messages,EXISTS(SELECT 1 FROM slack_meetings m WHERE m.team_id=${envelope.team_id} AND m.channel_id=${e.channel} AND m.thread_ts=${thread}) AS created FROM (SELECT 1) seed LEFT JOIN slack_context c ON c.team_id=${envelope.team_id} AND c.channel_id=${e.channel} AND c.thread_ts=${thread} AND c.user_id=${e.user} AND c.updated_at>now()-interval '1 day'`;
+ const missing=missingMeetingDetail([...(early.messages||[]).filter((m:string)=>!m.startsWith('Wharf asked:')),e.text].join(' '));
+ if(intent!=='help'&&!early.created&&missing){
+  const messages=[...(early.messages||[]),e.text.slice(0,4000)].slice(-6);
+  await sql()`INSERT INTO slack_context(team_id,channel_id,thread_ts,user_id,messages) VALUES(${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(messages)}::jsonb) ON CONFLICT(team_id,channel_id,thread_ts,user_id) DO UPDATE SET messages=EXCLUDED.messages,updated_at=now()`;
+  await askPrivately(e.channel,e.user,thread,missing.question,missing.duration);console.info('Private clarification delivered',{processingMs:Date.now()-promptStarted,messageToPromptMs:Date.now()-Number(e.ts)*1000});return;
  }
  if(slackIntent(e.text)==='help'){await slackMessage(e.channel,"Tell me when you want to meet, like “15 minutes sometime today.” I’ll share a link anyone can join.",thread);return}
  const started=Date.now();
@@ -50,7 +60,7 @@ export async function slackMention(envelope:any){
  // A workspace-level daily cap bounds model spend even when channel members repeatedly mention the bot.
  if(usage.n>100){await slackMessage(e.channel,'The daily scheduling limit has been reached. Try again tomorrow.',thread);return}
  const result=await interpretOpenSlackRequest(messages.join('\nFollow-up: ').slice(-12000),process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver',Date.now(),await historyPromise);
- if(!result.draft){await sql()`UPDATE slack_context SET messages=${JSON.stringify([...messages,`Wharf asked: ${result.question}`].slice(-6))}::jsonb,updated_at=now() WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user}`;await slackMessage(e.channel,slackEscape(result.question!),thread);return}
+ if(!result.draft){await sql()`UPDATE slack_context SET messages=${JSON.stringify([...messages,`Wharf asked: ${result.question}`].slice(-6))}::jsonb,updated_at=now() WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user}`;await askPrivately(e.channel,e.user,thread,result.question!);return}
  if(!result.requestedTitle)result.draft.title=await namePromise;
  const participants=await channelRoster(e.channel);
  const draft={...result.draft,openJoin:false,participants};
@@ -79,17 +89,19 @@ async function createAndShare(r:any){
  const m=await createAgentMeeting(new Request(appUrl()+'/api/v1/meetings',{headers:{authorization:`Bearer ${keyFor(r)}`,'idempotency-key':`slack:${r.id}`}}),r.draft);
  await sql()`UPDATE slack_meetings SET meeting_id=${m.id} WHERE id=${r.id}`;
  r.meeting_id=m.id;
+ await slackMessage(r.channel_id,`I’ll arrange a ${r.draft.durationMinutes}-minute meeting: ${slackEscape(slackMeetingWhen(r.draft))}. I’ll check everyone’s calendars, then you can choose the time.`,r.thread_ts);
  await invitations(r);
  await enrollRoster(r.draft.participants||[],user=>attendFromSlack(r,{user:{id:user}},true),async user=>{
   await slack('chat.postEphemeral',{channel:r.channel_id,user,text:'You are included in this meeting, but I could not connect your calendar yet. Click Link Google Calendar to retry.',blocks:slackBlocks('You are included in this meeting. Link Google Calendar to share your availability.',[slackButton('Link Google Calendar','wharf_attend',r.id)])}).catch(()=>console.warn('Private calendar prompt could not be delivered'));
  });
+ await notifyCalendarsReady(r);
 }
 async function invitations(r:any){
  const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(r.channel_id);
  const d=r.draft,url=`${appUrl()}/?meeting=${encodeURIComponent(r.meeting_id)}`;
- const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes\n${slackEscape(slackMeetingWhen(d))}\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):`Everyone in this conversation is included (${d.participants.length} people). Connected calendars are added automatically; anyone who needs to connect gets a private prompt here.`}\n<${url}|view availability>`;
+ const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes\n${slackEscape(slackMeetingWhen(d))}\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):`Everyone in this conversation is included (${d.participants.length} people). I’m checking everyone’s calendars. Only people who need to connect will receive a private prompt.`}\n<${url}|view availability>`;
  // Post to the main channel so everyone can find the same invitation.
- const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,[d.openJoin?refresh(r.id):slackButton('Link Google Calendar','wharf_attend',r.id)]));
+ const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,d.openJoin?[refresh(r.id)]:[]));
  await sql()`UPDATE slack_meetings SET invitation_ts=${posted.ts} WHERE id=${r.id}`;
  // Membership is only for notification, after the usable link is already visible.
  if(d.openJoin&&group){try{
@@ -98,8 +110,19 @@ async function invitations(r:any){
   if(mentions)await slackMessage(r.channel_id,`${mentions}, please <${url}|click to attend> if applicable.`,posted.ts);
  }catch{console.warn('Slack attendance notification failed; meeting link was delivered')}}
 }
+async function continuePrivateAnswer(team:string,channel:string,thread:string,user:string,answer:string){
+ const [context]=await sql()`SELECT 1 FROM slack_context WHERE team_id=${team} AND channel_id=${channel} AND thread_ts=${thread} AND user_id=${user} AND updated_at>now()-interval '1 day'`;
+ if(!context||!answer?.trim())return;
+ await slackMention({team_id:team,event:{channel,user,thread_ts:thread,ts:String(Date.now()/1000),text:answer.slice(0,4000)}});
+}
 export async function slackAction(payload:any){
+ if(payload.type==='view_submission'){
+  const meta=JSON.parse(payload.view.private_metadata||'{}');
+  if(meta.team!==payload.team.id||meta.user!==payload.user.id)return;
+  await continuePrivateAnswer(meta.team,meta.channel,meta.thread,meta.user,payload.view.state.values.details.answer.value);return;
+ }
  const a=payload.actions?.[0];if(!a)return;
+ if(a.action_id==='wharf_duration'){const value=JSON.parse(a.value);if(![15,30,45,60].includes(value.minutes))return;await continuePrivateAnswer(payload.team.id,payload.channel.id,value.thread,payload.user.id,`${value.minutes} minutes`);return}
  const value=a.action_id==='wharf_book'?JSON.parse(a.value):{id:a.value};
  const [r]=await sql()`SELECT * FROM slack_meetings WHERE id=${value.id} AND created_at>now()-interval '30 days'`;
  if(r&&['wharf_attend','wharf_status'].includes(a.action_id)){
@@ -172,6 +195,6 @@ export async function runSlackJob(id:string){
  const [job]=await sql()`UPDATE slack_jobs SET status='running',lease_until=now()+interval '3 minutes',attempts=attempts+1 WHERE id=${id} AND status<>'done' AND (lease_until IS NULL OR lease_until<now()) AND attempts<3 RETURNING *`;
  if(!job)return;
  try{if(job.payload.type==='event_callback')await slackMention(job.payload);else await slackAction(job.payload);await sql()`UPDATE slack_jobs SET status='done',payload=jsonb_build_object('team_id',payload->>'team_id','type',payload->>'type') WHERE id=${id}`}
- catch(error){await sql()`UPDATE slack_jobs SET status='failed',lease_until=NULL WHERE id=${id}`;const p=job.payload,e=p.event;const channel=e?.channel||p.channel?.id,thread=e?.thread_ts||e?.ts||p.message?.thread_ts||p.message?.ts;if(channel)await slackMessage(channel,error instanceof AgentError?`${slackEscape(error.message)} ${slackEscape(error.nextAction)}`:'I could not complete that step. Try the button again or mention me again. If it continues, ask the workspace owner to check the bot configuration.',thread);console.error('Slack workflow failed',{jobId:id,code:error instanceof AgentError?error.code:'integration_error',errorType:error instanceof Error?error.name:'unknown',durationMs:Date.now()-started})}
+ catch(error){await sql()`UPDATE slack_jobs SET status='failed',lease_until=NULL WHERE id=${id}`;const p=job.payload,e=p.event;const meta=p.type==='view_submission'?JSON.parse(p.view.private_metadata||'{}'):null;const channel=e?.channel||p.channel?.id||meta?.channel,thread=e?.thread_ts||e?.ts||p.message?.thread_ts||p.message?.ts||meta?.thread;if(meta&&channel)await askPrivately(channel,p.user.id,thread,'I could not process that answer. Please try again.');else if(channel)await slackMessage(channel,error instanceof AgentError?`${slackEscape(error.message)} ${slackEscape(error.nextAction)}`:'I could not complete that step. Try the button again or mention me again. If it continues, ask the workspace owner to check the bot configuration.',thread);console.error('Slack workflow failed',{jobId:id,code:error instanceof AgentError?error.code:'integration_error',errorType:error instanceof Error?error.name:'unknown',durationMs:Date.now()-started})}
  finally{console.info('Slack job finished',{jobId:id,durationMs:Date.now()-started})}
 }

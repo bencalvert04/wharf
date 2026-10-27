@@ -108,3 +108,5 @@ console.log('Slack attendance schema is ready.');
 
 await sql`ALTER TABLE slack_meetings ADD COLUMN IF NOT EXISTS pending_booking boolean NOT NULL DEFAULT false`;
 await sql`ALTER TABLE slack_meetings ADD COLUMN IF NOT EXISTS invitation_ts text`;
+
+await sql`ALTER TABLE slack_meetings ADD COLUMN IF NOT EXISTS ready_notified boolean NOT NULL DEFAULT false`;

@@ -9,4 +9,4 @@ export async function slack(method:string,body:Record<string,unknown>,attempt=0)
 export async function slackMessage(channel:string,text:string,thread?:string,blocks?:unknown[]){return slack('chat.postMessage',{channel,text,unfurl_links:false,unfurl_media:false,...(thread?{thread_ts:thread}:{}),...(blocks?{blocks}:{})})}
 export async function slackDM(user:string,text:string){const dm=await slack('conversations.open',{users:user});return slackMessage(dm.channel.id,text)}
 export const slackButton=(text:string,action:string,value:string)=>({type:'button',text:{type:'plain_text',text},action_id:action,value});
-export const slackBlocks=(text:string,buttons:unknown[])=>[{type:'section',text:{type:'mrkdwn',text}},{type:'actions',elements:buttons}];
+export const slackBlocks=(text:string,buttons:unknown[])=>[{type:'section',text:{type:'mrkdwn',text}},...(buttons.length?[{type:'actions',elements:buttons}]:[])];
