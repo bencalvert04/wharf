@@ -10,3 +10,5 @@ export async function slackMessage(channel:string,text:string,thread?:string,blo
 export async function slackDM(user:string,text:string){const dm=await slack('conversations.open',{users:user});return slackMessage(dm.channel.id,text)}
 export const slackButton=(text:string,action:string,value:string)=>({type:'button',text:{type:'plain_text',text},action_id:action,value});
 export const slackBlocks=(text:string,buttons:unknown[])=>[{type:'section',text:{type:'mrkdwn',text}},...(buttons.length?[{type:'actions',elements:buttons}]:[])];
+
+export async function slackPrivateMessage(channel:string,user:string,text:string,blocks?:unknown[]){return slack('chat.postEphemeral',{channel,user,text,...(blocks?{blocks}:{})})}
