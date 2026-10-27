@@ -1,3 +1,4 @@
+import {channelRoster,enrollRoster} from './slack-roster';
 import {resolveSlackFollowup,runSlackBooking} from './slack-booking-flow';
 import {refreshAgentAvailability} from './agent-refresh';
 import {authorizeAgentCalendar,hasAgentCalendarPermission} from './agent-calendar-authorization';
@@ -51,8 +52,10 @@ export async function slackMention(envelope:any){
  const result=await interpretOpenSlackRequest(messages.join('\nFollow-up: ').slice(-12000),process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver',Date.now(),await historyPromise);
  if(!result.draft){await sql()`UPDATE slack_context SET messages=${JSON.stringify([...messages,`Wharf asked: ${result.question}`].slice(-6))}::jsonb,updated_at=now() WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user}`;await slackMessage(e.channel,slackEscape(result.question!),thread);return}
  if(!result.requestedTitle)result.draft.title=await namePromise;
+ const participants=await channelRoster(e.channel);
+ const draft={...result.draft,openJoin:false,participants};
  const id=randomUUID(),cipher=sealToken(randomBytes(32).toString('base64url'),`slack:${id}`);
- const [inserted]=await sql()`INSERT INTO slack_meetings(id,team_id,channel_id,thread_ts,organizer_id,draft,key_cipher) VALUES(${id},${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(result.draft)}::jsonb,${cipher}) ON CONFLICT DO NOTHING RETURNING *`;
+ const [inserted]=await sql()`INSERT INTO slack_meetings(id,team_id,channel_id,thread_ts,organizer_id,draft,key_cipher) VALUES(${id},${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(draft)}::jsonb,${cipher}) ON CONFLICT DO NOTHING RETURNING *`;
  const row=inserted||(await sql()`SELECT * FROM slack_meetings WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread}`)[0];
  await status(row);
  console.info('Slack meeting link delivered',{processingMs:Date.now()-started,messageToLinkMs:Date.now()-Number(e.ts)*1000});
@@ -77,13 +80,16 @@ async function createAndShare(r:any){
  await sql()`UPDATE slack_meetings SET meeting_id=${m.id} WHERE id=${r.id}`;
  r.meeting_id=m.id;
  await invitations(r);
+ await enrollRoster(r.draft.participants||[],user=>attendFromSlack(r,{user:{id:user}},true),async user=>{
+  await slack('chat.postEphemeral',{channel:r.channel_id,user,text:'You are included in this meeting, but I could not connect your calendar yet. Click Link Google Calendar to retry.',blocks:slackBlocks('You are included in this meeting. Link Google Calendar to share your availability.',[slackButton('Link Google Calendar','wharf_attend',r.id)])}).catch(()=>console.warn('Private calendar prompt could not be delivered'));
+ });
 }
 async function invitations(r:any){
  const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(r.channel_id);
- const d=r.draft,url=d.openJoin?`${appUrl()}/?meeting=${encodeURIComponent(r.meeting_id)}`:`${appUrl()}/slack/join/${r.id}`;
- const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes\n${slackEscape(slackMeetingWhen(d))}\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|view availability>`;
+ const d=r.draft,url=`${appUrl()}/?meeting=${encodeURIComponent(r.meeting_id)}`;
+ const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes\n${slackEscape(slackMeetingWhen(d))}\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):`Everyone in this conversation is included (${d.participants.length} people). Connected calendars are added automatically; anyone who needs to connect gets a private prompt here.`}\n<${url}|view availability>`;
  // Post to the main channel so everyone can find the same invitation.
- const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,[refresh(r.id)]));
+ const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,[d.openJoin?refresh(r.id):slackButton('Link Google Calendar','wharf_attend',r.id)]));
  await sql()`UPDATE slack_meetings SET invitation_ts=${posted.ts} WHERE id=${r.id}`;
  // Membership is only for notification, after the usable link is already visible.
  if(d.openJoin&&group){try{

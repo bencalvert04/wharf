@@ -12,18 +12,18 @@ export async function attendanceMeeting(r:any,user:string){
 export async function completeSlackAttendance(id:string,sessionId:string,sub:string){
  return completeAttendanceLink(sql(),id,sessionId,sub);
 }
-export async function attendFromSlack(r:any,payload:any){
+export async function attendFromSlack(r:any,payload:any,automatic=false){
  const user=payload.user.id;
  const {row,inviteeId}=await attendanceMeeting(r,user);
  const [account]=await sql()`SELECT s.* FROM slack_google_accounts a JOIN sessions s ON s.id=a.session_id AND s.google_sub=a.google_sub
  WHERE a.team_id=${r.team_id} AND a.user_id=${user} AND s.expires_at>now()`;
  if(account&&await joinWithSavedCalendar({id:row.id,constraints:row.constraints},account.google_sub,account.name||'Guest',account.id,inviteeId)){
-  await slack('chat.postEphemeral',{channel:r.channel_id,user,text:'You’re attending. Your Google calendar availability has been added to this meeting.'});return;
+  if(!automatic)await slack('chat.postEphemeral',{channel:r.channel_id,user,text:'You’re attending. Your Google calendar availability has been added to this meeting.'});return;
  }
  const secret=token();
  await sql()`INSERT INTO slack_attendance_links(id,team_id,user_id,slack_meeting_id) VALUES(${hash(secret)},${r.team_id},${user},${r.id})`;
  const url=`${appUrl()}/api/slack/attend?token=${encodeURIComponent(secret)}`;
- await slack('chat.postEphemeral',{channel:r.channel_id,user,text:`Connect your Google account to attend: <${url}|Continue with Google>`,
- blocks:[{type:'section',text:{type:'mrkdwn',text:'Connect Google once to attend. Future attendance clicks will stay here in Slack.'}},
- {type:'actions',elements:[{type:'button',text:{type:'plain_text',text:'Continue with Google'},url,action_id:'wharf_google_connect'}]}]});
+ await slack('chat.postEphemeral',{channel:r.channel_id,user,text:`Connect your Google account to attend: <${url}|Link Google Calendar>`,
+ blocks:[{type:'section',text:{type:'mrkdwn',text:'You’ve been included in this meeting. Please link your Google Calendar. Future meetings in this conversation will include your availability automatically.'}},
+ {type:'actions',elements:[{type:'button',text:{type:'plain_text',text:'Link Google Calendar'},url,action_id:'wharf_google_connect'}]}]});
 }

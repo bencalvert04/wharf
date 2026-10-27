@@ -10,7 +10,7 @@ export const createMeetingSchema=z.object({
  windowMode:z.enum(['daily','continuous']).optional().describe('continuous means one uninterrupted interval from startDate/dayStart through endDate/dayEnd, including overnight hours; daily repeats the hours each day.'),
  weekdays:z.array(z.number().int().min(0).max(6)).min(1).max(7).default([0,1,2,3,4,5,6]),
  openJoin:z.boolean().optional().describe('Anyone with invitationUrl may join. Omit participants for an open meeting; first person to connect becomes the human planner.'),
- participants:z.array(z.object({id:z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/),name:z.string().trim().min(1).max(100)}).strict()).max(20).default([])
+ participants:z.array(z.object({id:z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/),name:z.string().trim().min(1).max(100)}).strict()).max(1000).default([])
 }).strict().superRefine((v,ctx)=>{
  if(v.openJoin?v.participants.length>0:v.participants.length===0)ctx.addIssue({code:'custom',path:['participants'],message:v.openJoin?'Open meetings do not reserve participants.':'Include at least one participant.'});
  if(new Set(v.participants.map(p=>p.id)).size!==v.participants.length)ctx.addIssue({code:'custom',path:['participants'],message:'Participant IDs must be unique.'});
