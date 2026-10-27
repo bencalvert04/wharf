@@ -3,10 +3,10 @@ import {useEffect,useRef} from 'react';
 
 // The hand is a frictionless pendulum pivoting at the centre with just enough
 // energy to clear twelve o’clock: it falls, whips through six, and creeps over the top.
-const LAP=5200; // ms per revolution
-const CREST=0.2; // angular speed at twelve, relative to gravity; smaller hangs longer at the top
+const LAP=5600; // ms per revolution
+const CREST=0.16; // angular speed at twelve, relative to gravity; smaller hangs longer at the top
 const STEPS=1440;
-const GHOSTS=[18,36,54,72,90];
+const GHOSTS=[20,40,60,80,100,120];
 
 let lap:Float64Array|null=null;
 function timing(){
@@ -46,10 +46,12 @@ export default function GravityClock({className}:{className?:string}){
   return()=>{stop();observer.disconnect();motion.removeEventListener('change',sync)};
  },[]);
  return <svg ref={root} className={'gravity-clock'+(className?' '+className:'')} viewBox="0 0 200 200" role="img" aria-label="Clock">
-  <circle className="clock-face" cx="100" cy="100" r="96"/>
-  {Array.from({length:12},(_,i)=><line key={i} className={'clock-tick'+(i%3===0?' major':'')} x1="100" y1={i%3===0?14:16} x2="100" y2="24" transform={`rotate(${i*30} 100 100)`}/>)}
-  {GHOSTS.map((_,i)=><g key={i} ref={el=>{ghosts.current[i]=el}} className="clock-ghost" style={{opacity:.16-i*.03}}><line x1="100" y1="100" x2="100" y2="30"/></g>)}
-  <g ref={hand} className="clock-hand"><line x1="100" y1="114" x2="100" y2="30"/></g>
-  <circle className="clock-pivot" cx="100" cy="100" r="4"/>
+  <defs><radialGradient id="clock-face" cx="50%" cy="35%" r="70%"><stop offset="0" style={{stopColor:"var(--bg)"}}/><stop offset="1" style={{stopColor:"var(--subtle)"}}/></radialGradient></defs>
+  <circle className="clock-rim" cx="100" cy="100" r="99"/>
+  <circle className="clock-face" cx="100" cy="100" r="94" fill="url(#clock-face)"/>
+  {Array.from({length:60},(_,i)=><line key={i} className={'clock-tick'+(i%15===0?' major':i%5===0?' hour':'')} x1="100" y1={i%15===0?12:i%5===0?13:14} x2="100" y2={i%5===0?24:18} transform={`rotate(${i*6} 100 100)`}/>)}
+  {GHOSTS.map((_,i)=><g key={i} ref={el=>{ghosts.current[i]=el}} className="clock-ghost" style={{opacity:.2-i*.03}}><line x1="100" y1="100" x2="100" y2="44"/><circle cx="100" cy="40" r="9"/></g>)}
+  <g ref={hand} className="clock-hand"><line x1="100" y1="118" x2="100" y2="44"/><circle cx="100" cy="40" r="10"/></g>
+  <circle className="clock-pivot" cx="100" cy="100" r="5"/>
  </svg>;
 }
