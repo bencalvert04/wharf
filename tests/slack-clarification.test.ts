@@ -8,7 +8,7 @@ test('missing details are detected locally without a model or invented defaults'
  assert.equal(slackIntent('schedule a meeting'),'schedule');
  assert.equal(slackIntent('book a meeting'),'schedule');
  assert.equal(missingMeetingDetail('30 minutes')?.question,'What day and time range should I use?');
- assert.equal(missingMeetingDetail('30 minutes on Thursday')?.question,'Between what start and end times should I look?');
+ assert.equal(missingMeetingDetail('30 minutes on Thursday'),null);
  for(const text of ['30 minutes tomorrow between 10 am and 8 pm','half an hour tomorrow afternoon','an hour before 6 pm today','45-minute meeting tomorrow from 9 to 5','30 minutes Thursday 10 am to 8 pm'])assert.equal(missingMeetingDetail(text),null);
 });
 test('clarifications target only the requester in the original channel and offer private answers',async t=>{

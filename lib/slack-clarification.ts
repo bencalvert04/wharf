@@ -7,7 +7,6 @@ export function missingMeetingDetail(text:string){
  const day=/\b(today|tomorrow|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week)\b|\d{4}-\d{2}-\d{2}|\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(text);
  const window=/\b(between|before|after|until|by|from|morning|afternoon|evening|tonight|any ?time|sometime|all day|business hours)\b|\b\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*(?:to|and|[-–])\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/i.test(text);
  if(!day&&!window)return {question:'What day and time range should I use?',duration:false};
- if(day&&!window)return {question:'Between what start and end times should I look?',duration:false};
  return null;
 }
 const timePresets={
