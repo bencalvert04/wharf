@@ -1,4 +1,5 @@
 import {attendFromSlack,canAttendSlackMeeting} from './slack-attendance';
+import {slackMeetingWhen} from './slack-meeting-when';
 import {slackHistory} from './slack-history';
 import {slackMeetingName} from './slack-meeting-name';
 import {randomUUID,randomBytes} from 'node:crypto';
@@ -67,7 +68,7 @@ async function createAndShare(r:any){
 async function invitations(r:any){
  const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(r.channel_id);
  const d=r.draft,url=`${appUrl()}/slack/join/${r.id}`;
- const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes\n${d.windowMode==='continuous'?`${d.startDate} ${d.dayStart} → ${d.endDate||d.startDate} ${d.dayEnd}`:`${d.dayStart}–${d.dayEnd}`} (${slackEscape(d.timezone)})\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|view availability>`;
+ const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes\n${slackEscape(slackMeetingWhen(d))}\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|view availability>`;
  // Post to the main channel so everyone can find the same invitation.
  const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,[refresh(r.id)]));
  // Membership is only for notification, after the usable link is already visible.
