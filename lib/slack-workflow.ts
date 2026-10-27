@@ -66,14 +66,14 @@ async function createAndShare(r:any){
 async function invitations(r:any){
  const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(r.channel_id);
  const d=r.draft,url=`${appUrl()}/slack/join/${r.id}`;
- const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes · ${d.startDate} to ${d.endDate||d.startDate}\n${d.windowMode==='continuous'?`${d.startDate} ${d.dayStart} → ${d.endDate||d.startDate} ${d.dayEnd}`:`${d.dayStart}–${d.dayEnd}`} (${slackEscape(d.timezone)})\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable'):d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|view availability>`;
+ const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes · ${d.startDate} to ${d.endDate||d.startDate}\n${d.windowMode==='continuous'?`${d.startDate} ${d.dayStart} → ${d.endDate||d.startDate} ${d.dayEnd}`:`${d.dayStart}–${d.dayEnd}`} (${slackEscape(d.timezone)})\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):d.participants.map((p:any)=>`<@${p.id}>`).join(', ')}\n<${url}|view availability>`;
  // Post to the main channel so everyone can find the same invitation.
  const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,[refresh(r.id)]));
  // Membership is only for notification, after the usable link is already visible.
  if(d.openJoin&&group){try{
   const members=await slack('conversations.members',{channel:r.channel_id,limit:100});
   const mentions=members.members.filter((id:string)=>id!==process.env.SLACK_BOT_USER_ID).map((id:string)=>`<@${id}>`).join(' ');
-  if(mentions)await slackMessage(r.channel_id,`${mentions}, please <${url}|click to attend> if applicable`,posted.ts);
+  if(mentions)await slackMessage(r.channel_id,`${mentions}, please <${url}|click to attend> if applicable.`,posted.ts);
  }catch{console.warn('Slack attendance notification failed; meeting link was delivered')}}
 }
 export async function slackAction(payload:any){
