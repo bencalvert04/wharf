@@ -23,3 +23,22 @@ test('clarifications target only the requester in the original channel and offer
 test('a meeting announcement without opt-in buttons has no invalid empty actions block',()=>{
  assert.equal(slackBlocks('Meeting details',[]).length,1);
 });
+test('time clarification uses inline controls and midnight end without a private-answer button',async t=>{
+ const {timeRangeBlocks,timeRangeAnswer}=await import('../lib/slack-clarification.ts');
+ const blocks=timeRangeBlocks('123.456','Between what start and end times should I look?') as any[];
+ const controls=blocks.at(-1).elements;
+ assert.equal(controls[0].options[0].value,'00:00');
+ assert.equal(controls[1].options.at(-1).value,'24:00');
+ assert.equal(controls[0].options.length,96);
+ assert.equal(controls.some((v:any)=>v.action_id==='wharf_answer'),false);
+ const payload=(start:string,end:string)=>({actions:[controls.at(-1)],state:{values:{wharf_time_range:{wharf_range_start:{selected_option:{value:start}},wharf_range_end:{selected_option:{value:end}}}}}});
+ assert.match(timeRangeAnswer(payload('00:00','24:00')).answer,/between 00:00 and 24:00/);
+ assert.equal(timeRangeAnswer(payload('09:00','17:00')).thread,'123.456');
+ assert.throws(()=>timeRangeAnswer(payload('17:00','09:00')),/later/);
+ assert.throws(()=>timeRangeAnswer(payload('','17:00')),/Choose both/);
+ const dated=payload('09:00','17:00');dated.actions=[{value:JSON.stringify({thread:'123',needsDay:true})}];
+ assert.throws(()=>timeRangeAnswer(dated),/Choose a day/);
+ const calls:any[]=[];t.mock.method(globalThis,'fetch',async(url:any,init:any)=>{calls.push(JSON.parse(init.body));return Response.json({ok:true})});
+ await askPrivately('C123','U123','123.456','Between what start and end times should I look?');
+ assert.equal(calls[0].blocks.at(-1).elements.at(-1).action_id,'wharf_time_range');
+});
