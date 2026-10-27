@@ -186,6 +186,11 @@ main.framed:has(.hero),.framed .view:has(.hero){display:flex;flex-direction:colu
 .selection p{font-size:13px;line-height:1.6;color:var(--muted);margin:6px 0 0}
 .selection .primary,.selection .outline{margin-top:16px}
 .selection .micro{text-align:left}
+.booking-selection{position:relative;margin:0 0 24px;padding:18px;display:block}
+.booking-selection>div{min-width:0}
+.booking-selection strong{display:block;padding-right:20px;line-height:1.6}
+.booking-selection>.icon-button{position:absolute;right:8px;top:10px}
+@media(min-width:901px){.attendee-panel{align-self:start}.booking-selection{position:sticky;top:84px;z-index:2}}
 .meeting-confirmation{margin:0 0 32px}
 .fallback{padding:16px;border:1px solid var(--border);border-radius:12px;margin-bottom:16px;font-size:13px;color:var(--muted);line-height:1.6}
 .fallback p{margin:0 0 12px}
