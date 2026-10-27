@@ -1,3 +1,4 @@
+import {plannerAccess} from '@/lib/planner-access';
 import {after} from 'next/server';
 import {resumeSlackBooking} from '@/lib/slack-workflow';
 import {completeSlackAttendance} from '@/lib/slack-attendance';
@@ -44,7 +45,7 @@ export async function GET(req:Request){
   if(agentAuthorization){await completeAgentCalendarAuthorization(flow,identity,tokens);after(()=>resumeSlackBooking(flow.return_meeting_id));return redirect('eventready')}
   if(flow.purpose==='events'){
    const planned=await meeting(flow.return_meeting_id);
-   if(!planned||planned.owner_session!==s.id||JSON.parse(planned.constraints).demo)return redirect('expired');
+   if(!planned||!(await plannerAccess(planned,s)).allowed||JSON.parse(planned.constraints).demo)return redirect('expired');
    if(!grantHasFreeBusy(tokens.scope)||!grantHasEventWrite(tokens.scope)||!tokens.refresh_token)return redirect('eventpermission');
    await saveCalendarGrant(identity.sub,tokens.refresh_token,Number(flow.connection_version),tokens.scope);
    return redirect('eventready');

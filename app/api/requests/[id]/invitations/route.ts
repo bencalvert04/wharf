@@ -1,3 +1,4 @@
+import {plannerAccess} from '@/lib/planner-access';
 import {googleMeetingEvent,deliverGoogleEvent,CalendarPermissionRequired} from '@/lib/google-meeting-events';
 import {session,meeting,sameOrigin,json} from '@/lib/auth';
 import {queueMeetingInvitations,deliverInvitations} from '@/lib/invitations';
@@ -10,7 +11,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   if(!s)return json({error:'Sign in as the planner first.'},401);
   const row=await meeting(id);
   if(!row)return json({error:'Meeting not found or expired.'},404);
-  if(row.owner_session!==s.id)return json({error:'Only the planner can send invitations.'},403);
+  if(!(await plannerAccess(row,s)).allowed)return json({error:'Only the planner can send invitations.'},403);
   if(await googleMeetingEvent(id)){const calendar=await deliverGoogleEvent(id);return json({calendar},calendar.status==='created'?200:202)}
   await queueMeetingInvitations(id);
   const delivery=await deliverInvitations(id);
