@@ -245,6 +245,7 @@ input[type=range]{width:100%;accent-color:var(--text);margin:14px 0 6px}
 
 /* Delete */
 .delete-meeting{margin:12px 0 0}
+.result-intro + .delete-meeting{display:flex;justify-content:center;margin:12px 0 24px}
 .delete-meeting .outline{min-height:32px;padding:0 10px;font-size:13px;color:var(--muted)}
 .delete-meeting .outline:hover:not(:disabled){color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent);background:color-mix(in srgb,var(--danger) 6%,var(--bg))}
 .pending-card .delete-meeting{display:inline-block;margin-right:8px}
