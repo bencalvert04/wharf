@@ -10,6 +10,7 @@ import AvailabilityWindow from '@/components/AvailabilityWindow';
 import DeleteMeetingButton from '@/components/DeleteMeetingButton';
 import PendingMeetings from '@/components/PendingMeetings';
 import GravityClock from '@/components/GravityClock';
+import InteractiveGrid from '@/components/InteractiveGrid';
 import {ArrowDown, ArrowUp, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Check, Copy, X, Sun, Moon, Monitor, Clock3, Globe2, CalendarDays, Hash} from 'lucide-react';
 import {type Constraints,type Attendee,type Window,dates,shared,allowed,alternatives,localParts,validate} from '@/lib/availability';
 const initial:Constraints={title:'',start:'2026-10-26',end:'2026-10-30',duration:30,zone:'America/Denver',from:'09:00',to:'17:00',days:[0,1,2,3,4,5,6]};
@@ -127,7 +128,7 @@ export default function Home(){
  <header><div className="header-left"><button className="brand" onClick={goHome} aria-label="Wharf home"><svg className="brandmark" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="6" r="3"/><path d="M16 9v18M10 13h12M5 19c0 5 5 9 11 9s11-4 11-9"/><path d="m2 22 3-5 4 4m14 0 4-4 3 5"/></svg>Wharf</button><nav><button className={view==='create'||view==='results'?'active':''} onClick={reset}>Scheduler</button><button className={view==='pending'?'active':''} aria-current={view==='pending'?'page':undefined} onClick={showPending}>Pending meetings</button></nav></div><nav aria-label="Utilities"><button className={view==='docs'?'active':''} onClick={showDocs}>API <ArrowUpRight size={12}/></button><span className="nav-divider"/><button type="button" className="icon-button" aria-label={`Appearance: ${theme}. Switch to ${theme==='light'?'dark':theme==='dark'?'system':'light'} mode`} onClick={()=>changeTheme(theme==='light'?'dark':theme==='dark'?'system':'light')}>{theme==='light'?<Sun size={16}/>:theme==='dark'?<Moon size={16}/>:<Monitor size={16}/>}</button><AccountButton/></nav></header>
  <main className={view==='home'||view==='create'?'framed':undefined}>{!opening&&<div key={view} className="view">
  {view==='pending'&&<PendingMeetings onCreate={reset}/>}
- {view==='home'&&<section className="hero" aria-labelledby="hero-title"><GravityClock/><h1 id="hero-title">Find a time that works for everyone</h1><p>Wharf reads each person’s Google Calendar free/busy times and shows when you can all meet.</p><div className="hero-actions"><button type="button" className="primary pill" onClick={reset}>Create a meeting</button><button type="button" className="outline pill" onClick={showDemo}>View example</button></div></section>}
+ {view==='home'&&<section className="hero" aria-labelledby="hero-title"><InteractiveGrid/><GravityClock/><h1 id="hero-title">Find a time that works for everyone</h1><p>Wharf reads each person’s Google Calendar free/busy times and shows when you can all meet.</p><div className="hero-actions"><button type="button" className="primary pill" onClick={reset}>Create a meeting</button><button type="button" className="outline pill" onClick={showDemo}>View example</button></div></section>}
  {view==='create'&&<>
  <div className="setup-grid"><section className="setup" aria-labelledby="new-meeting-title">
  <h2 id="new-meeting-title" className="cell-title">New meeting</h2>
