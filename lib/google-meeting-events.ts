@@ -1,3 +1,4 @@
+import {announceSlackBooking} from './slack-booking-notice';
 import {sql,appUrl,meeting} from './auth';
 import {calendarConnection} from './calendar-connection';
 import {google} from './google';
@@ -30,7 +31,7 @@ export async function commitGoogleFinalization(id:string,c:Constraints,people:Pa
 }
 export async function deliverGoogleEvent(id:string){
  let job=await googleMeetingEvent(id);if(!job)throw Error('No Google Calendar invitation is queued.');
- if(job.delivered_at)return calendarStatus(job)!;
+ if(job.delivered_at){await announceSlackBooking(id).catch(()=>console.warn('Slack booking announcement failed'));return calendarStatus(job)!;}
  const connection=await eventConnection(job.organizer_sub);
  const [claimed]=await sql()`UPDATE google_meeting_events SET lease_until=now()+interval '90 seconds'
   WHERE meeting_id=${id} AND delivered_at IS NULL AND (lease_until IS NULL OR lease_until<now()) RETURNING *`;
@@ -50,5 +51,7 @@ export async function deliverGoogleEvent(id:string){
    throw new CalendarPermissionRequired();
   }
  }
- return calendarStatus(await googleMeetingEvent(id))!;
+ const status=calendarStatus(await googleMeetingEvent(id))!;
+ if(status.status==='created')await announceSlackBooking(id).catch(()=>console.warn('Slack booking announcement failed'));
+ return status;
 }
