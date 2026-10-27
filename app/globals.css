@@ -175,9 +175,9 @@ main.framed:has(.hero),.framed .view:has(.hero){display:flex;flex-direction:colu
 .slot-window{padding:0;isolation:isolate}
 .slot-window .availability-label{padding:4px 7px 4px 9px;pointer-events:none}
 .slot-window.has-slot .availability-label{visibility:hidden}
-.slot-window .meeting-slot{position:absolute;left:0;right:0;display:flex;flex-direction:column;justify-content:center;padding:3px 7px;background:var(--accent);color:var(--on-accent);border-radius:5px;pointer-events:none;overflow:hidden;z-index:1;box-shadow:0 0 0 1px var(--bg)}
-.slot-window .meeting-slot>span{font-size:11px;white-space:normal;line-height:1.3}
-.slot-window .meeting-slot small{font-size:11px;margin-top:1px;opacity:.85}
+.slot-window .meeting-slot{position:absolute;left:0;right:0;display:flex;align-items:center;padding:0 8px;background:var(--accent);color:var(--on-accent);border-radius:5px;pointer-events:none;overflow:hidden;z-index:1;box-shadow:0 0 0 1px var(--bg);container-type:size;container-name:slot-preview}
+.slot-window .meeting-slot>span{font-size:11px;line-height:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+@container slot-preview (max-height:18px){.meeting-slot>span{visibility:hidden}}
 .calendar-footer{display:flex;justify-content:space-between;padding-top:14px;color:var(--muted);font-size:12px}
 .empty-cal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(2px)}
 .empty-cal>svg{color:var(--faint)}
