@@ -1,3 +1,4 @@
+import {presentSlackCalendar} from './slack-embed';
 import {openPrivateAnswer} from './slack-clarification';
 import {createHash} from 'node:crypto';
 import {after} from 'next/server';
@@ -13,6 +14,10 @@ export async function slackWebhook(req:Request,interactive=false){
  let payload:any;try{payload=JSON.parse(interactive?new URLSearchParams(raw).get('payload')||'':raw)}catch{return new Response('Invalid payload',{status:400})}
  if(payload.type==='url_verification'&&!interactive)return Response.json({challenge:payload.challenge});
  if((interactive?payload.team?.id:payload.team_id)!==team)return new Response('Wrong workspace',{status:403});
+ if(!interactive&&payload.type==='event_callback'&&payload.event?.type==='entity_details_requested'){
+ const e=payload.event;if(!allowedSlackChannel(e.channel)||!e.user||!e.trigger_id)return new Response('Ignored');
+ after(()=>presentSlackCalendar(payload).catch(()=>console.warn('Slack calendar preview failed')));return new Response('');
+ }
  if(interactive&&payload.type==='view_submission'){
  let meta:any;try{meta=JSON.parse(payload.view?.private_metadata||'{}')}catch{return new Response('Invalid details',{status:400})}
  if(payload.view?.callback_id!=='wharf_details'||meta.team!==team||meta.user!==payload.user?.id||!allowedSlackChannel(meta.channel))return new Response('Invalid details',{status:403});
