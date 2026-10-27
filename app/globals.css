@@ -195,6 +195,8 @@ main.framed:has(.hero),.framed .view:has(.hero){display:flex;flex-direction:colu
 .booking-selection>.icon-button{position:absolute;right:8px;top:10px}
 @media(min-width:901px){.attendee-panel{align-self:start}.booking-selection{position:sticky;top:84px;z-index:2}}
 .meeting-confirmation{--bg:#fff9db;--text:#423714;--muted:#70613a;--border:#eadb9d;--border-strong:#d7c580;--soft:#fff2bd;margin:0 0 32px;background:var(--bg);border-color:var(--border);color:var(--text)}
+.meeting-confirmation a.outline{background:#000;border-color:#000;color:#fff}
+.meeting-confirmation a.outline:hover{background:#222;border-color:#222;color:#fff}
 .fallback{padding:16px;border:1px solid var(--border);border-radius:12px;margin-bottom:16px;font-size:13px;color:var(--muted);line-height:1.6}
 .fallback p{margin:0 0 12px}
 .tabs{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--soft);border:1px solid var(--border)}
