@@ -29,19 +29,3 @@ Haiku is called only for new requests, with a 700 output-token ceiling, up to 12
 Run `npm test`, `npm run typecheck`, and `npm run build`. Before recording, test in the configured channel with two accounts: automatic creation, shared channel invitation, both joins, organizer consent, slot confirmation, duplicate click, and a click from someone other than the requester. Live provider tests require installed Slack credentials and funded Anthropic API access.
 
 Group DMs: configure SLACK_GROUP_CHANNEL_IDS (comma-separated allowlist) and SLACK_BOT_USER_ID. Install mpim:history and mpim:read and subscribe to message.mpim. Only explicit bot mentions trigger responses; normal conversation is ignored. Everyone joins through the open link; membership is used for DM naming and attendance mentions, not a reserved roster. Before creation, up to six requester messages in the same thread are retained for one day to resolve clarification. Existing meetings remain immutable; requests to change them receive guidance to start a new message. Greetings and status commands are deterministic. No automatic retry worker is configured.
-
-## Embedded calendar
-
-Enable Work Object Previews for `slack#/entities/calendar_event`, allow the
-`wharfmeetings.com` domain, and subscribe to `entity_details_requested`.
-The app posts a meeting card. Opening it issues a ten-minute encrypted capability
-only to the meeting requester in the original workspace and channel. Both reads
-and bookings recheck the requester against the linked Google identity.
-
-The embed uses Slack's default opaque sandbox, without `allow-same-origin` or
-browser cookies. `scripts/build-slack-calendar.mjs` bundles the existing React
-calendar separately from Next's cookie-dependent router bootstrap. Run `npm run
-build` (or `npm run dev`) to generate its public JS and CSS. The API accepts the
-capability as an Authorization header, supports the sandbox's null Origin, and
-reuses the existing validated, idempotent Google Calendar booking flow. Meeting
-links retain the website fallback.

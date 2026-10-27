@@ -1,4 +1,3 @@
-import {calendarEntity} from './slack-embed';
 import {missingMeetingDetail,askPrivately} from './slack-clarification';
 import {channelRoster,enrollRoster} from './slack-roster';
 import {resolveSlackFollowup,runSlackBooking} from './slack-booking-flow';
@@ -100,9 +99,9 @@ async function createAndShare(r:any){
 async function invitations(r:any){
  const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(r.channel_id);
  const d=r.draft,url=`${appUrl()}/?meeting=${encodeURIComponent(r.meeting_id)}`;
- const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes\n${slackEscape(slackMeetingWhen(d))}\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):`Everyone in this conversation is included (${d.participants.length} people). I’m checking everyone’s calendars. Only people who need to connect will receive a private prompt.`}\n<${url}|view availability>`;
+ const text=`*${slackEscape(d.title)}*\n${d.durationMinutes} minutes\n${slackEscape(slackMeetingWhen(d))}\n${d.openJoin?(group?'Anyone with this link can join.':'<!channel>, please click to attend if applicable.'):`Everyone in this conversation is included (${d.participants.length} people). I’m checking everyone’s calendars. Only people who need to connect will receive a private prompt.`}\n<${url}|Open calendar on Wharf>`;
  // Post to the main channel so everyone can find the same invitation.
- const posted=await slack('chat.postMessage',{channel:r.channel_id,text,blocks:slackBlocks(text,d.openJoin?[refresh(r.id)]:[]),metadata:{entities:[calendarEntity(r)]},unfurl_links:false,unfurl_media:false});
+ const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,d.openJoin?[refresh(r.id)]:[]));
  await sql()`UPDATE slack_meetings SET invitation_ts=${posted.ts} WHERE id=${r.id}`;
  // Membership is only for notification, after the usable link is already visible.
  if(d.openJoin&&group){try{

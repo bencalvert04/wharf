@@ -29,8 +29,7 @@
       "request_url": "https://wharfmeetings.com/api/slack/events",
       "bot_events": [
         "app_mention",
-        "message.mpim",
-        "entity_details_requested"
+        "message.mpim"
       ]
     },
     "interactivity": {

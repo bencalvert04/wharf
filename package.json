@@ -7,8 +7,8 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "node scripts/build-slack-calendar.mjs && next dev",
-    "build": "node scripts/build-slack-calendar.mjs && next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
@@ -37,7 +37,6 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "tsx": "^4.23.15",
-    "typescript": "5.9.3",
-    "esbuild": "0.28.2"
+    "typescript": "5.9.3"
   }
 }
