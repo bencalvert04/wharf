@@ -3,6 +3,7 @@ import {calendarDisplayRange,calendarTickLabel} from '@/lib/calendar-display';
 import {useState,useMemo,useEffect,useLayoutEffect} from 'react';
 import {flushSync} from 'react-dom';
 import {samplePeople,demoConstraints} from '@/lib/demo';
+import {beginInviteCopy,type InviteCopy} from '@/lib/invite-clipboard';
 import AccountButton from '@/components/AccountButton';
 import DatePicker from '@/components/DatePicker';
 import AvailabilityWindow from '@/components/AvailabilityWindow';
@@ -34,6 +35,13 @@ export default function Home(){
  const [live,setLive]=useState<{attendees:{name:string;sample?:boolean}[];windows:Window[];bestWindows:Window[];joined:boolean;canRejoin?:boolean;canView:boolean;tracked?:boolean;isPlanner:boolean;revision:string;finalTime:{start:number;end:number}|null;calendar?:{status:'created'|'pending';htmlLink:string|null;error:string|null}|null;delivery?:{total:number;pending:number;needsReview:number}}|null>(null);
  useEffect(()=>{if(!meeting||demo)return;let active=true;const refresh=()=>fetch('/api/requests/'+meeting).then(r=>r.json()).then(d=>{if(active&&!d.error)setLive(d)}).catch(()=>{});refresh();const timer=setInterval(refresh,15000);window.addEventListener('focus',refresh);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',refresh)}},[meeting,demo]);
  useEffect(()=>{const result=new URLSearchParams(location.search).get('calendar');if(result)setNotice(({eventready:'Google Calendar invitations enabled. Select a time and create the meeting, or retry a pending invitation.',eventpermission:'Allow calendar event access to send Google Calendar invitations.',signedin:'You’re signed in with Google.',cancelled:'Google sign-in was cancelled.',permission:'Allow ongoing free/busy access to connect your calendar.',expired:'This sign-in expired. Please try again.',failed:'Could not read your calendar. Please try again and allow free/busy access.'} as Record<string,string>)[result]||'');},[]);
+ useEffect(()=>{
+  const id=new URLSearchParams(location.search).get('meeting');if(!id)return;
+  try{const status=sessionStorage.getItem('wharf-copy:'+id);if(!status)return;sessionStorage.removeItem('wharf-copy:'+id);
+   setCopied(status==='copied');setNotice(previous=>[previous,status==='copied'?'Invite link copied.':'Use Copy invite link to copy the invitation.'].filter(Boolean).join(' '));
+   const timer=setTimeout(()=>setCopied(false),3000);return()=>clearTimeout(timer);
+  }catch{}
+ },[]);
  const people=useMemo(()=>demo?samplePeople(c).slice(0,count):(live?.attendees||[]).map(p=>({...p,busy:[]})),[demo,c,count,live]);
  const windows=useMemo(()=>demo?(view==='results'&&people.length?shared(c,people):[]):live?.windows||[],[c,people,view,demo,live]);
  const fits=windows.filter(w=>w.end-w.start>=c.duration*60000);
@@ -50,8 +58,35 @@ export default function Home(){
  function showDocs(){navigate(()=>{setView('docs');history.pushState({},'','/?view=docs')})}
  function goBack(){if(backTarget==='pending')navigate(()=>{setDemo(false);setMeeting('');setLive(null);setSelected(null);setError('');setView('pending');history.replaceState({},'','/?view=pending')});else if(backTarget==='home')goHome();else reset();}
  function showDemo(){const from=view==='home'?'home':'create';navigate(()=>{setC(demoConstraints(c.zone));setLive(null);setMeeting('');setMode('everyone');setBackTarget(from);history.pushState({},'','/?view=demo');setDemo(true);setView('results');setCount(1);setAdjustedDemo(false);setWeek(0);setSelected(null);setError('')})}
- async function create(connect=false){try{validate(c);setLoading(true);setError('');const r=await fetch('/api/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...c,demo:demo&&connect,sampleCount:count,...(demo&&connect?{title:'lucid demo'}:{})})});const d:any=await r.json();if(!r.ok)throw Error(d.error||'Could not save this meeting.');setC(v=>({...v,demo:demo&&connect,...(demo&&connect?{title:'lucid demo'}:{})}));setBackTarget('create');try{sessionStorage.setItem('wharf-back:'+d.id,'create')}catch{}setMeeting(d.id);setDemo(false);setView('results');setWeek(0);setLive(null);history.pushState({},'',`/?meeting=${d.id}`);if(connect)await connectCalendar(d.id);}catch(e){setError((e as Error).message)}finally{setLoading(false)}}
- async function attend(){setLoading(true);try{const r=await fetch('/api/auth/account');const d=await r.json();if(!r.ok)throw Error(d.error);if(d.user?.calendarConnected){if(meeting&&!demo)await connectCalendar();else await create(true)}else setModal(true)}catch(e){setError((e as Error).message)}finally{setLoading(false)}}
+ async function create(connect=false,pendingCopy?:InviteCopy){
+  let invitationCopy=pendingCopy;
+  try{
+   validate(c);if(connect&&!invitationCopy)invitationCopy=beginInviteCopy();
+   setLoading(true);setError('');setCopied(false);
+   const r=await fetch('/api/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...c,demo:demo&&connect,sampleCount:count,...(demo&&connect?{title:'lucid demo'}:{})})});
+   const d:any=await r.json();if(!r.ok)throw Error(d.error||'Could not save this meeting.');
+   setC(v=>({...v,demo:demo&&connect,...(demo&&connect?{title:'lucid demo'}:{})}));setBackTarget('create');
+   try{sessionStorage.setItem('wharf-back:'+d.id,'create')}catch{}
+   setMeeting(d.id);setDemo(false);setView('results');setWeek(0);setLive(null);history.pushState({},'',`/?meeting=${d.id}`);
+   if(invitationCopy){
+    invitationCopy.resolve(`${location.origin}/?meeting=${encodeURIComponent(d.id)}`);
+    const success=await invitationCopy.result;
+    setCopied(success);setNotice(success?'Invite link copied.':'Meeting created. Use Copy invite link to copy the invitation.');
+    try{sessionStorage.setItem('wharf-copy:'+d.id,success?'copied':'failed')}catch{}
+   }
+   if(connect)await connectCalendar(d.id);
+  }catch(e){invitationCopy?.cancel();setError((e as Error).message)}finally{setLoading(false)}
+ }
+ async function attend(){
+  let invitationCopy:InviteCopy|undefined;
+  setLoading(true);
+  try{
+   if(!meeting||demo){validate(c);invitationCopy=beginInviteCopy()}
+   const r=await fetch('/api/auth/account');const d=await r.json();if(!r.ok)throw Error(d.error);
+   if(d.user?.calendarConnected){if(meeting&&!demo)await connectCalendar();else await create(true,invitationCopy)}
+   else{invitationCopy?.cancel();setModal(true)}
+  }catch(e){invitationCopy?.cancel();setError((e as Error).message)}finally{setLoading(false)}
+ }
  function invitationFor(id:string){const query=new URLSearchParams(location.search).get("invite");try{return query||sessionStorage.getItem("wharf-invite:"+id)}catch{return query}}
  async function connectCalendar(id=meeting){setModal(false);setLoading(true);try{const r=await fetch('/api/auth/google/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({meetingId:id,invitationToken:invitationFor(id)})});const d=await r.json();if(!r.ok)throw Error(d.error);location.assign(d.joined?`/?meeting=${encodeURIComponent(id)}&calendar=joined`:d.url)}catch(e){setError((e as Error).message);setLoading(false)}}
  async function leave(){setLoading(true);try{const r=await fetch('/api/requests/'+meeting+'/leave',{method:'POST'});if(!r.ok)throw Error('Could not remove availability.');const d=await fetch('/api/requests/'+meeting).then(r=>r.json());setLive(d);setSelected(null)}catch(e){setError((e as Error).message)}finally{setLoading(false)}}
