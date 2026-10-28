@@ -4,6 +4,6 @@ export function earliestSlotPrompt(id:string,available:{revision:number;slots:{i
  if(!slot){const text='Everyone’s calendar is connected, but no upcoming time fits everyone. Try a wider time range or shorter meeting.';return {text,blocks:slackBlocks(text,[])}}
  const date=new Intl.DateTimeFormat('en-US',{timeZone:slot.timezone,weekday:'short',month:'short',day:'numeric'}).format(new Date(slot.start));
  const time=new Intl.DateTimeFormat('en-US',{timeZone:slot.timezone,hour:'numeric',minute:'2-digit'});
- const text=`Looks like ${date}, ${time.format(new Date(slot.start))} to ${time.format(new Date(slot.end))} (${slot.timezone}) is free. Book meeting?`;
+ const text=`Looks like ${date}, ${time.format(new Date(slot.start))} to ${time.format(new Date(slot.end))} (${slot.timezone}) is free.`;
  return {text,blocks:slackBlocks(text,[slackButton('Book meeting','wharf_book',JSON.stringify({id,slotId:slot.id,revision:available.revision}))])};
 }

@@ -90,13 +90,15 @@ async function createAndShare(r:any){
  const m=await createAgentMeeting(new Request(appUrl()+'/api/v1/meetings',{headers:{authorization:`Bearer ${keyFor(r)}`,'idempotency-key':`slack:${r.id}`}}),r.draft);
  await sql()`UPDATE slack_meetings SET meeting_id=${m.id} WHERE id=${r.id}`;
  r.meeting_id=m.id;
- await invitations(r);
  await enrollRoster(r.draft.participants||[],user=>attendFromSlack(r,{user:{id:user}},true),async user=>{
   await slack('chat.postEphemeral',{channel:r.channel_id,user,text:'You are included in this meeting, but I could not connect your calendar yet. Click Link Google Calendar to retry.',blocks:slackBlocks('You are included in this meeting. Link Google Calendar to share your availability.',[slackButton('Link Google Calendar','wharf_attend',r.id)])}).catch(()=>console.warn('Private calendar prompt could not be delivered'));
  });
+ await invitations(r);
  await notifyCalendarsReady(r);
 }
 async function invitations(r:any){
+ // Try saved calendar connections first; announce planning only while someone is missing.
+ if(!r.draft.openJoin){const meeting=await getAgentMeeting(r.meeting_id,keyFor(r));if(!meeting.responseSummary.waitingFor.length)return}
  const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(r.channel_id);
  const d=r.draft,url=`${appUrl()}/?meeting=${encodeURIComponent(r.meeting_id)}`;
  const text=`I’m on it. Planning a ${d.durationMinutes}-minute meeting ${slackEscape(slackMeetingWhen(d,true))}. ${d.openJoin?'Click to attend so I can find a time that works for everyone.':'I’ll check everyone’s calendars to find a time that works.'}${d.openJoin?`\n\n<${url}|Open calendar on Wharf>`:''}`;
