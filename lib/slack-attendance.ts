@@ -48,5 +48,5 @@ export async function suggestEarliestSlackTime(r:any){
  const key=openToken(r.key_cipher,`slack:${r.id}`);
  await refreshAgentAvailability(r.meeting_id,key);
  const slots=await getAgentSlots(r.meeting_id,key,{limit:1});
- await slack('chat.postEphemeral',{channel:r.channel_id,user:r.organizer_id,...earliestSlotPrompt(r.id,slots)});
+ await slack('chat.postEphemeral',{channel:r.channel_id,user:r.organizer_id,...earliestSlotPrompt(r.id,slots,`${appUrl()}/?meeting=${encodeURIComponent(r.meeting_id)}`)});
 }
