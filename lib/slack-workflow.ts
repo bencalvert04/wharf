@@ -1,9 +1,10 @@
+import {meetingSlots} from './agent-slots';
 import {missingMeetingDetail,askPrivately,timeRangeAnswer,timePresetAnswer} from './slack-clarification';
 import {channelRoster,enrollRoster} from './slack-roster';
 import {resolveSlackFollowup,runSlackBooking} from './slack-booking-flow';
 import {refreshAgentAvailability} from './agent-refresh';
 import {authorizeAgentCalendar,hasAgentCalendarPermission} from './agent-calendar-authorization';
-import {attendFromSlack,canAttendSlackMeeting,notifyCalendarsReady} from './slack-attendance';
+import {attendFromSlack,canAttendSlackMeeting,notifyCalendarsReady,suggestEarliestSlackTime} from './slack-attendance';
 import {slackMeetingWhen} from './slack-meeting-when';
 import {slackHistory} from './slack-history';
 import {slackMeetingName} from './slack-meeting-name';
@@ -136,7 +137,30 @@ export async function slackAction(payload:any){
  if(a.action_id==='wharf_create'){await createAndShare(r);
  }else if(a.action_id==='wharf_invites'&&r.meeting_id)await invitations(r);
  else if(a.action_id==='wharf_status')await status(r);
- else if(a.action_id==='wharf_book'&&r.meeting_id){await bookAgentMeeting(r.meeting_id,keyFor(r),{slotId:value.slotId,revision:value.revision});await status(r)}
+ else if(a.action_id==='wharf_book'&&r.meeting_id){await confirmSuggestedTime(r,value)}
+}
+
+async function confirmSuggestedTime(r:any,choice:{slotId:string;revision:number}){
+ const key=keyFor(r),organizer=await slackOrganizer(r);
+ if(!organizer){await reply(r,'Connect your Google Calendar before booking.',[refresh(r.id)]);return}
+ let auth=await prepareAgentCalendar(r.meeting_id,key,{organizerParticipantId:organizer.participantId});
+ if(!auth.authorized&&await hasAgentCalendarPermission(organizer.sub)){
+  await authorizeAgentCalendar(r.meeting_id,organizer.participantId,organizer.sub);auth={...auth,authorized:true};
+ }
+ if(!auth.authorized){await reply(r,`<${auth.authorizationUrl}|Allow Google Calendar invitations>, then press Book meeting again to confirm this time.`);return}
+ await refreshAgentAvailability(r.meeting_id,key);
+ const row=await loadAgentMeeting(r.meeting_id,key);
+ if(row.final_time){
+  if(row.final_time.slotId!==choice.slotId){await reply(r,'This meeting already has a different confirmed time.');return}
+  await bookAgentMeeting(r.meeting_id,key,{slotId:choice.slotId,revision:row.final_time.basedOnRevision});
+ }else{
+  const view=await getAgentMeeting(r.meeting_id,key);
+  if(view.responseSummary.waitingFor.length){await reply(r,'Some attendees still need to connect their calendars before I can book.');return}
+  const slot=meetingSlots(r.meeting_id,JSON.parse(row.constraints),row.people).find(s=>s.id===choice.slotId);
+  if(!slot){await reply(r,'That time is no longer available. Here is the next earliest option.');await suggestEarliestSlackTime(r);return}
+  await bookAgentMeeting(r.meeting_id,key,{slotId:slot.id,revision:Number(row.revision)});
+ }
+ await status(r);
 }
 
 async function slackOrganizer(r:any){

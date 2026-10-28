@@ -1,3 +1,7 @@
+import {getAgentSlots} from './agent-api';
+import {refreshAgentAvailability} from './agent-refresh';
+import {openToken} from './token-vault';
+import {earliestSlotPrompt} from './slack-slot-prompt';
 import {calendarConnectPrompt} from './slack-connect-prompt';
 import {completeAttendanceLink} from './slack-attendance-store';
 export {canAttendSlackMeeting} from './slack-attendance-policy';
@@ -21,7 +25,7 @@ export async function attendFromSlack(r:any,payload:any,automatic=false){
  const [account]=await sql()`SELECT s.* FROM slack_google_accounts a JOIN sessions s ON s.id=a.session_id AND s.google_sub=a.google_sub
  WHERE a.team_id=${r.team_id} AND a.user_id=${user} AND s.expires_at>now()`;
  if(account&&await joinWithSavedCalendar({id:row.id,constraints:row.constraints},account.google_sub,account.name||'Guest',account.id,inviteeId)){
-  if(!automatic)await slack('chat.postEphemeral',{channel:r.channel_id,user,text:'You’re attending. Your Google calendar availability has been added to this meeting.'});return;
+  if(!automatic){await slack('chat.postEphemeral',{channel:r.channel_id,user,text:'You’re attending. Your Google calendar availability has been added to this meeting.'});await notifyCalendarsReady(r)}return;
  }
  const secret=token();
  await sql()`INSERT INTO slack_attendance_links(id,team_id,user_id,slack_meeting_id) VALUES(${hash(secret)},${r.team_id},${user},${r.id})`;
@@ -36,6 +40,13 @@ export async function notifyCalendarsReady(r:any){
  AND EXISTS(SELECT 1 FROM request_invitees p WHERE p.meeting_id=s.meeting_id)
  AND NOT EXISTS(SELECT 1 FROM request_invitees p WHERE p.meeting_id=s.meeting_id AND NOT EXISTS(SELECT 1 FROM attendees a WHERE a.meeting_id=p.meeting_id AND a.google_sub=p.google_sub)) RETURNING s.id`;
  if(!claimed)return;
- try{await slack('chat.postEphemeral',{channel:r.channel_id,user:r.organizer_id,text:`Everyone’s calendar is connected. <${appUrl()}/?meeting=${r.meeting_id}|Choose a time on Wharf>. Only you, the requester, can book the meeting.`})}
+ try{await suggestEarliestSlackTime(r)}
  catch(error){await sql()`UPDATE slack_meetings SET ready_notified=false WHERE id=${r.id}`;throw error}
+}
+
+export async function suggestEarliestSlackTime(r:any){
+ const key=openToken(r.key_cipher,`slack:${r.id}`);
+ await refreshAgentAvailability(r.meeting_id,key);
+ const slots=await getAgentSlots(r.meeting_id,key,{limit:1});
+ await slack('chat.postEphemeral',{channel:r.channel_id,user:r.organizer_id,...earliestSlotPrompt(r.id,slots)});
 }
