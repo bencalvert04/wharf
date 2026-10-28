@@ -21,6 +21,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@neondatabase/serverless": "^1.0.2",
+    "chrono-node": "^2.10.3",
     "drizzle-orm": "0.45.2",
     "google-auth-library": "^11.3.1",
     "lucide-react": "^1.31.0",

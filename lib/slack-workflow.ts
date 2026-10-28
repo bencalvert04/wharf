@@ -1,4 +1,8 @@
 import {dismissSlackPrompt} from './slack-dismiss';
+import {loadSlackProposal,insertSlackMeeting} from './slack-proposal';
+import {encodeSlackRequest} from './slack-jev-candidates';
+import {interpretJev,shortSlackReply,type SlackInterpretation} from './slack-jev';
+import {createMeetingSchema} from './agent-contract';
 import {meetingSlots} from './agent-slots';
 import {missingMeetingDetail,askPrivately,timeRangeAnswer,timePresetAnswer} from './slack-clarification';
 import {channelRoster,enrollRoster} from './slack-roster';
@@ -23,7 +27,25 @@ const refresh=(id:string)=>slackButton('Click to attend','wharf_attend',id);
 
 export async function slackMention(envelope:any){
  const promptStarted=Date.now();
- const e=envelope.event,thread=e.thread_ts||e.ts,intent=slackIntent(e.text);
+ const e=envelope.event,thread=e.thread_ts||e.ts;
+ const requestMessage=process.env.SLACK_INTERPRETER==='jev'?encodeSlackRequest(e.text,Number(e.ts)*1000):e.text.slice(0,4000);
+ let interpretation:SlackInterpretation|undefined;
+ let intent:string=slackIntent(e.text);
+ if(process.env.SLACK_INTERPRETER==='jev'){
+  const [[context],[usage],history]=await Promise.all([
+   sql()`SELECT messages FROM slack_context WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user} AND updated_at>now()-interval '1 day'`,
+   sql()`SELECT count(*)::int AS n FROM slack_jobs WHERE created_at>date_trunc('day',now()) AND (payload->>'team_id'=${envelope.team_id} OR payload->'team'->>'id'=${envelope.team_id})`,
+   slackHistory(e.channel,e.ts,e.thread_ts)
+  ]);
+  if(usage.n>100){await slackPrivateMessage(e.channel,e.user,'The daily scheduling limit has been reached. Try again tomorrow.');return}
+  interpretation=await interpretJev([...(context?.messages||[]),requestMessage].slice(-12).join('\nFollow-up: '),process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver',Date.now(),history);
+  intent=interpretation.intent||'other';
+  if(intent==='other'){
+   const question=await shortSlackReply(e.text,'Briefly answer or ask how to help arrange a meeting. Do not infer missing details.','Tell me a day, time window, and meeting length, and I’ll help arrange it.');
+   await slackPrivateMessage(e.channel,e.user,question);return;
+  }
+ }
+
  if(intent==='hold'){await sql()`UPDATE slack_meetings SET pending_booking=false WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND organizer_id=${e.user} AND (${!e.thread_ts} OR thread_ts=${thread} OR invitation_ts=${thread})`;await slackPrivateMessage(e.channel,e.user,'I cleared the pending booking request in this conversation. This does not cancel an event already created in Google Calendar.');return}
  if(intent==='book'||intent==='status'){
   const candidates=await sql()`SELECT s.*,r.final_time IS NOT NULL AS finalized FROM slack_meetings s LEFT JOIN requests r ON r.id=s.meeting_id WHERE s.team_id=${envelope.team_id} AND s.channel_id=${e.channel} AND s.created_at>now()-interval '30 days' ORDER BY s.created_at DESC`;
@@ -34,19 +56,19 @@ export async function slackMention(envelope:any){
   if(intent==='book')await bookFromSlack(r);else await status(r);return;
  }
  // Ask the common missing-detail question before history, roster, or model calls.
- const [early]=await sql()`SELECT c.messages,EXISTS(SELECT 1 FROM slack_meetings m WHERE m.team_id=${envelope.team_id} AND m.channel_id=${e.channel} AND m.thread_ts=${thread}) AS created FROM (SELECT 1) seed LEFT JOIN slack_context c ON c.team_id=${envelope.team_id} AND c.channel_id=${e.channel} AND c.thread_ts=${thread} AND c.user_id=${e.user} AND c.updated_at>now()-interval '1 day'`;
+ const [early]=interpretation?[{messages:[],created:false}]:await sql()`SELECT c.messages,EXISTS(SELECT 1 FROM slack_meetings m WHERE m.team_id=${envelope.team_id} AND m.channel_id=${e.channel} AND m.thread_ts=${thread}) AS created FROM (SELECT 1) seed LEFT JOIN slack_context c ON c.team_id=${envelope.team_id} AND c.channel_id=${e.channel} AND c.thread_ts=${thread} AND c.user_id=${e.user} AND c.updated_at>now()-interval '1 day'`;
  const missing=missingMeetingDetail([...(early.messages||[]).filter((m:string)=>!m.startsWith('Wharf asked:')),e.text].join(' '));
- if(intent!=='help'&&!early.created&&missing){
+ if(!interpretation&&intent!=='help'&&!early.created&&missing){
   const messages=[...(early.messages||[]),e.text.slice(0,4000)].slice(-6);
-  await sql()`INSERT INTO slack_context(team_id,channel_id,thread_ts,user_id,messages) VALUES(${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(messages)}::jsonb) ON CONFLICT(team_id,channel_id,thread_ts,user_id) DO UPDATE SET messages=EXCLUDED.messages,updated_at=now()`;
+  await sql()`INSERT INTO slack_context(team_id,channel_id,thread_ts,user_id,messages) VALUES(${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(messages)}::jsonb) ON CONFLICT(team_id,channel_id,thread_ts,user_id) DO UPDATE SET messages=EXCLUDED.messages,proposal=NULL,updated_at=now()`;
   await askPrivately(e.channel,e.user,thread,missing.question,missing.duration);console.info('Private clarification delivered',{processingMs:Date.now()-promptStarted,messageToPromptMs:Date.now()-Number(e.ts)*1000});return;
  }
- if(slackIntent(e.text)==='help'){await slackPrivateMessage(e.channel,e.user,"Tell me when you want to meet, like “15 minutes sometime today.” I’ll include everyone here and help you choose a time privately.");return}
- const started=Date.now();
+ if(!interpretation&&intent==='help'){await slackPrivateMessage(e.channel,e.user,"Tell me when you want to meet, like “15 minutes sometime today.” I’ll include everyone here and help you choose a time privately.");return}
+ const started=promptStarted;
  // Run metadata calls alongside the database/model work, with a bounded fallback.
  const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(e.channel);
  const fallback=group?'Group meeting':process.env.SLACK_CHANNEL_NAME||'all-wharf';
- const historyPromise=slackHistory(e.channel,e.ts,e.thread_ts);
+ const historyPromise=interpretation?Promise.resolve(''):slackHistory(e.channel,e.ts,e.thread_ts);
  const namePromise=Promise.race([
   slackMeetingName(e.channel,group).catch(()=>fallback),
   new Promise<string>(resolve=>{const timer=setTimeout(()=>resolve(fallback),2000);timer.unref?.()})
@@ -56,21 +78,33 @@ export async function slackMention(envelope:any){
  sql()`SELECT messages FROM slack_context WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user} AND updated_at>now()-interval '1 day'`,
  sql()`SELECT count(*)::int AS n FROM slack_jobs WHERE created_at>date_trunc('day',now()) AND payload->>'team_id'=${envelope.team_id} AND payload->>'type'='event_callback'`
  ]);
- if(existing){if(existing.organizer_id!==e.user){await slackPrivateMessage(e.channel,e.user,'Only the requester can plan this meeting. I’ll ask you privately if your calendar needs connecting.');return}if(slackIntent(e.text)==='schedule'){await reply(existing,'This meeting’s details are fixed. Start a new message with the revised details to create a new meeting. Click to attend this meeting.',[refresh(existing.id)]);return}await status(existing);return}
- const messages=[...(context?.messages||[]),e.text.slice(0,4000)].slice(-6);
- await sql()`INSERT INTO slack_context(team_id,channel_id,thread_ts,user_id,messages) VALUES(${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(messages)}::jsonb) ON CONFLICT(team_id,channel_id,thread_ts,user_id) DO UPDATE SET messages=EXCLUDED.messages,updated_at=now()`;
+ if(existing){if(existing.organizer_id!==e.user){await slackPrivateMessage(e.channel,e.user,'Only the requester can plan this meeting. I’ll ask you privately if your calendar needs connecting.');return}if(intent==='schedule'){await reply(existing,'This meeting’s details are fixed. Start a new message with the revised details to create a new meeting. Click to attend this meeting.',[refresh(existing.id)]);return}await status(existing);return}
+ const messages=[...(context?.messages||[]),requestMessage].slice(-12);
+ await sql()`INSERT INTO slack_context(team_id,channel_id,thread_ts,user_id,messages) VALUES(${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(messages)}::jsonb) ON CONFLICT(team_id,channel_id,thread_ts,user_id) DO UPDATE SET messages=EXCLUDED.messages,proposal=NULL,updated_at=now()`;
  // A workspace-level daily cap bounds model spend even when channel members repeatedly mention the bot.
  if(usage.n>100){await slackPrivateMessage(e.channel,e.user,'The daily scheduling limit has been reached. Try again tomorrow.');return}
- const result=await interpretOpenSlackRequest(messages.join('\nFollow-up: ').slice(-12000),process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver',Date.now(),await historyPromise);
- if(!result.draft){await sql()`UPDATE slack_context SET messages=${JSON.stringify([...messages,`Wharf asked: ${result.question}`].slice(-6))}::jsonb,updated_at=now() WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user}`;await askPrivately(e.channel,e.user,thread,result.question!);return}
+ const result:SlackInterpretation=interpretation||await interpretOpenSlackRequest(messages.join('\nFollow-up: ').slice(-12000),process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver',Date.now(),await historyPromise);
+ if(!result.draft){await sql()`UPDATE slack_context SET messages=${JSON.stringify([...messages,`Wharf asked: ${result.question}`].slice(-12))}::jsonb,updated_at=now() WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user}`;await askPrivately(e.channel,e.user,thread,result.question!,result.duration);return}
  if(!result.requestedTitle)result.draft.title=await namePromise;
- const participants=await channelRoster(e.channel);
- const draft={...result.draft,openJoin:false,participants};
- const id=randomUUID(),cipher=sealToken(randomBytes(32).toString('base64url'),`slack:${id}`);
- const [inserted]=await sql()`INSERT INTO slack_meetings(id,team_id,channel_id,thread_ts,organizer_id,draft,key_cipher) VALUES(${id},${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(draft)}::jsonb,${cipher}) ON CONFLICT DO NOTHING RETURNING *`;
- const row=inserted||(await sql()`SELECT * FROM slack_meetings WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread}`)[0];
- await status(row);
+ if(result.confirmation){
+  const id=randomUUID(),proposal={id,draft:result.draft};
+  await sql()`UPDATE slack_context SET proposal=${JSON.stringify(proposal)}::jsonb WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user}`;
+  const summary=`${result.draft.durationMinutes} minutes ${slackMeetingWhen(result.draft,true)}`;
+  const intro=await shortSlackReply(result.reason||'','Ask the user to confirm previously discussed meeting details. Do not include any dates, times, or numbers.','Use these details from the conversation?');
+  const text=`${intro}\n${slackEscape(summary)}${result.reason?.startsWith('“Next”')?`\n${slackEscape(result.reason)}`:''}`;
+  await slackPrivateMessage(e.channel,e.user,text,slackBlocks(text,[slackButton('Confirm','wharf_confirm_details',JSON.stringify({thread,id})),slackButton('Change details','wharf_answer',thread)]));return;
+ }
+ await finishSlackPlanning(envelope.team_id,e.channel,thread,e.user,result.draft);
  console.info('Slack meeting link delivered',{processingMs:Date.now()-started,messageToLinkMs:Date.now()-Number(e.ts)*1000});
+}
+async function finishSlackPlanning(team:string,channel:string,thread:string,user:string,input:unknown,proposalId?:string){
+ const parsed=createMeetingSchema.parse(input);
+ const participants=await channelRoster(channel),draft={...parsed,openJoin:false,participants};
+ const id=proposalId||randomUUID(),cipher=sealToken(randomBytes(32).toString('base64url'),`slack:${id}`);
+ const inserted=await insertSlackMeeting(sql(),{team,channel,thread,user},{id,draft,cipher},proposalId);
+ const row=inserted||(await sql()`SELECT * FROM slack_meetings WHERE team_id=${team} AND channel_id=${channel} AND thread_ts=${thread}`)[0];
+ if(!row||row.organizer_id!==user){await slackPrivateMessage(channel,user,'Those details have changed or expired. Please send the updated request.');return}
+ await status(row);
 }
 async function status(r:any){
  if(!r.meeting_id){await createAndShare(r);return}
@@ -126,6 +160,12 @@ export async function slackAction(payload:any){
   if(await continuePrivateAnswer(meta.team,meta.channel,meta.thread,meta.user,payload.view.state.values.details.answer.value))await dismissSlackPrompt(meta.responseUrl);return;
  }
  const a=payload.actions?.[0];if(!a)return;
+ if(a.action_id==='wharf_confirm_details'){
+  const value=JSON.parse(a.value);
+  const proposal=await loadSlackProposal(sql(),{team:payload.team.id,channel:payload.channel.id,thread:value.thread,user:payload.user.id},value.id);
+  if(!proposal){await slackPrivateMessage(payload.channel.id,payload.user.id,'Those details have changed or expired. Please send the updated request.');return}
+  await finishSlackPlanning(payload.team.id,payload.channel.id,value.thread,payload.user.id,proposal.draft,value.id);await dismissSlackPrompt(payload.response_url);return;
+ }
  if(a.action_id==='wharf_time_range'||['wharf_preset_workday','wharf_preset_lunchtime','wharf_preset_anytime','wharf_preset_evening'].includes(a.action_id)){
   let selection;try{selection=a.action_id==='wharf_time_range'?timeRangeAnswer(payload):timePresetAnswer(payload)}catch(error){await slackPrivateMessage(payload.channel.id,payload.user.id,(error as Error).message);return}
   if(await continuePrivateAnswer(payload.team.id,payload.channel.id,selection.thread,payload.user.id,selection.answer))await dismissSlackPrompt(payload.response_url);return;

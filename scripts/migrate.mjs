@@ -113,3 +113,5 @@ await sql`ALTER TABLE slack_meetings ADD COLUMN IF NOT EXISTS ready_notified boo
 
 const {slackBookingNoticesSchema}=await import('../db/slack-booking-notices-schema.mjs');
 for(const statement of slackBookingNoticesSchema)await sql.query(statement);
+
+await sql`ALTER TABLE slack_context ADD COLUMN IF NOT EXISTS proposal jsonb`;
