@@ -1,3 +1,4 @@
+import {dismissSlackPrompt} from './slack-dismiss';
 import {meetingSlots} from './agent-slots';
 import {missingMeetingDetail,askPrivately,timeRangeAnswer,timePresetAnswer} from './slack-clarification';
 import {channelRoster,enrollRoster} from './slack-roster';
@@ -114,21 +115,22 @@ async function invitations(r:any){
 }
 async function continuePrivateAnswer(team:string,channel:string,thread:string,user:string,answer:string){
  const [context]=await sql()`SELECT 1 FROM slack_context WHERE team_id=${team} AND channel_id=${channel} AND thread_ts=${thread} AND user_id=${user} AND updated_at>now()-interval '1 day'`;
- if(!context||!answer?.trim())return;
+ if(!context||!answer?.trim())return false;
  await slackMention({team_id:team,event:{channel,user,thread_ts:thread,ts:String(Date.now()/1000),text:answer.slice(0,4000)}});
+ return true;
 }
 export async function slackAction(payload:any){
  if(payload.type==='view_submission'){
   const meta=JSON.parse(payload.view.private_metadata||'{}');
   if(meta.team!==payload.team.id||meta.user!==payload.user.id)return;
-  await continuePrivateAnswer(meta.team,meta.channel,meta.thread,meta.user,payload.view.state.values.details.answer.value);return;
+  if(await continuePrivateAnswer(meta.team,meta.channel,meta.thread,meta.user,payload.view.state.values.details.answer.value))await dismissSlackPrompt(meta.responseUrl);return;
  }
  const a=payload.actions?.[0];if(!a)return;
  if(a.action_id==='wharf_time_range'||['wharf_preset_workday','wharf_preset_lunchtime','wharf_preset_anytime','wharf_preset_evening'].includes(a.action_id)){
   let selection;try{selection=a.action_id==='wharf_time_range'?timeRangeAnswer(payload):timePresetAnswer(payload)}catch(error){await slackPrivateMessage(payload.channel.id,payload.user.id,(error as Error).message);return}
-  await continuePrivateAnswer(payload.team.id,payload.channel.id,selection.thread,payload.user.id,selection.answer);return;
+  if(await continuePrivateAnswer(payload.team.id,payload.channel.id,selection.thread,payload.user.id,selection.answer))await dismissSlackPrompt(payload.response_url);return;
  }
- if(/^wharf_duration_(15|30|45|60)$/.test(a.action_id)){const value=JSON.parse(a.value);if(![15,30,45,60].includes(value.minutes))return;await continuePrivateAnswer(payload.team.id,payload.channel.id,value.thread,payload.user.id,`${value.minutes} minutes`);return}
+ if(/^wharf_duration_(15|30|45|60)$/.test(a.action_id)){const value=JSON.parse(a.value);if(![15,30,45,60].includes(value.minutes))return;if(await continuePrivateAnswer(payload.team.id,payload.channel.id,value.thread,payload.user.id,`${value.minutes} minutes`))await dismissSlackPrompt(payload.response_url);return}
  const value=a.action_id==='wharf_book'?JSON.parse(a.value):{id:a.value};
  const [r]=await sql()`SELECT * FROM slack_meetings WHERE id=${value.id} AND created_at>now()-interval '30 days'`;
  if(r&&['wharf_attend','wharf_status'].includes(a.action_id)){
@@ -139,7 +141,7 @@ export async function slackAction(payload:any){
  if(a.action_id==='wharf_create'){await createAndShare(r);
  }else if(a.action_id==='wharf_invites'&&r.meeting_id)await invitations(r);
  else if(a.action_id==='wharf_status')await status(r);
- else if(a.action_id==='wharf_book'&&r.meeting_id){await confirmSuggestedTime(r,value)}
+ else if(a.action_id==='wharf_book'&&r.meeting_id){if(await confirmSuggestedTime(r,value)&&payload.container?.is_ephemeral===true)await dismissSlackPrompt(payload.response_url)}
 }
 
 async function confirmSuggestedTime(r:any,choice:{slotId:string;revision:number}){
@@ -162,7 +164,10 @@ async function confirmSuggestedTime(r:any,choice:{slotId:string;revision:number}
   if(!slot){await reply(r,'That time is no longer available. Here is the next earliest option.');await suggestEarliestSlackTime(r);return}
   await bookAgentMeeting(r.meeting_id,key,{slotId:slot.id,revision:Number(row.revision)});
  }
- await status(r);
+ // The shared booking announcement already confirms success to everyone.
+ const booked=(await getAgentMeeting(r.meeting_id,key)).calendarEventCreated;
+ if(!booked)await status(r);
+ return booked;
 }
 
 async function slackOrganizer(r:any){
