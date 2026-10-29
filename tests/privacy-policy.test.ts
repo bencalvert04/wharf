@@ -8,6 +8,14 @@ test('privacy describes server-side profile storage separately from the browser 
  assert.match(privacyPolicy.profile,/opaque, HTTP-only session cookie, not those profile fields/);
  assert.doesNotMatch(privacyPolicy.profile,/profile photo URL in your browser session/);
 });
+test('provider privacy distinguishes calendar-reading login, retained credentials, and new email delivery',()=>{
+ assert.match(privacyPolicy.profile,/Google sign-in alone/);
+ assert.match(privacyPolicy.profile,/choosing Outlook or iCloud also connects that calendar/);
+ assert.match(privacyPolicy.otherCalendars,/credentials do not expire with browser sessions or meetings/);
+ assert.match(privacyPolicy.otherCalendars,/remain until disconnected or replaced/);
+ assert.match(privacyPolicy.otherCalendars,/Unsupported floating event times/);
+ assert.match(privacyPolicy.retention,/Gmail for Outlook\/iCloud-organized meetings/);
+});
 test('privacy distinguishes bounded background history, saved clarification context, and supported providers',()=>{
  assert.match(privacyPolicy.slack,/15 human messages from the preceding seven days, capped at 6,000 characters/);
  assert.match(privacyPolicy.slack,/author identifiers and timestamps/);

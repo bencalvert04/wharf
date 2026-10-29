@@ -19,16 +19,17 @@ export async function saveCalendarGrant(sub:string,refreshToken:string,generatio
  await storeCalendarGrant(sql(),sub,sealToken(refreshToken,sub),generation,scopes);
 }
 
-export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null){
+export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null,beforePersist?:()=>Promise<void>){
  const c=JSON.parse(row.constraints) as Constraints,bounds=allowed(c);
  if(!bounds.length)throw Error('No dates');
  const result=await client.request({url:'https://www.googleapis.com/calendar/v3/freeBusy',method:'POST',
   data:{timeMin:new Date(bounds[0].start).toISOString(),timeMax:new Date(bounds.at(-1)!.end).toISOString(),items:[{id:'primary'}]}});
  const busy=parseBusy(result.data,c);
+ await beforePersist?.();
  await persistCalendarSnapshot(row.id,sub,name,busy,sessionId,inviteeId);
 }
 
-export async function joinWithSavedCalendar(row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null,googleOnly=false){
+export async function joinWithSavedCalendar(row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null,googleOnly=false,beforePersist?:()=>Promise<void>){
  if(!googleOnly&&(await providerConnection(sub))?.credential){
   const busy=await readProviderAvailability(sub,JSON.parse(row.constraints));
   await persistCalendarSnapshot(row.id,sub,name,busy,sessionId,inviteeId);return true;
@@ -38,7 +39,7 @@ export async function joinWithSavedCalendar(row:{id:string;constraints:string;ow
  const client=google();
  client.setCredentials({refresh_token:openToken(connection.refresh_token,sub)});
  try{
-  await saveCalendarSnapshot(client,row,sub,name,sessionId,inviteeId);
+  await saveCalendarSnapshot(client,row,sub,name,sessionId,inviteeId,beforePersist);
   return true;
  }catch(error){
   if(!needsCalendarConsent(error))throw error;

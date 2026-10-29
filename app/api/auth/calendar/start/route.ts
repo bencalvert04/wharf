@@ -43,6 +43,7 @@ export async function POST(req:Request){
   const account=s.google_sub||'icloud:'+hash(principal);
   await storeProviderConnection(s,account,'icloud',JSON.stringify(credential),s.email||username,s.name||username.split('@')[0],generation);
   if(row)await joinProviderMeeting({id:row.id,constraints:row.constraints},account,s.name||username.split('@')[0],s.id,inviteeId);
-  return json({url:appUrl()+'/?'+new URLSearchParams({...(row?{meeting:row.id}:{}),calendar:row?'joined':'connected'})});
+  const returnId=row?.id||(typeof input.returnMeetingId==='string'?input.returnMeetingId.slice(0,100):null);
+  return json({url:appUrl()+'/?'+new URLSearchParams({...(returnId?{meeting:returnId}:{}),calendar:row?'joined':'connected'})});
  }catch{return json({error:'Could not connect your calendar. Check your credentials and try again. No availability was added unless the connection completed.'},503)}
 }
