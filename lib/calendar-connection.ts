@@ -1,3 +1,4 @@
+import {providerConnection,readProviderAvailability} from './provider-connections';
 import {sql} from './auth';
 import {persistCalendarSnapshot} from './meeting-participation';
 import {google,parseBusy} from './google';
@@ -27,7 +28,11 @@ export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;co
  await persistCalendarSnapshot(row.id,sub,name,busy,sessionId,inviteeId);
 }
 
-export async function joinWithSavedCalendar(row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null){
+export async function joinWithSavedCalendar(row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null,googleOnly=false){
+ if(!googleOnly&&(await providerConnection(sub))?.credential){
+  const busy=await readProviderAvailability(sub,JSON.parse(row.constraints));
+  await persistCalendarSnapshot(row.id,sub,name,busy,sessionId,inviteeId);return true;
+ }
  const connection=await calendarConnection(sub);
  if(!connection?.refresh_token||connection.disconnecting)return false;
  const client=google();

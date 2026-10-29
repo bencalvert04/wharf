@@ -1,3 +1,4 @@
+import {providerConnection,readProviderAvailability} from './provider-connections';
 import {sql} from './auth';
 import {loadAgentMeeting,AgentError} from './agent-api';
 import {calendarConnection} from './calendar-connection';
@@ -11,6 +12,9 @@ export async function refreshAgentAvailability(id:string,key:string){
  const constraints=JSON.parse(row.constraints),bounds=allowed(constraints);
  if(!bounds.length||!row.people.length)throw new AgentError('not_ready','No attendees or valid meeting window are available.',409,'Ask attendees to click to attend.');
  const snapshots=await Promise.all(row.people.map(async(person:any)=>{
+  if((await providerConnection(person.googleSub))?.credential){
+   try{return {sub:person.googleSub,busy:await readProviderAvailability(person.googleSub,constraints)}}catch{throw new AgentError('availability_refresh_failed',`Could not refresh ${person.name}’s calendar.`,409,'Ask them to reconnect their calendar, then try again.')}
+  }
   const connection=await calendarConnection(person.googleSub);
   if(!connection?.refresh_token||connection.disconnecting)throw new AgentError('calendar_reconnect_required',`${person.name} needs to reconnect their calendar.`,409,'Ask them to open the meeting and reconnect Google, then ask me to book again.');
   const client=google();client.setCredentials({refresh_token:openToken(connection.refresh_token,person.googleSub)});

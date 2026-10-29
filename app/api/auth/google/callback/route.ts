@@ -58,9 +58,10 @@ export async function GET(req:Request){
    client.setCredentials(tokens);
    await saveCalendarSnapshot(client,{id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null);
    await finishAttendance(flow,s.id,identity.sub);
+   await sql()`DELETE FROM calendar_provider_connections WHERE account_id=${identity.sub}`;
    return redirect('joined');
   }
-  if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null)){await finishAttendance(flow,s.id,identity.sub);return redirect('joined')}
+  if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null,true)){await sql()`DELETE FROM calendar_provider_connections WHERE account_id=${identity.sub}`;await finishAttendance(flow,s.id,identity.sub);return redirect('joined')}
   return Response.redirect(await beginGoogleFlow(s.id,row.id,null,identity.sub,flow.invitee_id||null,'join',flow.slack_attendance_id||null),303);
  }catch{return redirect('failed')}
 }

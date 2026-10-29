@@ -1,0 +1,27 @@
+# Calendar providers
+
+The Link calendar dialog offers Google Calendar, Outlook Calendar, and iCloud Calendar. A person without a Google account can connect Outlook or iCloud directly. The header login uses the same picker. Saved connections are reused when joining another meeting; disconnect removes saved credentials without deleting meeting snapshots.
+
+## Before enabling
+
+1. Run `npm run db:migrate` against the target database as part of the release. This adds `calendar_provider_connections` and `calendar_provider_states`; existing Google tables and identity values are preserved. Legacy columns called `google_sub` are account keys: new standalone identities use `microsoft:` or `icloud:` namespaces. Do not interpret all such values as Google subjects.
+2. Keep `GOOGLE_TOKEN_ENCRYPTION_KEY` configured and stable. The existing vault encrypts all provider credentials using account-bound AES-GCM. Never put credentials in client variables, source control, or logs.
+3. Register a Microsoft Entra application allowing **accounts in any organizational directory and personal Microsoft accounts**. Add a **Web** callback: `https://wharfmeetings.com/api/auth/microsoft/callback` (and the exact local APP_URL equivalent for testing). Set server-only `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET`. Request delegated `User.Read`, `Calendars.ReadBasic`, and `offline_access`; organizational policy may require administrator approval. No calendar write permission is requested. The Outlook button reports Setup required until configured.
+4. iCloud uses CalDAV and does not require a shared Apple application secret. Each user needs two-factor authentication and their own app-specific password generated at https://account.apple.com/. This is **not** Sign in with Apple. Never ask for a normal Apple Account password. iCloud is unavailable until the server token vault is configured.
+5. Keep `INVITATION_FROM` and `GMAIL_APP_PASSWORD` configured for non-Google planners. Without an email sender, finalization fails before saving a time. Google planners keep the native Google event invitation flow. Non-Google planners use the existing transactional calendar email outbox (with its existing ambiguous-delivery review behavior). No live test messages are sent automatically.
+
+## Data and permissions
+
+Google still requests primary-calendar free/busy. Outlook's basic read permission is broader, but calendarView uses an explicit select of start/end/showAs/isCancelled; no subject, body, location, or attendees are requested. calendarView supports both personal and organizational accounts and expands recurrences server-side. Every page must load successfully before any snapshot is saved. Tentative, busy, out-of-office, and unknown states block time; free and cancelled events do not.
+
+iCloud credentials allow wider access than free/busy, including writes. The server transport allows only read methods and restricts requests and redirects to Apple's CalDAV hosts. CalDAV reads all accessible event calendars within the meeting window, asks Apple to expand recurrence, and derives busy intervals; calendar content is not persisted. Transparent and cancelled events are excluded. All-day dates use the calendar's IANA timezone, falling back to the meeting timezone when absent. Unsupported or malformed calendar responses fail rather than claim the person is free.
+
+Disconnecting deletes local Microsoft/iCloud credentials. The user should additionally revoke Microsoft consent or the Apple app-specific password in provider settings. Google disconnection retains its existing provider revocation behavior. Connections are not merged across independently signed-in provider identities. When an already signed-in Wharf user links another provider, it is attached to that existing Wharf identity; the existing invitation email and display name are retained.
+
+The website and saved availability refresh support all three providers. The Slack bot's direct attendance/organizer authorization entry points remain Google-specific; this change does not advertise full Outlook/iCloud Slack booking support. No direct Microsoft/iCloud event writes are implemented.
+
+## Validation before release
+
+Run the build and tests, migrate a staging database, then test with consenting real accounts: personal Outlook, Microsoft 365 (including any admin-consent restrictions), and iCloud. Test first connection, declined consent, rejoin, sign out/in, disconnect/reconnect, mixed-provider availability, DST and all-day events, and finalization email acceptance. Provider mocks validate code paths, but cannot replace these account tests. The Microsoft app registration and delegated permissions have been checked, and the privately stored app credential passed a token-endpoint authentication check. The supplied test database was connected and migrated successfully. A BYU sign-in reached the university administrator consent workflow and is awaiting BYU approval; no delegated calendar access was confirmed. A real delegated Outlook connection, iCloud connection, and mixed-provider invitation test still need to be completed before release.
+
+References: [Microsoft calendarView](https://learn.microsoft.com/en-us/graph/api/calendar-list-calendarview?view=graph-rest-1.0), [Microsoft OAuth code flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow), [Apple app-specific passwords](https://support.apple.com/en-us/102654).

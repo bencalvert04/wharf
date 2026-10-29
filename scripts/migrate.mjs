@@ -117,3 +117,7 @@ const {slackBookingNoticesSchema}=await import('../db/slack-booking-notices-sche
 for(const statement of slackBookingNoticesSchema)await sql.query(statement);
 
 await sql`ALTER TABLE slack_context ADD COLUMN IF NOT EXISTS proposal jsonb`;
+
+const {calendarProviderSchema}=await import('../db/calendar-provider-schema.mjs');
+for(const statement of calendarProviderSchema)await sql.query(statement);
+console.log('Additional calendar provider schema is ready.');
