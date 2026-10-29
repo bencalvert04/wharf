@@ -12,11 +12,11 @@ Do not commit environment files, planner keys, invitation tokens, or MCP credent
 
 ## Calendar and privacy
 
-Google sign-in identifies the user. Attending a meeting asks for ongoing primary-calendar free/busy access if no saved grant exists. Refresh tokens are encrypted, authenticated, and bound to the Google account. Wharf uses them when the person joins a meeting and for on-demand availability refreshes when the Slack bot books a meeting; it does not continuously refresh existing snapshots. Disconnecting revokes the grant and deletes its connection record (including encrypted credentials, account identifier, scopes and version metadata). If revocation cannot be confirmed, local use is paused and the connection record is kept only for a retry. Existing meeting snapshots, memberships and sessions are not deleted by disconnect.
+Google sign-in identifies the user. Attending a meeting asks for ongoing primary-calendar free/busy access if no saved grant exists. Refresh tokens are encrypted, authenticated, and bound to the Google account. Wharf uses them when the person joins a meeting and for on-demand availability refreshes when the Slack bot suggests a time after calendars connect or finds a time to book; it does not continuously refresh existing snapshots. Disconnecting revokes the grant and deletes its connection record (including encrypted credentials, account identifier, scopes and version metadata). If revocation cannot be confirmed, local use is paused and the connection record is kept only for a retry. Existing meeting snapshots, memberships and sessions are not deleted by disconnect.
 
 Only free/busy intervals within the meeting's working hours are stored. Event titles, descriptions, guests and locations are not read. Planner credentials and joined browser sessions can read aggregate availability and names, not individual busy intervals. Invitation URLs expose meeting constraints and any confirmed time. A personal invitation token additionally reveals its intended participant label.
 
-Requests expire after 30 days and are removed by the daily cleanup route. Browser sessions expire after 30 days. Calendar write access is requested separately from planners who choose native Google Calendar invitations. A separate planner-only endpoint can send RSVP invitations through Gmail SMTP; agent finalization never invokes it. Demo meetings remain private to their creating browser and use clearly labeled sample calendars.
+Requests expire after 30 days and are removed by the daily cleanup route. Google profile fields are held in server-side Neon session records; the browser stores only an opaque HTTP-only session cookie. Browser sessions expire after 30 days. Calendar write access is requested separately from planners who choose native Google Calendar invitations. A separate planner-only endpoint can send RSVP invitations through Gmail SMTP; agent finalization never invokes it. Demo meetings remain private to their creating browser and use clearly labeled sample calendars.
 
 ## Agent workflow
 
@@ -86,7 +86,7 @@ Organizer selection is fixed for a meeting. Event booking requires verified atte
 
 ## Slack bot
 
-The single-workspace Slack integration uses Haiku for request interpretation and organizer-only buttons for creation and booking. See [setup and demo instructions](docs/slack.md) and the [Slack app manifest](docs/slack-manifest.json).
+The single-workspace Slack integration uses Anthropic for request interpretation by default, or Typesafe Jev when `SLACK_INTERPRETER=jev`; Jev mode can still use Anthropic to word short replies. It uses organizer-only controls for confirmation and booking. See [setup and demo instructions](docs/slack.md) and the [Slack app manifest](docs/slack-manifest.json).
 
 ## Pending meeting retention and re-entry
 

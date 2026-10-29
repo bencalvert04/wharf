@@ -9,7 +9,11 @@ async function fixture(){
  await database.exec(`CREATE TABLE google_calendar_connections(google_sub text PRIMARY KEY,refresh_token text,version integer NOT NULL DEFAULT 0,disconnecting boolean NOT NULL DEFAULT false,updated_at timestamptz NOT NULL DEFAULT now(),granted_scopes text);
  CREATE TABLE oauth_states(id text PRIMARY KEY,expected_sub text,connection_version integer);
  CREATE TABLE attendees(google_sub text,busy jsonb);
- INSERT INTO attendees VALUES('person','[]');`);
+ CREATE TABLE sessions(id text PRIMARY KEY,google_sub text,name text,email text);
+ CREATE TABLE meeting_memberships(meeting_id text,google_sub text,name text);
+ INSERT INTO attendees VALUES('person','[]');
+ INSERT INTO sessions VALUES('signed-in-session','person','Person','person@example.test');
+ INSERT INTO meeting_memberships VALUES('meeting','person','Person');`);
  for(const statement of calendarConnectionSchema)await database.exec(statement);
  const db=(async(strings:TemplateStringsArray,...values:unknown[])=>{
   const query=strings.reduce((out,part,index)=>out+(index?'$'+index:'')+part,'');
@@ -20,17 +24,35 @@ async function fixture(){
  await database.query('INSERT INTO oauth_states VALUES($1,$2,$3,$4)',['flow','person',generation.version,generation.connectionId]);
  return {database,db,generation};
 }
-test('successful disconnect deletes all connection metadata and pending consent, not snapshots or another account',async()=>{
+test('successful disconnect deletes connection metadata and pending consent, not snapshots, sessions, memberships or another account',async()=>{
  const {database,db}=await fixture();
  try{
-  await prepareCalendarConnection(db,'other');
+  const other=await prepareCalendarConnection(db,'other');
+  await storeCalendarGrant(db,'other','other-token',other,'other-scope');
+  await database.query('INSERT INTO oauth_states VALUES($1,$2,$3,$4)',['other-flow','other',other.version,other.connectionId]);
+  await database.query('INSERT INTO oauth_states VALUES($1,$2,$3,$4)',['legacy-flow','person',0,null]);
   const tokens:string[]=[];
   await disconnectCalendarConnection(db,'person',async token=>{tokens.push(token)});
   assert.deepEqual(tokens,['encrypted-token']);
   assert.deepEqual((await database.query('SELECT google_sub FROM google_calendar_connections')).rows,[{google_sub:'other'}]);
-  assert.deepEqual((await database.query('SELECT * FROM oauth_states')).rows,[]);
+  assert.deepEqual((await database.query('SELECT refresh_token,granted_scopes FROM google_calendar_connections')).rows,[{refresh_token:'other-token',granted_scopes:'other-scope'}]);
+  assert.deepEqual((await database.query('SELECT id FROM oauth_states')).rows,[{id:'other-flow'}]);
   assert.equal((await database.query('SELECT * FROM attendees')).rows.length,1);
+  assert.deepEqual((await database.query('SELECT * FROM sessions')).rows,[{id:'signed-in-session',google_sub:'person',name:'Person',email:'person@example.test'}]);
+  assert.deepEqual((await database.query('SELECT * FROM meeting_memberships')).rows,[{meeting_id:'meeting',google_sub:'person',name:'Person'}]);
   await disconnectCalendarConnection(db,'person',async()=>assert.fail('Repeated disconnect must not revoke'));
+ }finally{await database.close()}
+});
+test('normal consent and event-scope upgrades retain the same usable connection generation',async()=>{
+ const {database,db,generation}=await fixture();
+ try{
+  const existing=await prepareCalendarConnection(db,'person');
+  assert.deepEqual(existing,generation);
+  const scopes='openid profile email https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/calendar.events.owned';
+  await storeCalendarGrant(db,'person','upgraded-token',existing,scopes);
+  const [row]=(await database.query<{refresh_token:string;granted_scopes:string;disconnecting:boolean;version:number;connection_id:string}>('SELECT * FROM google_calendar_connections')).rows;
+  assert.equal(row.refresh_token,'upgraded-token');assert.equal(row.granted_scopes,scopes);assert.equal(row.disconnecting,false);
+  assert.equal(row.version,generation.version);assert.equal(row.connection_id,generation.connectionId);
  }finally{await database.close()}
 });
 test('a connection without a token is deleted without contacting Google',async()=>{
@@ -90,6 +112,21 @@ test('a stale disconnect completion cannot delete a replacement generation',asyn
    await storeCalendarGrant(db,'person','replacement-token',fresh,'new-scope');
   }),/changed during disconnection/);
   assert.equal((await database.query<{refresh_token:string}>('SELECT refresh_token FROM google_calendar_connections')).rows[0].refresh_token,'replacement-token');
+ }finally{await database.close()}
+});
+test('a stale worker failure cannot pause or reopen the retry claim on a replacement connection',async()=>{
+ const {database,db}=await fixture();
+ try{
+  let fresh!:Awaited<ReturnType<typeof prepareCalendarConnection>>;
+  await assert.rejects(disconnectCalendarConnection(db,'person',async()=>{
+   await database.exec('DELETE FROM google_calendar_connections');
+   fresh=await prepareCalendarConnection(db,'person');
+   await storeCalendarGrant(db,'person','replacement-token',fresh,'new-scope');
+   throw Error('Old provider call failed');
+  }),/Old provider call failed/);
+  const [row]=(await database.query<{refresh_token:string;disconnecting:boolean;connection_id:string}>('SELECT * FROM google_calendar_connections')).rows;
+  assert.equal(row.refresh_token,'replacement-token');assert.equal(row.disconnecting,false);assert.equal(row.connection_id,fresh.connectionId);
+  assert.deepEqual(await prepareCalendarConnection(db,'person'),fresh);
  }finally{await database.close()}
 });
 test('schema additions are repeatable, preserve existing grants, and expired worker claims can be retried',async()=>{
