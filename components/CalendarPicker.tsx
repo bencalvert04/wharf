@@ -3,7 +3,7 @@ import {useEffect,useRef,useState} from 'react';
 import {ArrowRight,ChevronLeft,X,CalendarDays} from 'lucide-react';
 export type CalendarChoice='google'|'microsoft'|'icloud';
 export type AppleLogin={username:string;password:string};
-export default function CalendarPicker({onClose,onConnect,invitationName='',planner=false}:{onClose:()=>void;onConnect:(provider:CalendarChoice,credentials?:AppleLogin)=>Promise<void>;invitationName?:string;planner?:boolean}){
+export default function CalendarPicker({onClose,onConnect,invitationName=''}:{onClose:()=>void;onConnect:(provider:CalendarChoice,credentials?:AppleLogin)=>Promise<void>;invitationName?:string}){
  const dialog=useRef<HTMLDialogElement>(null),connecting=useRef(false);
  const [apple,setApple]=useState(false),[username,setUsername]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[providers,setProviders]=useState<Record<CalendarChoice,boolean>|null>(null);
  useEffect(()=>{const d=dialog.current;d?.showModal();return()=>d?.close()},[]);
@@ -25,7 +25,7 @@ export default function CalendarPicker({onClose,onConnect,invitationName='',plan
  <div className="calendar-provider-options">
  {(['google','microsoft','icloud'] as const).map(provider=><button type="button" className="calendar-provider-option" key={provider} disabled={busy||!providers?.[provider]} onClick={()=>provider==='icloud'?setApple(true):void connect(provider)}><span className={'provider-mark '+provider} aria-hidden="true">{provider==='google'?'G':provider==='microsoft'?'M':'i'}</span><span><strong>{{google:'Google Calendar',microsoft:'Outlook Calendar',icloud:'iCloud Calendar'}[provider]}</strong><small>{providers&&!providers[provider]?'Setup required':{google:'Google accounts',microsoft:'Personal, work, and school accounts',icloud:'Apple Account · app-specific password'}[provider]}</small></span><ArrowRight size={16}/></button>)}
  </div>
- <p className="micro">Google shares free/busy times. {planner&&<>As the planner, you also allow Wharf to create meetings you confirm in Google Calendar and send invitations. </>}Outlook grants basic calendar read access; Wharf requests only times and availability status from your primary calendar. Your name and shared availability are visible to meeting participants. Your email is used for meeting invitations. <a href="/privacy" target="_blank" rel="noreferrer">Privacy</a></p>
+ <p className="micro">Google shares free/busy times. Outlook grants basic calendar read access; Wharf requests only times and availability status from your primary calendar. Your name and shared availability are visible to meeting participants. Your email is used for meeting invitations. <a href="/privacy" target="_blank" rel="noreferrer">Privacy</a></p>
  </>}
  {busy&&<p role="status">Connecting your calendar…</p>}{error&&<p role="alert">{error}</p>}
  </dialog>;

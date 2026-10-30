@@ -14,7 +14,7 @@ export async function POST(req:Request){
  try{
   const raw=await req.text();if(raw.length>4000)return json({error:'Request too large.'},413);
   const input=JSON.parse(raw);
-  if(input.provider==='google')return startGoogle(new Request(req.url,{method:'POST',headers:req.headers,body:JSON.stringify({...input,connectCalendar:true})}));
+  if(input.provider==='google')return startGoogle(new Request(req.url,{method:'POST',headers:req.headers,body:JSON.stringify(input)}));
   if(!['microsoft','icloud','saved'].includes(input.provider))return json({error:'Choose a calendar provider.'},400);
   if(!tokenVaultConfigured())return json({error:'Calendar credential encryption is not configured.'},503);
   if(input.provider==='microsoft'&&!microsoftConfigured())return json({error:'Outlook setup is not complete yet. The site owner needs to configure Microsoft sign-in.'},503);

@@ -1,6 +1,6 @@
 # Calendar providers
 
-The Link calendar dialog offers Google Calendar, Outlook Calendar, and iCloud Calendar. A person without a Google account can connect Outlook or iCloud directly. The header login uses the same picker. Google calendar linking requests identity and free/busy access in one authorization trip, including when linking outside a meeting. Planners connecting from their own non-demo website meeting also request event creation in that same trip, with an explanation in the picker; attendees do not request event writes. A person who later becomes a planner may need a one-time event-scope upgrade. Plain legacy Google login remains identity-only. Existing grants are reused; forced consent is reserved for known missing grants and planner event-permission upgrades. Google is not forced to show an account chooser on ordinary authorization. Google may still show multiple provider-owned screens. Saved connections are reused when joining another meeting; disconnect removes saved credentials without deleting meeting snapshots.
+The Link calendar dialog offers Google Calendar, Outlook Calendar, and iCloud Calendar. A person without a Google account can connect Outlook or iCloud directly. The header login uses the same picker. Saved connections are reused when joining another meeting; disconnect removes saved credentials without deleting meeting snapshots.
 
 ## Before enabling
 

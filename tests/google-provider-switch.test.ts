@@ -74,7 +74,7 @@ test('Google start rejects standalone provider linking before state, identity, o
   const {POST}=loadWithMocks<{POST:(r:Request)=>Promise<Response>}>(new URL('../app/api/auth/google/start/route.ts',import.meta.url),{
    '@/lib/calendar-intent':intentMock,'@/lib/provider-switch-guard':{captureGoogleSwitch,isStandaloneProviderAccount},
    '@/lib/auth':{sameOrigin:()=>true,json:(data:unknown,status=200)=>Response.json(data,{status}),session:async()=>({id:'session',google_sub:account}),sql:()=>()=>{writes++;throw Error('Unexpected mutation')}},
-   '@/lib/planner-access':{plannerAccess:async()=>({allowed:false})},'@/lib/google-event-payload':{grantHasEventWrite:()=>false},'@/lib/calendar-access':{},'@/lib/google':{configured:()=>true},'@/lib/google-flow':{},'@/lib/calendar-connection':{},'@/lib/meeting-participation':{},'@/lib/token-vault':{},
+   '@/lib/google':{configured:()=>true},'@/lib/google-flow':{},'@/lib/calendar-connection':{},'@/lib/meeting-participation':{},'@/lib/token-vault':{},
   });
   const response=await POST(new Request('https://wharf.example/api/auth/google/start',{method:'POST',body:'{}'}));
   assert.equal(response.status,409);assert.match((await response.json()).error,/sign out first/);assert.equal(writes,0);
@@ -99,7 +99,7 @@ for(const changed of [false,true])test(`saved Google join ${changed?'rejects new
   const {POST}=loadWithMocks<{POST:(r:Request)=>Promise<Response>}>(new URL('../app/api/auth/google/start/route.ts',import.meta.url),{
    '@/lib/calendar-intent':intentMock,'@/lib/provider-switch-guard':{captureGoogleSwitch,isStandaloneProviderAccount},
    '@/lib/auth':{sameOrigin:()=>true,json:(data:unknown,status=200)=>Response.json(data,{status}),meeting:async()=>({id:'meeting',constraints:'{}'}),session:async()=>({id:'session',google_sub:'google-user',name:'Person'}),sql:()=>routeDb},
-   '@/lib/planner-access':{plannerAccess:async()=>({allowed:false})},'@/lib/google-event-payload':{grantHasEventWrite:()=>false},'@/lib/calendar-access':{},'@/lib/google':{configured:()=>true},'@/lib/google-flow':{},'@/lib/calendar-connection':calendar,'@/lib/meeting-participation':{resolveInvitation:async()=>null},'@/lib/token-vault':{tokenVaultConfigured:()=>true},
+   '@/lib/google':{configured:()=>true},'@/lib/google-flow':{},'@/lib/calendar-connection':calendar,'@/lib/meeting-participation':{resolveInvitation:async()=>null},'@/lib/token-vault':{tokenVaultConfigured:()=>true},
   });
   const response=await POST(new Request('https://wharf.example/api/auth/google/start',{method:'POST',body:'{"meetingId":"meeting"}'}));
   assert.equal(response.status,changed?503:200);assert.equal(snapshots,changed?0:1);
