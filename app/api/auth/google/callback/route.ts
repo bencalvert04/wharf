@@ -8,7 +8,7 @@ import {session,sql,hash,meeting,appUrl} from '@/lib/auth';
 import {validEmail} from '@/lib/calendar-invitation';
 import {google} from '@/lib/google';
 import {beginGoogleFlow} from '@/lib/google-flow';
-import {joinWithSavedCalendar,saveCalendarGrant,saveCalendarSnapshot} from '@/lib/calendar-connection';
+import {joinWithSavedCalendar,saveCalendarGrant,saveCalendarSnapshot,prepareCalendarConsent,calendarConnection} from '@/lib/calendar-connection';
 import {grantHasFreeBusy} from '@/lib/calendar-access';
 
 export const maxDuration=120;
@@ -50,17 +50,27 @@ export async function GET(req:Request){
    await saveCalendarGrant(identity.sub,tokens.refresh_token,{version:Number(flow.connection_version),connectionId:flow.connection_id},tokens.scope);
    return redirect('eventready');
   }
-  if(!row)return redirect('signedin');
-  if(flow.expected_sub){
+  if(flow.purpose==='connect'||flow.purpose==='planner_connect'||(row&&flow.expected_sub)){
    // Google may allow profile sign-in while the user declines calendar permission.
-   if(!grantHasFreeBusy(tokens.scope)||!tokens.refresh_token)return redirect('permission');
-   await saveCalendarGrant(identity.sub,tokens.refresh_token,{version:Number(flow.connection_version),connectionId:flow.connection_id},tokens.scope);
+   if(!grantHasFreeBusy(tokens.scope))return redirect('permission');
+   if(tokens.refresh_token){
+    const generation=flow.expected_sub?{version:Number(flow.connection_version),connectionId:flow.connection_id}:await prepareCalendarConsent(identity.sub);
+    await saveCalendarGrant(identity.sub,tokens.refresh_token,generation,tokens.scope);
+   }else{
+    // Google normally omits a new refresh token when this account already granted access.
+    const saved=await calendarConnection(identity.sub);
+    if(!saved?.refresh_token||saved.disconnecting||!grantHasFreeBusy(saved.granted_scopes))return redirect('permission');
+    if(flow.expected_sub&&(saved.connection_id!==flow.connection_id||Number(saved.version)!==Number(flow.connection_version)))return redirect('expired');
+   }
+   if(!row){await sql()`DELETE FROM calendar_provider_connections WHERE account_id=${identity.sub}`;return redirect('connected')}
    client.setCredentials(tokens);
    await saveCalendarSnapshot(client,{id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null);
    await finishAttendance(flow,s.id,identity.sub);
    await sql()`DELETE FROM calendar_provider_connections WHERE account_id=${identity.sub}`;
    return redirect('joined');
   }
+  if(!row)return redirect('signedin');
+  // Compatibility for identity-only OAuth flows started before the update.
   if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null,true)){await sql()`DELETE FROM calendar_provider_connections WHERE account_id=${identity.sub}`;await finishAttendance(flow,s.id,identity.sub);return redirect('joined')}
   return Response.redirect(await beginGoogleFlow(s.id,row.id,null,identity.sub,flow.invitee_id||null,'join',flow.slack_attendance_id||null),303);
  }catch{return redirect('failed')}
