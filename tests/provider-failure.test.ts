@@ -8,6 +8,7 @@ test('a failed provider read never replaces a joined meeting snapshot with free 
   './auth':{},
   './meeting-participation':{persistCalendarSnapshot:async()=>{persisted++}},
   './provider-connections':{readProviderAvailability:async()=>{throw Error('Unsupported floating iCloud event time.')}},
+  './calendar-intent':{currentCalendarIntent:()=>({accounts:[]})},
  });
  await assert.rejects(joinProviderMeeting({id:'meeting',constraints:'{}'},'icloud:person','Person','session',null),/Unsupported/);
  assert.equal(persisted,0);
@@ -22,6 +23,7 @@ test('a failed participant provider refresh rejects before any snapshot or revis
   './agent-api':{AgentError,loadAgentMeeting:async()=>({constraints:'{}',revision:1,people:[{googleSub:'icloud:person',name:'Person'}]})},
   './calendar-connection':{},'./google':{},'./token-vault':{},
   './availability':{allowed:()=>[{start:1,end:2}]},
+  './calendar-intent':{captureAccountIntent:async()=>({accounts:[],expiresAt:'2100-01-01T00:00:00Z'}),runCalendarIntent:async(_intent:unknown,work:()=>Promise<unknown>)=>work()},
  });
  await assert.rejects(refreshAgentAvailability('meeting','mock-key'),(error:unknown)=>error instanceof AgentError&&error.code==='availability_refresh_failed');
  assert.equal(writes,0);

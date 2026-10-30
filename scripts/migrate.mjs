@@ -121,3 +121,7 @@ await sql`ALTER TABLE slack_context ADD COLUMN IF NOT EXISTS proposal jsonb`;
 const {calendarProviderSchema}=await import('../db/calendar-provider-schema.mjs');
 for(const statement of calendarProviderSchema)await sql.query(statement);
 console.log('Additional calendar provider schema is ready.');
+
+const {calendarIntentSchema}=await import('../db/calendar-intent-schema.mjs');
+for(const statement of calendarIntentSchema)await sql.query(statement);
+console.log('Calendar intent schema is ready.');

@@ -1,3 +1,4 @@
+import {captureSessionIntent,currentCalendarIntent,runCalendarIntent} from './calendar-intent';
 import {providerConnection,readProviderAvailability} from './provider-connections';
 import {sql} from './auth';
 import {persistCalendarSnapshot} from './meeting-participation';
@@ -29,7 +30,8 @@ export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;co
  await persistCalendarSnapshot(row.id,sub,name,busy,sessionId,inviteeId);
 }
 
-export async function joinWithSavedCalendar(row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null,googleOnly=false,beforePersist?:()=>Promise<void>){
+export async function joinWithSavedCalendar(row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null,googleOnly=false,beforePersist?:()=>Promise<void>):Promise<boolean>{
+ if(!currentCalendarIntent())return runCalendarIntent(await captureSessionIntent(sql(),sessionId,sub),()=>joinWithSavedCalendar(row,sub,name,sessionId,inviteeId,googleOnly,beforePersist));
  if(!googleOnly&&(await providerConnection(sub))?.credential){
   const busy=await readProviderAvailability(sub,JSON.parse(row.constraints));
   await persistCalendarSnapshot(row.id,sub,name,busy,sessionId,inviteeId);return true;

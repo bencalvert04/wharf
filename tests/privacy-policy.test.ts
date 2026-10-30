@@ -14,6 +14,9 @@ test('provider privacy distinguishes calendar-reading login, retained credential
  assert.match(privacyPolicy.otherCalendars,/credentials do not expire with browser sessions or meetings/);
  assert.match(privacyPolicy.otherCalendars,/remain until disconnected or replaced/);
  assert.match(privacyPolicy.otherCalendars,/Unsupported floating event times/);
+ assert.match(privacyPolicy.otherCalendars,/pseudonymous, one-way hash/);
+ assert.match(privacyPolicy.otherCalendars,/eligible for deletion fifteen minutes after its latest use/);
+ assert.match(privacyPolicy.connection,/anti-replay hash and ordering number remain/);
  assert.match(privacyPolicy.retention,/Gmail for Outlook\/iCloud-organized meetings/);
 });
 test('privacy distinguishes bounded background history, saved clarification context, and supported providers',()=>{

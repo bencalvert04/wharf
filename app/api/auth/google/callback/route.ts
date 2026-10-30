@@ -1,3 +1,4 @@
+import {bindCalendarAccount,runCalendarIntent} from '@/lib/calendar-intent';
 import {captureGoogleSwitch,isStandaloneProviderAccount} from '@/lib/provider-switch-guard';
 import {plannerAccess} from '@/lib/planner-access';
 import {after} from 'next/server';
@@ -26,7 +27,10 @@ export async function GET(req:Request){
   // Capture before consuming state: a newer provider start invalidates that state.
   let switchGuard=s.google_sub?await captureGoogleSwitch(sql(),s.google_sub,s.id,s.google_sub):null;
   const [flow]=await sql()`DELETE FROM oauth_states WHERE id=${hash(state)} AND session_id=${s.id} AND expires_at>now() RETURNING *`;
-  if(!flow)return redirect('expired');
+  if(!flow?.calendar_intent)return redirect('expired');
+  return await runCalendarIntent(flow.calendar_intent,async()=>{
+  // Reject already-superseded flows before exchanging a provider code.
+  await sql()`SELECT 1 AS active_calendar_intent`;
   if(flow.slack_attendance_id){
    const [link]=await sql()`SELECT s.team_id,s.channel_id FROM slack_attendance_links l JOIN slack_meetings s ON s.id=l.slack_meeting_id WHERE l.id=${flow.slack_attendance_id} AND l.session_id=${s.id} AND l.expires_at>now() AND l.completed_at IS NULL`;
    if(!link)return redirect('expired');
@@ -45,6 +49,7 @@ export async function GET(req:Request){
   let picture:string|null=null;
   try{const url=new URL(identity.picture||'');if(url.protocol==='https:'&&(url.hostname==='googleusercontent.com'||url.hostname.endsWith('.googleusercontent.com')))picture=url.href}catch{}
   const name=(identity.name||'Guest').slice(0,100);
+  await bindCalendarAccount(sql(),identity.sub);
   await switchGuard?.check();
   // An ordinary Google account switch must never remove the prior account's grant.
   if(!switchGuard||s.google_sub!==identity.sub)switchGuard=await captureGoogleSwitch(sql(),identity.sub,s.id,s.google_sub||null);
@@ -73,5 +78,6 @@ export async function GET(req:Request){
   }
   if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null,true,checkSwitch)){await switchGuard.remove(identity.sub);await finishAttendance(flow,s.id,identity.sub);return redirect('joined')}
   return Response.redirect(await beginGoogleFlow(s.id,row.id,null,identity.sub,flow.invitee_id||null,'join',flow.slack_attendance_id||null),303);
+  });
  }catch{return redirect('failed')}
 }

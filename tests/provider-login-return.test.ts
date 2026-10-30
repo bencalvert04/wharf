@@ -5,6 +5,7 @@ import {loadWithMocks} from './module-fixture.ts';
 test('iCloud header login returns to the current meeting without claiming it was joined',async()=>{
  let joined=0;
  const {POST}=loadWithMocks<{POST:(request:Request)=>Promise<Response>}>(new URL('../app/api/auth/calendar/start/route.ts',import.meta.url),{
+  '@/lib/calendar-intent':{beginCalendarIntent:async()=>({}),currentCalendarIntent:()=>({}),runCalendarIntent:async(_intent:unknown,work:()=>Promise<unknown>)=>work()},
   '@/app/api/auth/google/start/route':{},
   '@/lib/auth':{json:Response.json,sameOrigin:()=>true,appUrl:()=> 'https://wharf.example',sql:()=>async()=>[],hash:()=> 'test-account'},
   'node:crypto':{},

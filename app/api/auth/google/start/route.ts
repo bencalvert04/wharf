@@ -1,3 +1,4 @@
+import {beginCalendarIntent,runCalendarIntent} from '@/lib/calendar-intent';
 import {captureGoogleSwitch,isStandaloneProviderAccount} from '@/lib/provider-switch-guard';
 import {session,meeting,sameOrigin,json,sql} from '@/lib/auth';
 import {configured} from '@/lib/google';
@@ -18,6 +19,8 @@ export async function POST(req:Request){
   if(row&&!tokenVaultConfigured())return json({error:'Ongoing calendar access is not configured yet.'},503);
   const s=(await session(true))!;
   if(isStandaloneProviderAccount(s.google_sub))return json({error:'To use Google, sign out first and sign in with Google as a separate Wharf account. Existing meeting memberships will remain with your current account.'},409);
+  const intent=await beginCalendarIntent(sql(),s.id,s.google_sub||null);
+  return await runCalendarIntent(intent,async()=>{
   const switchGuard=s.google_sub?await captureGoogleSwitch(sql(),s.google_sub,s.id,s.google_sub):null;
   await sql()`DELETE FROM calendar_provider_states WHERE session_id=${s.id}`;
   if(row&&JSON.parse(row.constraints).demo&&row.owner_session!==s.id)return json({error:'Create your own demo to connect a calendar.'},403);
@@ -28,5 +31,6 @@ export async function POST(req:Request){
    return json({url:await beginGoogleFlow(s.id,row.id,null,s.google_sub,inviteeId)});
   }
   return json({url:await beginGoogleFlow(s.id,row?.id||null,typeof returnMeetingId==='string'?returnMeetingId.slice(0,100):null,null,inviteeId)});
+  });
  }catch{return json({error:'Could not connect Google. Please try again.'},503)}
 }

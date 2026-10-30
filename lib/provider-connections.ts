@@ -1,3 +1,4 @@
+import {bindCalendarAccount} from './calendar-intent';
 import {storeProviderGrant} from './provider-connection-store';
 import {sql} from './auth';
 import {openToken,sealToken} from './token-vault';
@@ -16,6 +17,7 @@ export async function prepareProviderConnection(account:string,provider:'microso
  return row.connection_id as string;
 }
 export async function storeProviderConnection(s:any,account:string,provider:'microsoft'|'icloud',credential:string,email:string,name:string,generation:string|null){
+ await bindCalendarAccount(sql(),account);
  await storeProviderGrant(sql(),s,account,provider,sealToken(credential,account),email,name,generation);
 }
 export async function readProviderAvailability(account:string,c:Constraints){
