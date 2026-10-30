@@ -4,6 +4,7 @@ import {useState,useMemo,useEffect,useLayoutEffect} from 'react';
 import {flushSync} from 'react-dom';
 import {samplePeople,demoConstraints} from '@/lib/demo';
 import {beginInviteCopy,type InviteCopy} from '@/lib/invite-clipboard';
+import AttendanceComplete from '@/components/AttendanceComplete';
 import AccountButton from '@/components/AccountButton';
 import DatePicker from '@/components/DatePicker';
 import AvailabilityWindow from '@/components/AvailabilityWindow';
@@ -25,6 +26,8 @@ export default function Home(){
  const [c,setC]=useState<Constraints>(initial),[view,setView]=useState<'home'|'create'|'results'|'docs'|'pending'>('home'),[opening,setOpening]=useState(false),[theme,setTheme]=useState<'system'|'light'|'dark'>('light'),[systemDark,setSystemDark]=useState(false),[demo,setDemo]=useState(false),[meeting,setMeeting]=useState(''),[loading,setLoading]=useState(false),[error,setError]=useState(''),[modal,setModal]=useState(false),[calendarPermission,setCalendarPermission]=useState(false),[copied,setCopied]=useState(false),[count,setCount]=useState(1),[adjustedDemo,setAdjustedDemo]=useState(false),[week,setWeek]=useState(0),[daysPerPage,setDaysPerPage]=useState(5),[mode,setMode]=useState('everyone'),[selected,setSelected]=useState<Window|null>(null),[notice,setNotice]=useState(''),[invitationName,setInvitationName]=useState('');
  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),10000);return()=>clearTimeout(timer)},[notice]);
  useEffect(()=>{if(!error)return;const timer=setTimeout(()=>setError(''),10000);return()=>clearTimeout(timer)},[error]);
+ const [attendanceComplete,setAttendanceComplete]=useState(false);
+ useEffect(()=>{if(process.env.NODE_ENV==='development'&&new URLSearchParams(location.search).get('preview')==='attendance')setAttendanceComplete(true)},[]);
  const [backTarget,setBackTarget]=useState<'home'|'create'|'pending'>('pending');
  useEffect(()=>{const pop=()=>location.reload();window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop)},[]);
  useLayoutEffect(()=>{const params=new URLSearchParams(location.search);const id=params.get('meeting');if(id)setOpening(true);else{const page=params.get('view');if(page==='pending'||page==='docs')setView(page);if(page==='new')setView('create');if(page==='demo'){setDemo(true);setView('results');setBackTarget('home')}}},[]);
@@ -36,6 +39,14 @@ export default function Home(){
  useEffect(()=>{const media=window.matchMedia('(prefers-color-scheme: dark)');const sync=()=>setSystemDark(media.matches);sync();media.addEventListener('change',sync);try{const saved=localStorage.getItem('wharf-theme');if(saved==='system'||saved==='light'||saved==='dark')setTheme(saved)}catch{}return()=>media.removeEventListener('change',sync)},[]);
  function changeTheme(value:'system'|'light'|'dark'){setTheme(value);try{localStorage.setItem('wharf-theme',value)}catch{}}
  const [live,setLive]=useState<{attendees:{name:string;sample?:boolean}[];windows:Window[];bestWindows:Window[];joined:boolean;canRejoin?:boolean;canView:boolean;tracked?:boolean;isPlanner:boolean;revision:string;finalTime:{start:number;end:number}|null;calendar?:{status:'created'|'pending';htmlLink:string|null;error:string|null}|null;delivery?:{total:number;pending:number;needsReview:number}}|null>(null);
+ useEffect(()=>{
+  if(!meeting||!live)return;
+  const url=new URL(location.href);
+  if(url.searchParams.get('calendar')!=='joined')return;
+  // A successful callback alone is not enough: confirm the saved attendance first.
+  if(live.joined&&!live.isPlanner&&!live.finalTime&&!demo&&!c.demo)setAttendanceComplete(true);
+  url.searchParams.delete('calendar');history.replaceState({},'',url.pathname+url.search+url.hash);
+ },[meeting,live,demo,c.demo]);
  useEffect(()=>{if(!meeting||demo)return;let active=true;const refresh=()=>fetch('/api/requests/'+meeting).then(r=>r.json()).then(d=>{if(active&&!d.error)setLive(d)}).catch(()=>{});refresh();const timer=setInterval(refresh,15000);window.addEventListener('focus',refresh);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',refresh)}},[meeting,demo]);
  useEffect(()=>{const result=new URLSearchParams(location.search).get('calendar');if(result)setNotice(({eventready:'Google Calendar invitations enabled. Select a time and create the meeting, or retry a pending invitation.',eventpermission:'Allow calendar event access to send Google Calendar invitations.',signedin:'You’re signed in with Google.',cancelled:'Google sign-in was cancelled.',permission:'Allow ongoing free/busy access to connect your calendar.',expired:'This sign-in expired. Please try again.',failed:'Could not read your calendar. Please try again and allow free/busy access.'} as Record<string,string>)[result]||'');},[]);
  useEffect(()=>{
@@ -54,7 +65,7 @@ export default function Home(){
  const allDates=useMemo(()=>dates(c),[c]);const shownDates=allDates.slice(week*daysPerPage,(week+1)*daysPerPage);
  const update=(key:keyof Constraints,value:any)=>{setC(v=>({...v,[key]:value}));setError('')};
  function navigate(change:()=>void){const doc=document as Document&{startViewTransition?:(update:()=>void)=>unknown};if(!doc.startViewTransition||matchMedia('(prefers-reduced-motion: reduce)').matches){change();return}const root=document.documentElement;root.dataset.navigating='';const transition=doc.startViewTransition(()=>flushSync(change)) as {finished:Promise<void>};transition.finished.finally(()=>{delete root.dataset.navigating})}
- function resetState(){setCalendarPermission(false);setInvitationName('');setC(v=>({...v,demo:false,days:[0,1,2,3,4,5,6]}));setView('create');setDemo(false);setMeeting('');setLive(null);setError('');setSelected(null);setWeek(0);}
+ function resetState(){setAttendanceComplete(false);setCalendarPermission(false);setInvitationName('');setC(v=>({...v,demo:false,days:[0,1,2,3,4,5,6]}));setView('create');setDemo(false);setMeeting('');setLive(null);setError('');setSelected(null);setWeek(0);}
  function reset(){navigate(()=>{resetState();history.pushState({},'','/?view=new')})}
  function goHome(){navigate(()=>{resetState();setView('home');history.pushState({},'','/')})}
  function showPending(){navigate(()=>{setView('pending');setError('');setSelected(null);history.pushState({},'','/?view=pending')})}
@@ -154,6 +165,7 @@ export default function Home(){
  </div>}
  {error&&<div role="alert" className="error">{error}<button aria-label="Dismiss error" onClick={()=>setError('')}><X size={14}/></button></div>}{notice&&<div role="status" className="error">{notice}<button aria-label="Dismiss" onClick={()=>setNotice('')}><X size={14}/></button></div>}
  </main><footer><span/><a href="/privacy">Privacy</a></footer>
+ {attendanceComplete&&<AttendanceComplete onClose={()=>setAttendanceComplete(false)}/>}
  {calendarPermission&&<div className="modal-backdrop" onClick={()=>!loading&&setCalendarPermission(false)}><section role="dialog" aria-modal="true" aria-labelledby="calendar-permission-title" className="modal" onClick={e=>e.stopPropagation()}><button className="modal-close icon-button" aria-label="Close calendar permission" disabled={loading} onClick={()=>setCalendarPermission(false)}><X size={18}/></button><Google/><h2 id="calendar-permission-title">Send Google Calendar invites</h2><p>Allow Wharf to create the meeting on your primary Google Calendar and invite everyone who joined.</p><p>Google asks for access to events on calendars you own. Wharf uses it to create and check meetings you confirm here. Guests keep control of their RSVP and invitation settings.</p>{error&&<p role="alert">{error}</p>}<button autoFocus className="primary full" disabled={loading} onClick={enableCalendarInvitations}>Allow Google Calendar invites <ArrowRight size={15}/></button></section></div>}
  {modal&&<div className="modal-backdrop" onClick={()=>setModal(false)}><section role="dialog" aria-modal="true" aria-labelledby="connect-title" className="modal" onClick={e=>e.stopPropagation()}><button className="modal-close icon-button" aria-label="Close dialog" onClick={()=>setModal(false)}><X size={18}/></button><Google/><h2 id="connect-title">Connect Google Calendar</h2>{invitationName&&<p>This invitation is for <strong>{invitationName}</strong>. Continue with your own Google account only if this invitation was meant for you.</p>}<p>Sign in and allow ongoing access to your primary calendar’s free/busy times. Wharf checks availability when you join a meeting, without accessing event details. As the planner, you can also allow Wharf to create meetings you confirm and send invitations in the same Google approval. You won’t need to approve access for each meeting.</p><p>{demo||c.demo?'This creates a personal demo with your availability and the sample calendars. It does not connect to the named people’s real calendars.':'Your name and shared availability are visible to the planner and joined attendees. Wharf stores your verified email for calendar invitations that the planner may send.'} You can remove your snapshot anytime, or disconnect Google Calendar from your account menu to revoke ongoing access. Requests expire after 30 days.</p><button autoFocus className="primary full" disabled={loading} onClick={()=>{setModal(false);if(meeting&&!demo)connectCalendar();else create(true)}}>Continue with Google <ArrowRight size={15}/></button></section></div>}
  </div>
