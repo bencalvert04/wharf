@@ -13,6 +13,14 @@ export async function storeCalendarGrant(db:CalendarDatabase,sub:string,encrypte
   WHERE google_sub=${sub} AND version=${generation.version} AND connection_id=${generation.connectionId||null}::uuid AND NOT disconnecting RETURNING google_sub`;
  if(!row)throw Error('Calendar connection changed. Please try again.');
 }
+export async function storeCalendarScopes(db:CalendarDatabase,sub:string,encryptedToken:string,generation:CalendarGeneration,scopes:string){
+ // Incremental authorization can extend a saved refresh token without replacing it.
+ // Only update the exact credential we checked, never a disconnected or replaced grant.
+ const [row]=await db`UPDATE google_calendar_connections SET granted_scopes=${scopes},updated_at=now()
+  WHERE google_sub=${sub} AND refresh_token=${encryptedToken} AND version=${generation.version}
+  AND connection_id=${generation.connectionId||null}::uuid AND NOT disconnecting RETURNING google_sub`;
+ if(!row)throw Error('Calendar connection changed. Please try again.');
+}
 export async function disconnectCalendarConnection(db:CalendarDatabase,sub:string,revoke:(encryptedToken:string,signal:AbortSignal)=>Promise<void>){
  const deadline=Date.now()+10000,signal=AbortSignal.timeout(10000);
  // Block new use first. Keep the encrypted token on provider failure so revocation

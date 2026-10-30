@@ -8,7 +8,7 @@ import {session,sql,hash,meeting,appUrl} from '@/lib/auth';
 import {validEmail} from '@/lib/calendar-invitation';
 import {google} from '@/lib/google';
 import {beginGoogleFlow} from '@/lib/google-flow';
-import {joinWithSavedCalendar,saveCalendarGrant,saveCalendarSnapshot,prepareCalendarConsent,calendarConnection} from '@/lib/calendar-connection';
+import {joinWithSavedCalendar,saveCalendarGrant,saveCalendarScopes,saveCalendarSnapshot,prepareCalendarConsent,calendarConnection} from '@/lib/calendar-connection';
 import {grantHasFreeBusy} from '@/lib/calendar-access';
 
 export const maxDuration=120;
@@ -61,6 +61,7 @@ export async function GET(req:Request){
     const saved=await calendarConnection(identity.sub);
     if(!saved?.refresh_token||saved.disconnecting||!grantHasFreeBusy(saved.granted_scopes))return redirect('permission');
     if(flow.expected_sub&&(saved.connection_id!==flow.connection_id||Number(saved.version)!==Number(flow.connection_version)))return redirect('expired');
+    await saveCalendarScopes(identity.sub,saved.refresh_token,{version:Number(saved.version),connectionId:saved.connection_id},tokens.scope!);
    }
    if(!row){return redirect('connected')}
    client.setCredentials(tokens);
