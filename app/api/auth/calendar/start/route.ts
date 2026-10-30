@@ -1,3 +1,4 @@
+import {beginCalendarIntent,currentCalendarIntent,runCalendarIntent} from '@/lib/calendar-intent';
 import {POST as startGoogle} from '@/app/api/auth/google/start/route';
 import {json,sameOrigin,appUrl,sql,hash,token} from '@/lib/auth';
 import {createHash} from 'node:crypto';
@@ -18,6 +19,8 @@ export async function POST(req:Request){
   if(!tokenVaultConfigured())return json({error:'Calendar credential encryption is not configured.'},503);
   if(input.provider==='microsoft'&&!microsoftConfigured())return json({error:'Outlook setup is not complete yet. The site owner needs to configure Microsoft sign-in.'},503);
   const {s,row,inviteeId}=await connectionContext(input);
+  const intent=await beginCalendarIntent(sql(),s.id,s.google_sub||null);
+  return await runCalendarIntent(intent,async()=>{
   if(input.provider==='saved'){
    if(!s.google_sub||!row)return json({error:'Choose a calendar to connect.'},409);
    if(!(await providerConnection(s.google_sub))?.credential)return startGoogle(new Request(req.url,{method:'POST',headers:req.headers,body:JSON.stringify(input)}));
@@ -29,8 +32,8 @@ export async function POST(req:Request){
   const generation=s.google_sub?await prepareProviderConnection(s.google_sub,input.provider):null;
   if(input.provider==='microsoft'){
    const state=token(),verifier=token();
-   await sql()`INSERT INTO calendar_provider_states(id,session_id,expected_account,connection_id,meeting_id,return_meeting_id,invitee_id,verifier,expires_at)
-   VALUES(${hash(state)},${s.id},${s.google_sub||null},${generation}::uuid,${row?.id||null},${typeof input.returnMeetingId==='string'?input.returnMeetingId.slice(0,100):null},${inviteeId},${verifier},now()+interval '10 minutes')`;
+   await sql()`INSERT INTO calendar_provider_states(id,session_id,expected_account,connection_id,meeting_id,return_meeting_id,invitee_id,verifier,expires_at,calendar_intent)
+   VALUES(${hash(state)},${s.id},${s.google_sub||null},${generation}::uuid,${row?.id||null},${typeof input.returnMeetingId==='string'?input.returnMeetingId.slice(0,100):null},${inviteeId},${verifier},now()+interval '10 minutes',${JSON.stringify(currentCalendarIntent())}::jsonb)`;
    return json({url:microsoftAuthorize(state,createHash('sha256').update(verifier).digest('base64url'))});
   }
   const username=typeof input.username==='string'?input.username.trim().toLowerCase():'';
@@ -43,6 +46,8 @@ export async function POST(req:Request){
   const account=s.google_sub||'icloud:'+hash(principal);
   await storeProviderConnection(s,account,'icloud',JSON.stringify(credential),s.email||username,s.name||username.split('@')[0],generation);
   if(row)await joinProviderMeeting({id:row.id,constraints:row.constraints},account,s.name||username.split('@')[0],s.id,inviteeId);
-  return json({url:appUrl()+'/?'+new URLSearchParams({...(row?{meeting:row.id}:{}),calendar:row?'joined':'connected'})});
+  const returnId=row?.id||(typeof input.returnMeetingId==='string'?input.returnMeetingId.slice(0,100):null);
+  return json({url:appUrl()+'/?'+new URLSearchParams({...(returnId?{meeting:returnId}:{}),calendar:row?'joined':'connected'})});
+  });
  }catch{return json({error:'Could not connect your calendar. Check your credentials and try again. No availability was added unless the connection completed.'},503)}
 }
