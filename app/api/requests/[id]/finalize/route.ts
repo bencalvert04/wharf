@@ -1,3 +1,6 @@
+import {providerConnection} from '@/lib/provider-connections';
+import {commitFinalization} from '@/lib/commit-finalization';
+import {invitationsConfigured} from '@/lib/invitations';
 import {plannerAccess} from '@/lib/planner-access';
 import {bookSlackWebChoice} from '@/lib/slack-web-booking';
 import {AgentError} from '@/lib/agent-api';
@@ -31,10 +34,16 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    if(!await googleMeetingEvent(id)){const delivery=await deliverInvitations(id);return json({finalTime:{start,end},delivery},delivery.pending?202:200)}
   }else{
    const people=await sql()`SELECT google_sub,name,email,busy FROM attendees WHERE meeting_id=${id} ORDER BY google_sub` as Participant[];
-   if(!s.google_sub||!people.some(p=>p.google_sub===s.google_sub)||!validEmail(s.email))return json({error:'Join with your Google calendar first to organize this meeting.'},409);
+   if(!s.google_sub||!people.some(p=>p.google_sub===s.google_sub)||!validEmail(s.email))return json({error:'Join with your calendar first to organize this meeting.'},409);
    if(people.some(p=>!validEmail(p.email)))return json({error:'An attendee needs to sign in again and rejoin to provide a verified invitation email.'},409);
    if(revision!==availabilityRevision(people))return json({error:'Attendees changed. Refresh and select a valid time again.'},409);
    if(!validFinalSlot(c,people,start,end))return json({error:'Choose a future time that fits the meeting length and everyone’s availability.'},400);
+   const external=(await providerConnection(s.google_sub))?.credential||/^(microsoft|icloud):/.test(s.google_sub);
+   if(external){
+    if(!invitationsConfigured())return json({error:'Calendar invitation email delivery needs to be configured before this meeting can be finalized.'},503);
+    if(!await commitFinalization(id,c,people,start,end))return json({error:'Availability changed. Refresh and select a time again.'},409);
+    const delivery=await deliverInvitations(id);return json({finalTime:{start,end},delivery},delivery.pending?202:200);
+   }
    await eventConnection(s.google_sub);
    if(!await commitGoogleFinalization(id,c,people,start,end,s.google_sub,s.email))return json({error:'Availability changed. Refresh and select a time again.'},409);
   }

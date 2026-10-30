@@ -446,3 +446,16 @@ html[data-navigating] .view{animation:none}
 @media(max-width:380px){.date-trigger{font-size:14px;gap:6px;padding:0 8px}.date-trigger>svg:first-child{display:none}.date-separator{padding:0}}
 
 @media(max-width:620px){.hero-grid-hover{mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%)}}
+
+.calendar-picker{position:fixed;inset:0;margin:auto;color:var(--text);background:var(--bg);border:1px solid var(--border);max-height:90dvh;overflow:auto;box-shadow:0 24px 80px #0003}
+.calendar-picker::backdrop{background:#0006;backdrop-filter:blur(5px)}
+.calendar-provider-options{display:grid;gap:10px;margin:22px 0}
+.calendar-provider-option{display:flex;align-items:center;gap:14px;width:100%;padding:16px;text-align:left;border:1px solid var(--border);border-radius:10px;background:transparent;color:inherit;cursor:pointer}
+.calendar-provider-option:hover:not(:disabled){border-color:var(--text);background:var(--soft)}
+.calendar-provider-option:disabled{opacity:.5;cursor:not-allowed}
+.calendar-provider-option>span:nth-child(2){flex:1}.calendar-provider-option strong,.calendar-provider-option small{display:block}.calendar-provider-option small{font-size:12px;margin-top:5px;color:var(--muted)}
+.provider-mark{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;font-weight:600;background:#4285f415;color:#4285f4}.provider-mark.microsoft{background:#0078d415;color:#0078d4}.provider-mark.icloud{background:#8882;color:inherit}
+.calendar-picker label{display:block;margin:16px 0 8px}.calendar-picker input{width:100%;box-sizing:border-box}.calendar-picker a{text-decoration:underline}.calendar-picker .text-button{margin-bottom:20px}
+
+.calendar-picker form{text-align:left}.calendar-picker input{height:44px;padding:10px 12px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg)}
+.calendar-picker form .micro{margin-top:16px}.calendar-picker>.text-button{display:flex}.calendar-picker>svg{display:block}
