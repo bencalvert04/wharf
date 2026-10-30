@@ -1,3 +1,4 @@
+import {runCalendarIntent} from '@/lib/calendar-intent';
 import {session,sql,hash,meeting,appUrl} from '@/lib/auth';
 import {microsoftTokens,microsoftProfile,microsoftRedirect} from '@/lib/microsoft-calendar';
 import {storeProviderConnection} from '@/lib/provider-connections';
@@ -11,7 +12,10 @@ export async function GET(req:Request){
   const p=new URL(req.url).searchParams,s=await session(),state=p.get('state');
   if(!s||!state)return redirect('expired');
   const [flow]=await sql()`DELETE FROM calendar_provider_states WHERE id=${hash(state)} AND session_id=${s.id} AND expires_at>now() RETURNING *`;
-  if(!flow||(s.google_sub||null)!==flow.expected_account)return redirect('expired');
+  if(!flow?.calendar_intent||(s.google_sub||null)!==flow.expected_account)return redirect('expired');
+  return await runCalendarIntent(flow.calendar_intent,async()=>{
+  // Reject already-superseded flows before exchanging a provider code.
+  await sql()`SELECT 1 AS active_calendar_intent`;
   id=flow.meeting_id||flow.return_meeting_id||'';
   if(p.has('error'))return redirect('cancelled');
   const code=p.get('code'),row=flow.meeting_id?await meeting(flow.meeting_id):null;
@@ -25,5 +29,6 @@ export async function GET(req:Request){
   await storeProviderConnection(s,account,'microsoft',tokens.refresh_token,s.email||identity.email,s.name||identity.name||'Outlook user',flow.connection_id);
   if(row)await joinProviderMeeting({id:row.id,constraints:row.constraints},account,s.name||identity.name||'Outlook user',s.id,flow.invitee_id||null);
   return redirect(row?'joined':'connected');
+  });
  }catch{return redirect('failed')}
 }

@@ -6,7 +6,7 @@ const endpoint='https://login.microsoftonline.com/common/oauth2/v2.0';
 const scope='openid profile email offline_access User.Read Calendars.ReadBasic';
 export const microsoftRedirect=()=>appUrl()+'/api/auth/microsoft/callback';
 export function microsoftAuthorize(state:string,challenge:string){
- return endpoint+'/authorize?'+new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID!,response_type:'code',redirect_uri:microsoftRedirect(),response_mode:'query',scope,state,code_challenge:challenge,code_challenge_method:'S256'});
+ return endpoint+'/authorize?'+new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID!,response_type:'code',redirect_uri:microsoftRedirect(),response_mode:'query',scope,state,code_challenge:challenge,code_challenge_method:'S256',prompt:'select_account'});
 }
 export async function microsoftTokens(input:Record<string,string>){
  if(!microsoftConfigured())throw Error('Microsoft Calendar setup is incomplete.');

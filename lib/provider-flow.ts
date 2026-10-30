@@ -1,4 +1,5 @@
-import {session,meeting} from './auth';
+import {captureSessionIntent,currentCalendarIntent,runCalendarIntent} from './calendar-intent';
+import {session,meeting,sql} from './auth';
 import {resolveInvitation,persistCalendarSnapshot} from './meeting-participation';
 import {readProviderAvailability} from './provider-connections';
 export async function connectionContext(input:any){
@@ -10,7 +11,8 @@ export async function connectionContext(input:any){
  const inviteeId=row?await resolveInvitation(row.id,input.invitationToken,s.google_sub):null;
  return {s,row,inviteeId};
 }
-export async function joinProviderMeeting(row:{id:string;constraints:string},account:string,name:string,sessionId:string,inviteeId:string|null){
+export async function joinProviderMeeting(row:{id:string;constraints:string},account:string,name:string,sessionId:string,inviteeId:string|null):Promise<void>{
+ if(!currentCalendarIntent())return runCalendarIntent(await captureSessionIntent(sql(),sessionId,account),()=>joinProviderMeeting(row,account,name,sessionId,inviteeId));
  const busy=await readProviderAvailability(account,JSON.parse(row.constraints));
  await persistCalendarSnapshot(row.id,account,name,busy,sessionId,inviteeId);
 }

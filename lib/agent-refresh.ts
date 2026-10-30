@@ -5,12 +5,19 @@ import {calendarConnection} from './calendar-connection';
 import {google,parseBusy} from './google';
 import {openToken} from './token-vault';
 import {allowed} from './availability';
+import {captureAccountIntent,runCalendarIntent} from './calendar-intent';
 
 export async function refreshAgentAvailability(id:string,key:string){
  const row=await loadAgentMeeting(id,key);
  if(row.final_time)return;
  const constraints=JSON.parse(row.constraints),bounds=allowed(constraints);
  if(!bounds.length||!row.people.length)throw new AgentError('not_ready','No attendees or valid meeting window are available.',409,'Ask attendees to click to attend.');
+ // Capture before choosing grants or fetching calendars. The final guarded SQL
+ // checks the complete vector so one stale account aborts the entire refresh.
+ const intents=await Promise.all(row.people.map((person:any)=>captureAccountIntent(sql(),person.googleSub)));
+ // Combining captures must not renew the oldest read's replay deadline.
+ const expiresAt=intents.reduce((earliest,intent)=>Date.parse(intent.expiresAt)<Date.parse(earliest)?intent.expiresAt:earliest,intents[0].expiresAt);
+ try{return await runCalendarIntent({sessionId:null,sequence:null,expiresAt,accounts:intents.flatMap(intent=>intent.accounts)},async()=>{
  const snapshots=await Promise.all(row.people.map(async(person:any)=>{
   if((await providerConnection(person.googleSub))?.credential){
    try{return {sub:person.googleSub,busy:await readProviderAvailability(person.googleSub,constraints)}}catch{throw new AgentError('availability_refresh_failed',`Could not refresh ${person.name}’s calendar.`,409,'Ask them to reconnect their calendar, then try again.')}
@@ -30,4 +37,8 @@ export async function refreshAgentAvailability(id:string,key:string){
  WHERE a.meeting_id=changed.id AND a.google_sub=p->>'sub' RETURNING a.google_sub
  ) SELECT (SELECT count(*) FROM changed)::int AS changed`;
  if(!saved.changed)throw new AgentError('stale_revision','The attendees changed while calendars were being refreshed.',409,'Ask me to book again so I can check the updated group.');
+ })}catch(error){
+  if(error instanceof AgentError)throw error;
+  throw new AgentError('availability_refresh_failed','A calendar connection changed while availability was being refreshed.',409,'Ask attendees to reconnect their calendars, then try again. No new availability was saved.');
+ }
 }

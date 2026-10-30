@@ -1,5 +1,5 @@
-import type {sql} from './auth';
-export type CalendarDatabase=ReturnType<typeof sql>;
+import type {NeonQueryFunction} from '@neondatabase/serverless';
+export type CalendarDatabase=NeonQueryFunction<false,false>;
 export type CalendarGeneration={version:number;connectionId:string};
 
 export async function prepareCalendarConnection(db:CalendarDatabase,sub:string):Promise<CalendarGeneration>{

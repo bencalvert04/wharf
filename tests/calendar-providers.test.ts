@@ -66,6 +66,27 @@ test('provider intervals are clipped to meeting hours and bad intervals fail rat
  assert.deepEqual(clipProviderBusy([{start:Date.parse('2026-11-02T00:00Z'),end:Date.parse('2026-11-04T00:00Z')}],work),[{start:Date.parse('2026-11-02T16:00Z'),end:Date.parse('2026-11-03T00:00Z')}]);
  assert.throws(()=>clipProviderBusy([{start:NaN,end:1}],work));
 });
+test('iCloud does not omit active expanded occurrences after a cancelled first occurrence',async()=>{
+ const first=event('RECURRENCE-ID:20261102T160000Z\r\nDTSTART:20261102T160000Z\r\nDTEND:20261102T170000Z\r\nSTATUS:CANCELLED');
+ const next=event('RECURRENCE-ID:20261103T160000Z\r\nDTSTART:20261103T160000Z\r\nDTEND:20261103T170000Z');
+ assert.deepEqual(await icloudBusy([ics(first+'\r\n'+next)],c),[{start:Date.parse('2026-11-03T16:00Z'),end:Date.parse('2026-11-03T17:00Z')}]);
+});
+test('iCloud includes every same-UID server-expanded occurrence, including multiple on one day',async()=>{
+ const bodies=['20261102T160000Z','20261102T180000Z','20261103T160000Z'].map(start=>event(`RECURRENCE-ID:${start}\r\nDTSTART:${start}\r\nDTEND:${start.replace('T16','T17').replace('T18','T19')}`));
+ const busy=await icloudBusy([ics(bodies.join('\r\n'))],c);
+ assert.equal(busy.length,3);
+ assert.deepEqual(busy.map(i=>i.start).sort((a,b)=>a-b),['2026-11-02T16:00Z','2026-11-02T18:00Z','2026-11-03T16:00Z'].map(Date.parse));
+});
+test('iCloud rejects floating and unknown-zone event times rather than using the server timezone',async()=>{
+ for(const prefix of ['', ';TZID=Invalid/Timezone']){
+  await assert.rejects(icloudBusy([ics(event(`DTSTART${prefix}:20261102T090000\r\nDTEND${prefix}:20261102T100000`))],c),/Unsupported/);
+ }
+ const zoned=event('DTSTART;TZID=America/Denver:20261102T090000\r\nDTEND;TZID=America/Denver:20261102T100000');
+ assert.deepEqual(await icloudBusy([ics(zoned)],c),[{start:Date.parse('2026-11-02T16:00Z'),end:Date.parse('2026-11-02T17:00Z')}]);
+ // Floating DTSTART inside a timezone definition is not a floating event.
+ const definition='BEGIN:VTIMEZONE\r\nTZID:America/Denver\r\nBEGIN:STANDARD\r\nDTSTART:19701101T020000\r\nTZOFFSETFROM:-0600\r\nTZOFFSETTO:-0700\r\nEND:STANDARD\r\nEND:VTIMEZONE';
+ assert.equal((await icloudBusy([ics(definition+'\r\n'+zoned)],c)).length,1);
+});
 test('iCloud credentials cannot be sent to foreign hosts, insecure redirects or write endpoints',async t=>{
  for(const url of ['http://caldav.icloud.com/','https://caldav.icloud.com.evil.test/','https://evil.test/','https://user:pass@caldav.icloud.com/','https://p01-caldav.icloud.com:444/'])assert.throws(()=>appleCalendarUrl(url));
  assert.equal(appleCalendarUrl('https://p01-caldav.icloud.com/123/'),'https://p01-caldav.icloud.com/123/');

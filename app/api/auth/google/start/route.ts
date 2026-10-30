@@ -1,3 +1,5 @@
+import {beginCalendarIntent,runCalendarIntent} from '@/lib/calendar-intent';
+import {captureGoogleSwitch,isStandaloneProviderAccount} from '@/lib/provider-switch-guard';
 import {session,meeting,sameOrigin,json,sql,appUrl} from '@/lib/auth';
 import {configured} from '@/lib/google';
 import {beginGoogleFlow} from '@/lib/google-flow';
@@ -19,6 +21,10 @@ export async function POST(req:Request){
   if(row?.final_time)return json({error:'This meeting has already been finalized.'},409);
   if(row&&!tokenVaultConfigured())return json({error:'Ongoing calendar access is not configured yet.'},503);
   const s=(await session(true))!;
+  if(isStandaloneProviderAccount(s.google_sub))return json({error:'To use Google, sign out first and sign in with Google as a separate Wharf account. Existing meeting memberships will remain with your current account.'},409);
+  const intent=await beginCalendarIntent(sql(),s.id,s.google_sub||null);
+  return await runCalendarIntent(intent,async()=>{
+  const switchGuard=s.google_sub?await captureGoogleSwitch(sql(),s.google_sub,s.id,s.google_sub):null;
   await sql()`DELETE FROM calendar_provider_states WHERE session_id=${s.id}`;
   if(row&&JSON.parse(row.constraints).demo&&row.owner_session!==s.id)return json({error:'Create your own demo to connect a calendar.'},403);
   const constraints=row?JSON.parse(row.constraints):null;
@@ -29,7 +35,7 @@ export async function POST(req:Request){
   if(!row&&connectCalendar===true&&s.google_sub&&!/^(microsoft|icloud):/.test(s.google_sub)){
    const saved=await calendarConnection(s.google_sub);
    if(saved?.refresh_token&&!saved.disconnecting&&grantHasFreeBusy(saved.granted_scopes)){
-    await sql()`DELETE FROM calendar_provider_connections WHERE account_id=${s.google_sub}`;
+    await switchGuard!.remove();
     return json({url:appUrl()+'/?calendar=connected'});
    }
    return json({url:await beginGoogleFlow(s.id,null,typeof returnMeetingId==='string'?returnMeetingId.slice(0,100):null,s.google_sub,null,'connect')});
@@ -37,9 +43,10 @@ export async function POST(req:Request){
   if(row&&s.google_sub&&!/^(microsoft|icloud):/.test(s.google_sub)){
    const saved=await calendarConnection(s.google_sub);
    if(connectingPlanner&&!grantHasEventWrite(saved?.granted_scopes))return json({url:await beginGoogleFlow(s.id,row.id,null,s.google_sub,inviteeId,'planner_connect')});
-   if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},s.google_sub,s.name||'Guest',s.id,inviteeId,true)){await sql()`DELETE FROM calendar_provider_connections WHERE account_id=${s.google_sub}`;return json({joined:true,meetingId:row.id});}
+   if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},s.google_sub,s.name||'Guest',s.id,inviteeId,true,()=>switchGuard!.check())){await switchGuard!.remove();return json({joined:true,meetingId:row.id});}
    return json({url:await beginGoogleFlow(s.id,row.id,null,s.google_sub,inviteeId,purpose)});
   }
   return json({url:await beginGoogleFlow(s.id,row?.id||null,typeof returnMeetingId==='string'?returnMeetingId.slice(0,100):null,null,inviteeId,purpose)});
+  });
  }catch{return json({error:'Could not connect Google. Please try again.'},503)}
 }
