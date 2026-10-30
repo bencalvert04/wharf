@@ -4,7 +4,7 @@ import {google,parseBusy} from './google';
 import {allowed,type Constraints} from './availability';
 import {openToken,sealToken} from './token-vault';
 import {needsCalendarConsent,revocationComplete} from './calendar-access';
-import {prepareCalendarConnection,storeCalendarGrant,disconnectCalendarConnection,type CalendarGeneration} from './calendar-connection-store';
+import {prepareCalendarConnection,storeCalendarGrant,storeCalendarScopes,disconnectCalendarConnection,type CalendarGeneration} from './calendar-connection-store';
 import type {OAuth2Client} from 'google-auth-library';
 
 export async function calendarConnection(sub:string){
@@ -16,6 +16,9 @@ export async function prepareCalendarConsent(sub:string){
 }
 export async function saveCalendarGrant(sub:string,refreshToken:string,generation:CalendarGeneration,scopes:string=''){
  await storeCalendarGrant(sql(),sub,sealToken(refreshToken,sub),generation,scopes);
+}
+export async function saveCalendarScopes(sub:string,encryptedToken:string,generation:CalendarGeneration,scopes:string){
+ await storeCalendarScopes(sql(),sub,encryptedToken,generation,scopes);
 }
 
 export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null){
