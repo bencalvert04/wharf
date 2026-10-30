@@ -31,6 +31,14 @@ Personal invitation links bind a verified Google identity to a roster position a
 
 Finalization stores `requests.final_time`, displays it on the meeting page, and removes the meeting from Pending meetings. Pending lists are scoped to the owning browser session or joined Google identity. Agent keys do not grant access to unrelated browser/account meetings.
 
+### Agent response shortcuts
+
+`GET /api/v1/meetings/:id` includes up to five earliest exact-duration options in `availability.slots` when ready. Use a user-approved slot's `id` with the top-level `revision`; fetch `/slots?offset=<availability.nextOffset>` only when more options are needed. A null offset means the preview is complete.
+
+Meeting and slots responses include `actions`, with REST method/URL, authentication requirement, known body fields, missing `requiredInput`, equivalent MCP arguments, invitation side effects, and polling delays. These are templates: fill missing choices before calling, preserve human consent, and use only authorized messaging channels. Pending booking actions carry the original confirmed slot and revision so retries recover the same event. Existing fields and routes remain compatible.
+
+Discovery at `/api/agent` includes a machine-readable quickstart with separate examples for open group links and tracked rosters. Open meetings retain the human planner workflow; named rosters let agents track all expected responses and prepare calendar booking. No database migration is required for these response additions.
+
 ### MCP
 
 `node /absolute/path/to/wharf/scripts/mcp.mjs` starts the official SDK's stdio server. Five tools cover creation, locally known meetings, status, slots, and finalization. It exposes `wharf://guide` as a resource.
