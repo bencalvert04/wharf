@@ -446,3 +446,11 @@ html[data-navigating] .view{animation:none}
 @media(max-width:380px){.date-trigger{font-size:14px;gap:6px;padding:0 8px}.date-trigger>svg:first-child{display:none}.date-separator{padding:0}}
 
 @media(max-width:620px){.hero-grid-hover{mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%)}}
+
+/* Attendance confirmation uses the browser's modal focus handling. */
+.attendance-complete{color:var(--text);background:var(--bg);border:1px solid var(--border);margin:auto;width:min(440px,calc(100vw - 32px));max-height:calc(100svh - 48px);overflow:auto;text-align:center;padding:36px 28px 28px;box-shadow:0 24px 80px #0002}
+.attendance-complete::backdrop{background:#0c15234d;backdrop-filter:blur(4px)}
+.attendance-complete-check{display:grid;place-items:center;width:64px;height:64px;margin:0 auto 24px;border-radius:50%;color:var(--accent-text);background:var(--highlight);border:1px solid var(--highlight-border)}
+.attendance-complete h2{font-size:28px;letter-spacing:-.04em;margin-bottom:14px}
+.attendance-complete p{line-height:1.65}
+.attendance-complete .attendance-complete-note{font-size:13px;margin:16px 0 26px;color:var(--muted)}
