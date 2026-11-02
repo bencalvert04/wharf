@@ -52,6 +52,6 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  }catch(error){
   if(error instanceof AgentError)return json({error:error.message},error.status);
   if(error instanceof CalendarPermissionRequired)return json({error:error.message,code:'GOOGLE_CALENDAR_PERMISSION_REQUIRED'},409);
-  return json({error:'Could not confirm Google Calendar creation. Reload the meeting to check its status before retrying.'},503);
+  return json({error:'Could not confirm meeting creation. Reload the meeting to check its status before retrying.'},503);
  }
 }

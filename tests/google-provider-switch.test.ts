@@ -72,6 +72,7 @@ test('Google start rejects standalone provider linking before state, identity, o
  for(const account of ['microsoft:A','icloud:A']){
   let writes=0;
   const {POST}=loadWithMocks<{POST:(r:Request)=>Promise<Response>}>(new URL('../app/api/auth/google/start/route.ts',import.meta.url),{
+   '@/lib/planner-access':{plannerAccess:async()=>({allowed:false})},'@/lib/google-event-payload':{},'@/lib/calendar-access':{},
    '@/lib/calendar-intent':intentMock,'@/lib/provider-switch-guard':{captureGoogleSwitch,isStandaloneProviderAccount},
    '@/lib/auth':{sameOrigin:()=>true,json:(data:unknown,status=200)=>Response.json(data,{status}),session:async()=>({id:'session',google_sub:account}),sql:()=>()=>{writes++;throw Error('Unexpected mutation')}},
    '@/lib/google':{configured:()=>true},'@/lib/google-flow':{},'@/lib/calendar-connection':{},'@/lib/meeting-participation':{},'@/lib/token-vault':{},
@@ -91,12 +92,13 @@ for(const changed of [false,true])test(`saved Google join ${changed?'rejects new
    if(query.includes('DELETE FROM calendar_provider_states'))return Promise.resolve([]);
    return (db as Function)(strings,...values);
   }) as CalendarDatabase;
-  const calendar=loadWithMocks<{joinWithSavedCalendar:Function}>(new URL('../lib/calendar-connection.ts',import.meta.url),{
+  const calendar=loadWithMocks<{joinWithSavedCalendar:Function;calendarConnection:Function}>(new URL('../lib/calendar-connection.ts',import.meta.url),{
    './calendar-intent':intentMock,'./provider-connections':{},'./auth':{sql:()=>routeDb},'./meeting-participation':{persistCalendarSnapshot:async()=>{snapshots++}},
    './google':{parseBusy:()=>[],google:()=>({setCredentials:()=>{},request:async()=>{if(changed)await database.query('UPDATE calendar_provider_connections SET connection_id=$1,credential=$2',[newId,'new-outlook']);return {data:{}}}})},
    './availability':{allowed:()=>[{start:0,end:1000}]},'./token-vault':{openToken:()=> 'mock-refresh'},'./calendar-access':{needsCalendarConsent:()=>false},'./calendar-connection-store':{},
   });
   const {POST}=loadWithMocks<{POST:(r:Request)=>Promise<Response>}>(new URL('../app/api/auth/google/start/route.ts',import.meta.url),{
+   '@/lib/planner-access':{plannerAccess:async()=>({allowed:false})},'@/lib/google-event-payload':{},'@/lib/calendar-access':{},
    '@/lib/calendar-intent':intentMock,'@/lib/provider-switch-guard':{captureGoogleSwitch,isStandaloneProviderAccount},
    '@/lib/auth':{sameOrigin:()=>true,json:(data:unknown,status=200)=>Response.json(data,{status}),meeting:async()=>({id:'meeting',constraints:'{}'}),session:async()=>({id:'session',google_sub:'google-user',name:'Person'}),sql:()=>routeDb},
    '@/lib/google':{configured:()=>true},'@/lib/google-flow':{},'@/lib/calendar-connection':calendar,'@/lib/meeting-participation':{resolveInvitation:async()=>null},'@/lib/token-vault':{tokenVaultConfigured:()=>true},

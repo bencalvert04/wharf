@@ -10,7 +10,7 @@ import {session,sql,hash,meeting,appUrl} from '@/lib/auth';
 import {validEmail} from '@/lib/calendar-invitation';
 import {google} from '@/lib/google';
 import {beginGoogleFlow} from '@/lib/google-flow';
-import {joinWithSavedCalendar,saveCalendarGrant,saveCalendarSnapshot} from '@/lib/calendar-connection';
+import {joinWithSavedCalendar,saveCalendarGrant,saveCalendarScopes,saveCalendarSnapshot,prepareCalendarConsent,calendarConnection} from '@/lib/calendar-connection';
 import {grantHasFreeBusy} from '@/lib/calendar-access';
 
 export const maxDuration=120;
@@ -24,13 +24,14 @@ export async function GET(req:Request){
   const p=new URL(req.url).searchParams,s=await session(),state=p.get('state');
   if(!s||!state)return redirect('expired');
   if(isStandaloneProviderAccount(s.google_sub))return redirect('accountswitch');
-  // Capture before consuming state: a newer provider start invalidates that state.
-  let switchGuard=s.google_sub?await captureGoogleSwitch(sql(),s.google_sub,s.id,s.google_sub):null;
   const [flow]=await sql()`DELETE FROM oauth_states WHERE id=${hash(state)} AND session_id=${s.id} AND expires_at>now() RETURNING *`;
   if(!flow?.calendar_intent)return redirect('expired');
   return await runCalendarIntent(flow.calendar_intent,async()=>{
   // Reject already-superseded flows before exchanging a provider code.
   await sql()`SELECT 1 AS active_calendar_intent`;
+  // Capture a guarded database handle so later removal checks the intent in
+  // the same transaction as the delete, even if another tab starts meanwhile.
+  let switchGuard=s.google_sub?await captureGoogleSwitch(sql(),s.google_sub,s.id,s.google_sub):null;
   if(flow.slack_attendance_id){
    const [link]=await sql()`SELECT s.team_id,s.channel_id FROM slack_attendance_links l JOIN slack_meetings s ON s.id=l.slack_meeting_id WHERE l.id=${flow.slack_attendance_id} AND l.session_id=${s.id} AND l.expires_at>now() AND l.completed_at IS NULL`;
    if(!link)return redirect('expired');
@@ -65,17 +66,28 @@ export async function GET(req:Request){
    await saveCalendarGrant(identity.sub,tokens.refresh_token,{version:Number(flow.connection_version),connectionId:flow.connection_id},tokens.scope);
    return redirect('eventready');
   }
-  if(!row)return redirect('signedin');
-  if(flow.expected_sub){
+  if(flow.purpose==='connect'||flow.purpose==='planner_connect'||(row&&flow.expected_sub)){
    // Google may allow profile sign-in while the user declines calendar permission.
-   if(!grantHasFreeBusy(tokens.scope)||!tokens.refresh_token)return redirect('permission');
-   await saveCalendarGrant(identity.sub,tokens.refresh_token,{version:Number(flow.connection_version),connectionId:flow.connection_id},tokens.scope);
+   if(!grantHasFreeBusy(tokens.scope))return redirect('permission');
+   if(tokens.refresh_token){
+    const generation=flow.expected_sub?{version:Number(flow.connection_version),connectionId:flow.connection_id}:await prepareCalendarConsent(identity.sub);
+    await saveCalendarGrant(identity.sub,tokens.refresh_token,generation,tokens.scope);
+   }else{
+    // Google normally omits a new refresh token when this account already granted access.
+    const saved=await calendarConnection(identity.sub);
+    if(!saved?.refresh_token||saved.disconnecting||!grantHasFreeBusy(saved.granted_scopes))return redirect('permission');
+    if(flow.expected_sub&&(saved.connection_id!==flow.connection_id||Number(saved.version)!==Number(flow.connection_version)))return redirect('expired');
+    await saveCalendarScopes(identity.sub,saved.refresh_token,{version:Number(saved.version),connectionId:saved.connection_id},tokens.scope!);
+   }
+   if(!row){await switchGuard.remove(identity.sub);return redirect('connected')}
    client.setCredentials(tokens);
    await saveCalendarSnapshot(client,{id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null,checkSwitch);
    await finishAttendance(flow,s.id,identity.sub);
    await switchGuard.remove(identity.sub);
    return redirect('joined');
   }
+  if(!row)return redirect('signedin');
+  // Compatibility for previously started identity-only flows.
   if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null,true,checkSwitch)){await switchGuard.remove(identity.sub);await finishAttendance(flow,s.id,identity.sub);return redirect('joined')}
   return Response.redirect(await beginGoogleFlow(s.id,row.id,null,identity.sub,flow.invitee_id||null,'join',flow.slack_attendance_id||null),303);
   });

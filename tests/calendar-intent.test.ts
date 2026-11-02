@@ -4,6 +4,8 @@ import {PGlite} from '@electric-sql/pglite';
 import {calendarIntentSchema} from '../db/calendar-intent-schema.mjs';
 import {beginCalendarIntent,bindCalendarAccount,captureAccountIntent,captureSessionIntent,guardCalendarDatabase,runCalendarIntent} from '../lib/calendar-intent.ts';
 import type {CalendarDatabase} from '../lib/calendar-connection-store.ts';
+import {captureGoogleSwitch,isStandaloneProviderAccount} from '../lib/provider-switch-guard.ts';
+import {loadWithMocks} from './module-fixture.ts';
 
 async function fixture(){
  const database=new PGlite();
@@ -17,6 +19,34 @@ async function fixture(){
  db.transaction=(queries:any[],_options?:unknown)=>database.transaction(async tx=>{const result=[];for(const q of queries){const {text,values}=q[raw];result.push((await tx.query(text,values)).rows)}return result});
  return {database,db:db as CalendarDatabase};
 }
+
+test('combined Google callback cannot remove an external connection after a newer action starts',async()=>{
+ const {database,db}=await fixture();
+ try{
+  await database.exec(`ALTER TABLE sessions ADD COLUMN name text;ALTER TABLE sessions ADD COLUMN picture text;ALTER TABLE sessions ADD COLUMN email text;
+   CREATE TABLE calendar_provider_connections(account_id text PRIMARY KEY,connection_id uuid,credential text);
+   INSERT INTO calendar_provider_connections VALUES('account','11111111-1111-4111-8111-111111111111','saved-outlook');`);
+  const intent=await beginCalendarIntent(db,'one','account');
+  const flow={calendar_intent:intent,expected_sub:'account',purpose:'connect',meeting_id:'meeting',nonce:'nonce',connection_version:0,connection_id:'11111111-1111-4111-8111-111111111111'};
+  const routeDb=Object.assign((strings:TemplateStringsArray,...values:unknown[])=>strings.join('').includes('DELETE FROM oauth_states')?Promise.resolve([flow]):(db as any)(strings,...values),{query:db.query,transaction:db.transaction}) as CalendarDatabase;
+  const route=loadWithMocks<{GET:(r:Request)=>Promise<Response>}>(new URL('../app/api/auth/google/callback/route.ts',import.meta.url),{
+   '@/lib/calendar-intent':{runCalendarIntent,bindCalendarAccount},
+   '@/lib/provider-switch-guard':{captureGoogleSwitch,isStandaloneProviderAccount},
+   '@/lib/auth':{session:async()=>({id:'one',google_sub:'account'}),sql:()=>guardCalendarDatabase(routeDb),hash:(x:string)=>x,appUrl:()=> 'https://wharf.example',meeting:async()=>({id:'meeting',constraints:'{}'})},
+   '@/lib/planner-access':{},'next/server':{},'@/lib/slack-workflow':{},'@/lib/slack-attendance':{},'@/lib/agent-calendar-authorization':{},'@/lib/google-event-payload':{},
+   '@/lib/calendar-invitation':{validEmail:()=>true},'@/lib/calendar-access':{grantHasFreeBusy:()=>true},'@/lib/google-flow':{},
+   '@/lib/google':{google:()=>({getToken:async()=>({tokens:{id_token:'id',access_token:'access',refresh_token:'refresh',scope:'freebusy'}}),verifyIdToken:async()=>({getPayload:()=>({sub:'account',email_verified:true,email:'person@example.test',nonce:'nonce'})}),setCredentials:()=>{}})},
+   '@/lib/calendar-connection':{saveCalendarGrant:async()=>{},saveCalendarSnapshot:async()=>{
+    // Another session starts a newer provider action after the last snapshot
+    // write. Its connection generation has not changed yet.
+    await beginCalendarIntent(db,'two','account');
+   }},
+  });
+  const response=await route.GET(new Request('https://wharf.example/api/auth/google/callback?state=state&code=code'));
+  assert.equal(new URL(response.headers.get('location')!).searchParams.get('calendar'),'failed');
+  assert.deepEqual((await database.query('SELECT credential FROM calendar_provider_connections')).rows,[{credential:'saved-outlook'}]);
+ }finally{await database.close()}
+});
 
 test('account tombstone rejects older cross-session completion even without a credential row',async()=>{
  const {database,db}=await fixture();try{

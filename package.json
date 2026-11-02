@@ -16,7 +16,8 @@
     "mcp": "node scripts/mcp.mjs",
     "test:agents": "node --env-file=.env.production.local --import tsx scripts/verify-agents.mjs",
     "test:mcp": "node --env-file=.env.production.local scripts/verify-mcp.mjs",
-    "email:verify": "node --env-file=.env.local scripts/verify-email.mjs"
+    "email:verify": "node --env-file=.env.local scripts/verify-email.mjs",
+    "staging:check": "node scripts/check-calendar-staging.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

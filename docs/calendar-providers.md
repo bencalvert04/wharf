@@ -2,6 +2,12 @@
 
 The Link calendar dialog offers Google Calendar, Outlook Calendar, and iCloud Calendar. A person without a Google account can connect Outlook or iCloud directly. The header login uses the same picker. Saved connections are reused when joining another meeting; disconnect removes saved credentials without deleting meeting snapshots.
 
+## Current reconciliation
+
+The local reconciliation on November 2, 2026 combines provider head `09f8f39` with main `eda55cd`, including merged PR #14 and the newer Google privacy disclosures. Google keeps combined identity/free-busy consent, planner-only event scope requests, and saved refresh-token scope upgrades. Provider intent checks protect both grant writes and external-connection cleanup. The separate worktree preserves the original main checkout and provider branch. This is not a deployment or a live-account test.
+
+See [staging validation record](calendar-provider-validation.md) for the environment handoff, exact preparation commands, and outstanding account tests.
+
 ## Before enabling
 
 1. Run `npm run db:migrate` against the target database as part of the release. This adds `calendar_provider_connections`, `calendar_provider_states`, and the additive intent protocol in `db/calendar-intent-schema.mjs`; existing Google grants and identity values are preserved. The intent protocol adds a session sequence, intent fields to OAuth states, a shared sequence, hashed account markers, and guarded SQL functions. Do not deploy the application before this schema is applied through the separately authorized release process. Legacy columns called `google_sub` are account keys: new standalone identities use `microsoft:` or `icloud:` namespaces. Do not interpret all such values as Google subjects.

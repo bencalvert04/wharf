@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {calendarConnectionSchema} from '../db/calendar-connection-schema.mjs';
-import {prepareCalendarConnection,storeCalendarGrant,disconnectCalendarConnection,type CalendarDatabase} from '../lib/calendar-connection-store.ts';
+import {prepareCalendarConnection,storeCalendarGrant,storeCalendarScopes,disconnectCalendarConnection,type CalendarDatabase} from '../lib/calendar-connection-store.ts';
 
 async function fixture(){
  const database=new PGlite();
@@ -177,5 +177,32 @@ test('additive migration backfills a legacy grant without changing credentials a
   assert.equal((await database.query<{connection_id:string|null}>('SELECT connection_id FROM oauth_states')).rows[0].connection_id,null);
   const result=await database.query("UPDATE google_calendar_connections SET refresh_token='stale-token' WHERE google_sub='legacy' AND version=0 AND connection_id=$1::uuid RETURNING google_sub",[null]);
   assert.equal(result.rows.length,0);
+ }finally{await database.close()}
+});
+
+test('scope upgrades preserve the saved encrypted credential and connection generation',async()=>{
+ const {database,db,generation}=await fixture();
+ try{
+  const scopes='openid profile email https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/calendar.events.owned';
+  await storeCalendarScopes(db,'person','encrypted-token',generation,scopes);
+  const [row]=(await database.query<{refresh_token:string;granted_scopes:string;version:number;connection_id:string}>('SELECT * FROM google_calendar_connections')).rows;
+  assert.equal(row.refresh_token,'encrypted-token');assert.equal(row.granted_scopes,scopes);
+  assert.equal(row.version,generation.version);assert.equal(row.connection_id,generation.connectionId);
+ }finally{await database.close()}
+});
+test('scope-only updates cannot modify replaced tokens, disconnecting grants, or replacement generations',async()=>{
+ const {database,db,generation}=await fixture();
+ try{
+  await storeCalendarGrant(db,'person','replacement-token',generation,'replacement-scope');
+  await assert.rejects(storeCalendarScopes(db,'person','encrypted-token',generation,'stale-scope'),/changed/);
+  await database.exec('UPDATE google_calendar_connections SET disconnecting=true');
+  await assert.rejects(storeCalendarScopes(db,'person','replacement-token',generation,'stale-scope'),/changed/);
+  await database.exec('UPDATE google_calendar_connections SET disconnecting=false');
+  await disconnectCalendarConnection(db,'person',async()=>{});
+  const fresh=await prepareCalendarConnection(db,'person');
+  await storeCalendarGrant(db,'person','replacement-token',fresh,'fresh-scope');
+  await assert.rejects(storeCalendarScopes(db,'person','replacement-token',generation,'stale-scope'),/changed/);
+  const [row]=(await database.query<{refresh_token:string;granted_scopes:string}>('SELECT * FROM google_calendar_connections')).rows;
+  assert.equal(row.refresh_token,'replacement-token');assert.equal(row.granted_scopes,'fresh-scope');
  }finally{await database.close()}
 });
