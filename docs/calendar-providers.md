@@ -16,6 +16,16 @@ See [staging validation record](calendar-provider-validation.md) for the environ
 4. iCloud uses CalDAV and does not require a shared Apple application secret. Each user needs two-factor authentication and their own app-specific password generated at https://account.apple.com/. This is **not** Sign in with Apple. Never ask for a normal Apple Account password. iCloud is unavailable until the server token vault is configured.
 5. Keep `INVITATION_FROM` and `GMAIL_APP_PASSWORD` configured for non-Google planners. Without an email sender, finalization fails before saving a time. Google planners keep the native Google event invitation flow. Non-Google planners use the existing transactional calendar email outbox (with its existing ambiguous-delivery review behavior). No live test messages are sent automatically.
 
+## Apple redirect authorization investigation (November 2, 2026)
+
+The user rejected the app-specific-password experience as unsuitable for Wharf. Do not resume asking them to enter a password for the staging test without revisiting this product decision.
+
+Ordinary Sign in with Apple provides account authentication; it is not permission to read iCloud Calendar. Apple separately offers account authorization for supported third-party Mail, Calendar, and Contacts apps. Apple Developer Technical Support confirms that iCloud OAuth 2.0 is currently a pilot and that the interest form registers developers for updates. There is no verified pilot approval or integration configuration for Wharf. Do not implement a cosmetic Apple login and describe it as calendar authorization, or assume publicly documented Sign in with Apple scopes grant CalDAV access.
+
+The next external dependency is eligibility/access to the iCloud OAuth pilot, including whether the website-only Wharf application qualifies. The interest form requires Apple developer sign-in. It has not been submitted. Preserve the existing CalDAV implementation as unfinished work; the current staging deployment still uses that implementation.
+
+Primary references: [Apple third-party account authorization](https://support.apple.com/en-us/121539), [Apple DTS confirmation of the pilot](https://developer.apple.com/forums/thread/825772), [iCloud OAuth interest form](https://developer.apple.com/contact/request/icloud-oauth2/), [Apple DTS guidance for unreleased apps](https://developer.apple.com/forums/thread/847329).
+
 ## Data and permissions
 
 Google still requests primary-calendar free/busy. Outlook's basic read permission is broader, but calendarView uses an explicit select of start/end/showAs/isCancelled; no subject, body, location, or attendees are requested. calendarView supports both personal and organizational accounts and expands recurrences server-side. Every page must load successfully before any snapshot is saved. Tentative, busy, out-of-office, and unknown states block time; free and cancelled events do not.
