@@ -459,3 +459,5 @@ html[data-navigating] .view{animation:none}
 
 .calendar-picker form{text-align:left}.calendar-picker input{height:44px;padding:10px 12px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg)}
 .calendar-picker form .micro{margin-top:16px}.calendar-picker>.text-button{display:flex}.calendar-picker>svg{display:block}
+
+.staging-notice{padding:10px 20px;text-align:center;background:#fff3cd;color:#5f4700;border-bottom:1px solid #e3cb73;font-size:13px;line-height:1.5}

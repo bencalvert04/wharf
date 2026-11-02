@@ -2,7 +2,7 @@
 
 ## Status as of November 2, 2026
 
-PR #11 remains draft and unfinished. Reconciliation starts at provider commit `09f8f39` and main `eda55cd`. Main's merged Google approval flow (PR #14), refresh-token scope upgrade, and privacy disclosures are retained. No hosting configuration, remote database migration, real-account authorization, email invitation, or deployment has been performed in this reconciliation.
+PR #11 remains draft and unfinished. Reconciliation starts at provider commit `09f8f39` and main `eda55cd`. Main's merged Google approval flow (PR #14), refresh-token scope upgrade, and privacy disclosures are retained. The reconciliation is committed locally as `d2b549c`. A separate staging environment was subsequently created at the user's request; see the setup record below. No real-account calendar authorization or email invitation has been completed.
 
 The original main checkout was clean and remains untouched. Work is isolated on `codex/calendar-providers-reconcile` in a separate worktree. Ray's `/Users/rayshaw/Documents/ChatGPT/wharf-pending-reentry` environment is unavailable on this machine. No local provider/database/sender configuration was found in the main checkout. The prior successful secret check and migrated Neon test database do not establish this environment's readiness.
 
@@ -12,12 +12,33 @@ The original main checkout was clean and remains untouched. Work is isolated on 
 - Production build and TypeScript check pass without live provider/database/sender configuration.
 - The new Google callback regression fails against the old unguarded handle and passes after the fix: a newer cross-session action prevents stale provider-connection deletion even before the provider generation changes.
 - Combined Google start/callback tests cover planner scope selection, partial consent, saved-token scope upgrades, saved joins, header login, and provider-switch protection.
-- The offline staging checker is covered with synthetic configuration. It has not validated an actual staging credential file.
+- The offline staging checker is covered with synthetic configuration. Its complete-provider check will remain incomplete until Google, Microsoft, and the invitation sender are configured.
+
+## Isolated staging setup, November 2, 2026
+
+- Site: `https://wharf-calendar-staging.vercel.app`, separate Vercel project `wharf-calendar-staging` in team `wharf1`. Project ID: `prj_TCxNuo3KWBnZxdyR0CmqVZ75b08n`.
+- Vercel Authentication protects all staging domains and deployments. Sign in with the Vercel account that has access to team `wharf1`.
+- Database: new Neon Free resource `wharf-calendar-staging-db`, resource ID `store_UHe3XRj961WhaVxl`, Neon project `shy-star-51064407`. Connected only to the staging Vercel project.
+- Database host: `ep-divine-dream-bc9upssq-pooler.c-16.us-east-1.aws.neon.tech`. Verified zero public tables before migration. All additive migrations completed successfully before deployment.
+- A new independent vault key and cleanup secret were generated for this empty environment and stored in sensitive staging environment variables. Keep this vault key stable. Production credentials and data were not copied.
+- Private local configuration is in ignored, owner-readable `.env.staging.local` in the `wharf-staging` worktree. The remote environment pull contains placeholders for sensitive variables and is not a runnable replacement for that file.
+- `APP_URL` is the staging origin above and `WHARF_ENVIRONMENT=staging` displays a test-site banner and noindex metadata. Staging build verified both.
+- iCloud is configured for account-owner connection. No account credentials have been entered yet. Microsoft and Google OAuth and the invitation sender are intentionally unconfigured. The user has an iCloud calendar but no Outlook account.
+- Existing Vercel preview/development configurations shared production's database, so those were not reused. GitHub CI and recovered old logs supplied mocked/synthetic validation, not a confirmed isolated staging site or real provider validation.
+- Source: branch `codex/calendar-staging`, derived from the reconciled commit above. Neither PR #11 nor main has been merged or pushed by this staging setup. The live Wharf project is unchanged.
+
+### Hosted infrastructure verification
+
+Deployment `dpl_7fo9FwEDnRBVSdFAAQpRdHD9MJbM` reached READY on November 2, 2026. The browser displayed the test-site banner. Anonymous requests to both `/` and `/api/auth/calendar/providers` redirect to Vercel authentication. An authorized provider request returns `google:false`, `microsoft:false`, `icloud:true`.
+
+At `2026-11-02T22:15:40Z`, an authenticated staging smoke check created meeting `b7f2be4b-df79-4735-b4cf-13b9b2ab7ad5` with HTTP 201, read it as its planner with HTTP 200, and found it in pending meetings. Invalid-format iCloud credentials returned HTTP 400, unconfigured Microsoft returned HTTP 503, and a cross-origin meeting creation returned HTTP 403. No real provider credentials were used. Database inspection afterward showed one synthetic meeting, zero attendees, zero provider connections, and zero invitation jobs. This verifies hosted plumbing and error handling, not real iCloud authentication or calendar reads.
+
+The staging build and TypeScript check pass. The earlier reconciled source passed all 226 automated tests. The production project still points at deployment `dpl_4uTXAdq2Jf1fGXYovRi1Fi8v2KDL`; staging points at its own deployment above.
+
+For iCloud, the account owner generates an Apple app-specific password under Apple Account > Sign-In and Security > App-Specific Passwords, then enters it directly into the staging site's iCloud form. Never put it in chat or this record. This uses CalDAV, not Sign in with Apple. An account with two-factor authentication is required.
 
 ## Needed to continue live validation
 
-- Approved isolated staging origin and database hostname, with credentials available through a private local env file or the hosting platform's secure configuration.
-- The existing staging vault key, or confirmation that the target is a new empty environment before creating its first key. Never replace or copy the production key.
 - Microsoft registration access to verify the secret expiration, supported account types, delegated permissions, and exact Web callbacks. The supplied public client ID is `1f104508-0140-443d-bcd7-8c1874c2ead6`.
 - Consenting personal Outlook and iCloud test accounts, plus a Google regression account. The account owner completes sign-in and MFA. iCloud uses an app-specific password, never the normal Apple password.
 - An approved staging invitation sender and recipient addresses, with mailbox/calendar access to verify receipt and RSVP. BYU administrator approval remains a separate organizational-account prerequisite.
@@ -81,4 +102,4 @@ Every row below is **NOT RUN** in this reconciliation. Record the account alias,
 - Website finalization checks saved snapshots. A failed refresh preserves the old snapshot and does not create a persistent booking block. This candidate does not guarantee a fresh read of every live calendar before booking. A future live-read booking design needs an explicit freshness policy and failure behavior.
 - iCloud floating/unrecognized-zone timed events intentionally fail. Users must use supported calendar times; reconnecting alone does not fix those events.
 - Microsoft/iCloud disconnect deletes local credentials. Users must also revoke consent or the app-specific password at the provider when they want provider-side revocation.
-- PGlite and mocked transport tests do not validate Neon multi-process lock contention, consent screens, actual calendar reads, email receipt, or RSVP. Keep the PR draft and undeployed until the live evidence is complete.
+- PGlite and mocked transport tests do not validate Neon multi-process lock contention, consent screens, actual calendar reads, email receipt, or RSVP. Keep the PR draft and out of production until the live evidence is complete. The isolated staging deployment is for collecting that evidence.
