@@ -38,7 +38,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    if(people.some(p=>!validEmail(p.email)))return json({error:'An attendee needs to sign in again and rejoin to provide a verified invitation email.'},409);
    if(revision!==availabilityRevision(people))return json({error:'Attendees changed. Refresh and select a valid time again.'},409);
    if(!validFinalSlot(c,people,start,end))return json({error:'Choose a future time that fits the meeting length and everyone’s availability.'},400);
-   const external=(await providerConnection(s.google_sub))?.credential||/^(microsoft|icloud):/.test(s.google_sub);
+   const external=(await providerConnection(s.google_sub))?.credential||/^(microsoft|icloud|apple):/.test(s.google_sub);
    if(external){
     if(!invitationsConfigured())return json({error:'Calendar invitation email delivery needs to be configured before this meeting can be finalized.'},503);
     if(!await commitFinalization(id,c,people,start,end))return json({error:'Availability changed. Refresh and select a time again.'},409);

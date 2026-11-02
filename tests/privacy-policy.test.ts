@@ -10,7 +10,7 @@ test('privacy describes server-side profile storage separately from the browser 
 });
 test('provider privacy distinguishes calendar-reading login, retained credentials, and new email delivery',()=>{
  assert.match(privacyPolicy.profile,/Google sign-in alone/);
- assert.match(privacyPolicy.profile,/choosing Outlook or iCloud also connects that calendar/);
+ assert.match(privacyPolicy.profile,/choosing Outlook also connects that calendar/);
  assert.match(privacyPolicy.otherCalendars,/credentials do not expire with browser sessions or meetings/);
  assert.match(privacyPolicy.otherCalendars,/remain until disconnected or replaced/);
  assert.match(privacyPolicy.otherCalendars,/Unsupported floating event times/);

@@ -32,7 +32,7 @@ export async function POST(req:Request){
   const purpose=connectingPlanner?'planner_connect':connectCalendar===true?'connect':'join';
   let inviteeId:string|null=null;
   try{if(row)inviteeId=await resolveInvitation(row.id,invitationToken,s.google_sub)}catch(e){return json({error:(e as Error).message},409)}
-  if(!row&&connectCalendar===true&&s.google_sub&&!/^(microsoft|icloud):/.test(s.google_sub)){
+  if(!row&&connectCalendar===true&&s.google_sub&&!/^(microsoft|icloud|apple):/.test(s.google_sub)){
    const saved=await calendarConnection(s.google_sub);
    if(saved?.refresh_token&&!saved.disconnecting&&grantHasFreeBusy(saved.granted_scopes)){
     await switchGuard!.remove();
@@ -40,7 +40,7 @@ export async function POST(req:Request){
    }
    return json({url:await beginGoogleFlow(s.id,null,typeof returnMeetingId==='string'?returnMeetingId.slice(0,100):null,s.google_sub,null,'connect')});
   }
-  if(row&&s.google_sub&&!/^(microsoft|icloud):/.test(s.google_sub)){
+  if(row&&s.google_sub&&!/^(microsoft|icloud|apple):/.test(s.google_sub)){
    const saved=await calendarConnection(s.google_sub);
    if(connectingPlanner&&!grantHasEventWrite(saved?.granted_scopes))return json({url:await beginGoogleFlow(s.id,row.id,null,s.google_sub,inviteeId,'planner_connect')});
    if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},s.google_sub,s.name||'Guest',s.id,inviteeId,true,()=>switchGuard!.check())){await switchGuard!.remove();return json({joined:true,meetingId:row.id});}

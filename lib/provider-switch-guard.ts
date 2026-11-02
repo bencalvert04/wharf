@@ -1,5 +1,5 @@
 import type {CalendarDatabase} from './calendar-connection-store.ts';
-export const isStandaloneProviderAccount=(account:unknown)=>typeof account==='string'&&/^(microsoft|icloud):/.test(account);
+export const isStandaloneProviderAccount=(account:unknown)=>typeof account==='string'&&/^(microsoft|icloud|apple):/.test(account);
 
 // These generation checks supplement the durable intent protocol. Callers must
 // obtain db inside runCalendarIntent so each query, including the final deletion,

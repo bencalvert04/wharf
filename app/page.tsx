@@ -4,7 +4,7 @@ import {useState,useMemo,useEffect,useLayoutEffect} from 'react';
 import {flushSync} from 'react-dom';
 import {samplePeople,demoConstraints} from '@/lib/demo';
 import {beginInviteCopy,type InviteCopy} from '@/lib/invite-clipboard';
-import CalendarPicker,{type CalendarChoice,type AppleLogin} from '@/components/CalendarPicker';
+import CalendarPicker,{type CalendarChoice} from '@/components/CalendarPicker';
 import AccountButton from '@/components/AccountButton';
 import DatePicker from '@/components/DatePicker';
 import AvailabilityWindow from '@/components/AvailabilityWindow';
@@ -38,6 +38,7 @@ export default function Home(){
  function changeTheme(value:'system'|'light'|'dark'){setTheme(value);try{localStorage.setItem('wharf-theme',value)}catch{}}
  const [live,setLive]=useState<{attendees:{name:string;sample?:boolean}[];windows:Window[];bestWindows:Window[];joined:boolean;canRejoin?:boolean;canView:boolean;tracked?:boolean;isPlanner:boolean;revision:string;finalTime:{start:number;end:number}|null;calendar?:{status:'created'|'pending';htmlLink:string|null;error:string|null}|null;delivery?:{total:number;pending:number;needsReview:number}}|null>(null);
  useEffect(()=>{if(!meeting||demo)return;let active=true;const refresh=()=>fetch('/api/requests/'+meeting).then(r=>r.json()).then(d=>{if(active&&!d.error)setLive(d)}).catch(()=>{});refresh();const timer=setInterval(refresh,15000);window.addEventListener('focus',refresh);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',refresh)}},[meeting,demo]);
+ useEffect(()=>{const result=new URLSearchParams(location.search).get('signin');if(result)setNotice(({apple:'Signed in with Apple. Your iCloud calendar has not been connected.',cancelled:'Apple sign-in was cancelled.',expired:'Apple sign-in expired. Please try again.',unavailable:'Sign in with Apple is not available yet.',failed:'Could not complete Apple sign-in. Please try again.'} as Record<string,string>)[result]||'');},[]);
  useEffect(()=>{const result=new URLSearchParams(location.search).get('calendar');if(result)setNotice(({eventready:'Google Calendar invitations enabled. Select a time and create the meeting, or retry a pending invitation.',eventpermission:'Allow calendar event access to send Google Calendar invitations.',signedin:'You’re signed in.',accountswitch:'To use Google, sign out first and sign in with Google as a separate Wharf account. Existing meeting memberships stay with your current account.',connected:'Calendar connected.',joined:'Your availability has been added.',cancelled:'Calendar connection was cancelled.',permission:'Allow ongoing free/busy access to connect your calendar.',expired:'This sign-in expired. Please try again.',failed:'Could not read your calendar. Please try again and allow free/busy access.'} as Record<string,string>)[result]||'');},[]);
  useEffect(()=>{
   const id=new URLSearchParams(location.search).get('meeting');if(!id)return;
@@ -62,7 +63,7 @@ export default function Home(){
  function showDocs(){navigate(()=>{setView('docs');history.pushState({},'','/?view=docs')})}
  function goBack(){if(backTarget==='pending')navigate(()=>{setDemo(false);setMeeting('');setLive(null);setSelected(null);setError('');setView('pending');history.replaceState({},'','/?view=pending')});else if(backTarget==='home')goHome();else reset();}
  function showDemo(){const from=view==='home'?'home':'create';navigate(()=>{setC(demoConstraints(c.zone));setLive(null);setMeeting('');setMode('everyone');setBackTarget(from);history.pushState({},'','/?view=demo');setDemo(true);setView('results');setCount(1);setAdjustedDemo(false);setWeek(0);setSelected(null);setError('')})}
- async function create(connect=false,pendingCopy?:InviteCopy,provider:CalendarChoice|'saved'='saved',credentials?:AppleLogin){
+ async function create(connect=false,pendingCopy?:InviteCopy,provider:CalendarChoice|'saved'='saved'){
   let invitationCopy=pendingCopy;
   try{
    validate(c);if(connect&&!invitationCopy)invitationCopy=beginInviteCopy();
@@ -78,7 +79,7 @@ export default function Home(){
     setCopied(success);setNotice(success?'Invite link copied.':'Meeting created. Use Copy invite link to copy the invitation.');
     try{sessionStorage.setItem('wharf-copy:'+d.id,success?'copied':'failed')}catch{}
    }
-   if(connect)await connectCalendar(d.id,provider,credentials);
+   if(connect)await connectCalendar(d.id,provider);
   }catch(e){invitationCopy?.cancel();setError((e as Error).message);if(connect)throw e}finally{setLoading(false)}
  }
  async function attend(){
@@ -92,11 +93,11 @@ export default function Home(){
   }catch(e){invitationCopy?.cancel();setError((e as Error).message);setModal(true)}finally{setLoading(false)}
  }
  function invitationFor(id:string){const query=new URLSearchParams(location.search).get("invite");try{return query||sessionStorage.getItem("wharf-invite:"+id)}catch{return query}}
- async function connectCalendar(id=meeting,provider:CalendarChoice|'saved'='saved',credentials?:AppleLogin){
+ async function connectCalendar(id=meeting,provider:CalendarChoice|'saved'='saved'){
   setLoading(true);setError('');
-  try{const r=await fetch('/api/auth/calendar/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider,meetingId:id,invitationToken:invitationFor(id),...credentials})});const d=await r.json();if(!r.ok)throw Error(d.error);location.assign(d.joined?`/?meeting=${encodeURIComponent(id)}&calendar=joined`:d.url)}finally{setLoading(false)}
+  try{const r=await fetch('/api/auth/calendar/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider,meetingId:id,invitationToken:invitationFor(id)})});const d=await r.json();if(!r.ok)throw Error(d.error);location.assign(d.joined?`/?meeting=${encodeURIComponent(id)}&calendar=joined`:d.url)}finally{setLoading(false)}
  }
- async function chooseCalendar(provider:CalendarChoice,credentials?:AppleLogin){if(meeting&&!demo)await connectCalendar(meeting,provider,credentials);else await create(true,undefined,provider,credentials)}
+ async function chooseCalendar(provider:CalendarChoice){if(meeting&&!demo)await connectCalendar(meeting,provider);else await create(true,undefined,provider)}
 
  async function leave(){setLoading(true);try{const r=await fetch('/api/requests/'+meeting+'/leave',{method:'POST'});if(!r.ok)throw Error('Could not remove availability.');const d=await fetch('/api/requests/'+meeting).then(r=>r.json());setLive(d);setSelected(null)}catch(e){setError((e as Error).message)}finally{setLoading(false)}}
  async function enableCalendarInvitations(){
