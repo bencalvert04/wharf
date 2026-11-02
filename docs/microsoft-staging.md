@@ -6,6 +6,12 @@ The user completed signup directly. Browser inspection confirmed a provisioned i
 
 No Microsoft app secret was found in the local environment files for the main, reconciliation, or staging worktrees. The Entra portal requires sign-in. The known application ID is `1f104508-0140-443d-bcd7-8c1874c2ead6`, but registration ownership, secret expiration, and staging callback configuration have not been verified. Creating an Outlook inbox does not grant access to this existing app registration.
 
+Ray's follow-up identifies the registration account as the **Microsoft account** `wharfmeetings@gmail.com`, tenant `d39181f6-e830-4ed6-8e64-b4861e5a21f9`, registration object `9fe929b0-6112-4776-9332-b19af69eed1f`. These identifiers are handoff information, not a fresh portal verification. The browser reached Microsoft's email-code verification for that account; the account owner must complete sign-in before registration inspection can continue.
+
+The public `MICROSOFT_CLIENT_ID` was added to the **Production environment of the separate staging project** `prj_TCxNuo3KWBnZxdyR0CmqVZ75b08n`. The app secret remains absent. No callback was changed and no redeployment was performed for this partial configuration. After adding a valid secret and registering the callback, redeploy staging so its server receives the environment changes. The actual production Wharf project was not changed.
+
+Read-only checks confirmed the staging provider state/connection and Apple state/account tables, connection-generation and calendar-intent columns, the approved local staging URL/database host, and the existing local vault key's 64-hex format. The remote staging vault key is present as a sensitive variable. Neither local nor remote vault keys were changed. Vercel team membership lists only Ben as owner, with no separate Ray member. The staging project link and access status were sent to Ray at the user's request: `https://vercel.com/wharf1/wharf-calendar-staging`.
+
 The registration owner must add the following exact **Web** callback while preserving existing callbacks:
 
 `https://wharf-calendar-staging.vercel.app/api/auth/microsoft/callback`
