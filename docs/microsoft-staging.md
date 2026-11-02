@@ -2,7 +2,7 @@
 
 ## Current blockers, November 2, 2026
 
-The user authorized creating a dedicated free Outlook test account. Microsoft's official signup accepted the proposed address and reached password creation. Account creation, terms, verification, and mailbox provisioning are not yet confirmed. The account owner completes those steps directly. No password is stored in this repository.
+The user completed signup directly. Browser inspection confirmed a provisioned inbox and calendar for the dedicated test account `wharf.calendar.test2026@outlook.com`. No password is stored in this repository.
 
 No Microsoft app secret was found in the local environment files for the main, reconciliation, or staging worktrees. The Entra portal requires sign-in. The known application ID is `1f104508-0140-443d-bcd7-8c1874c2ead6`, but registration ownership, secret expiration, and staging callback configuration have not been verified. Creating an Outlook inbox does not grant access to this existing app registration.
 
@@ -14,7 +14,9 @@ Verify personal and organizational account support and delegated `User.Read`, `C
 
 ## Calendar fixtures ready for import
 
-Import [outlook-staging.ics](fixtures/outlook-staging.ics) once into the dedicated test account's **primary calendar**, with Outlook's calendar timezone set to America/Denver (Mountain Time). The implementation queries `/me/calendarView`, so a secondary calendar is not suitable for this test. The file has no attendees or organizer and sends no invitations. Import has not yet been performed. Inspect Outlook's resulting recurrence, all-day status, and Show As values before using them as expected provider data. Avoid repeated imports because Outlook may duplicate items.
+The spring series, all-day busy event, and free event were created directly through Outlook's UI in the dedicated account's primary calendar. The event timezone was verified as Mountain Time (US & Canada). Month view confirmed five daily 09:00 to 09:30 busy occurrences from March 12 through 16, an all-day busy event on March 15, and a 13:00 to 14:00 free event on March 12. No attendees were added and no invitations were sent. Outlook initially defaulted the all-day item to Free; it was explicitly changed to Busy before saving. The fall series has not been created. This verifies test-data preparation only, not Wharf authorization or Graph reads.
+
+[outlook-staging.ics](fixtures/outlook-staging.ics) remains an alternative for a fresh test calendar. **Do not import it into this account now**, because the spring cases already exist and import could duplicate them. For a fresh account, import once into its **primary calendar**, with Outlook's calendar timezone set to America/Denver (Mountain Time). The implementation queries `/me/calendarView`, so a secondary calendar is not suitable for this test. The file has no attendees or organizer and sends no invitations. File parsing was checked locally, but Outlook import has not been tested. Inspect the resulting recurrence, all-day status, and Show As values before using imported items as expected provider data.
 
 | Test | Expected busy time |
 | --- | --- |
