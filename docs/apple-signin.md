@@ -45,3 +45,11 @@ References: [Web configuration](https://developer.apple.com/help/account/capabil
 ## Staging deployment evidence
 
 Source commit `6f5a8a4` was deployed to the separate staging project as `dpl_5ewMv9nXXo5C583WAAkujkNobwz3`. The stable URL is https://wharf-calendar-staging.vercel.app. Browser inspection confirmed the Sign in with Apple button and no Apple username/password fields. The button is disabled pending registration. Authorized hosted checks returned `icloud:false`, `apple:false`; legacy password submission returned HTTP 410, and the official Apple start endpoint returned HTTP 503 with the registration explanation. No real Apple login token was exchanged. Production was not deployed or migrated.
+
+## Enrollment follow-up, November 2, 2026
+
+The user requested help enrolling and selected individual membership under their legal name. The signed-in Apple portal was opened through Enroll today, then Continue enrollment on the web. It reached the personal-information form at `https://developer.apple.com/enroll/identity/edit`. The user was asked to enter legal identity/contact details directly and stop before payment. No enrollment information, agreement acceptance, or purchase was submitted by the agent.
+
+Before payment, the published [Sign in with Apple usage guidelines](https://developer.apple.com/sign-in-with-apple/usage-guidelines-for-websites-and-other-platforms/) were checked again. They explicitly require an App Store app for the web API. The [web setup documentation](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web) also requires a related primary Apple-platform App ID. Wharf is currently website-only. The user was informed that the USD 99 annual membership alone does not resolve this requirement and was asked whether to confirm website-only eligibility with Apple, pursue an iPhone app, or enroll independently of this feature. Do not represent a placeholder App ID or direct REST calls as an exemption from Apple's published eligibility requirements.
+
+Current state: membership enrollment and actual Apple sign-in activation are incomplete; no Apple developer keys have been created. Existing staged implementation and production remain unchanged during this enrollment investigation.
