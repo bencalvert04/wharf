@@ -41,3 +41,7 @@ Automated tests exercise the real signature verification and PostgreSQL state/in
 Before release, test actual Apple consent, Hide My Email, first and repeat login, cancellation, expired/replayed callbacks, concurrent tabs, logout during authorization, meeting ownership, and the protected hosted callback. Confirm the account panel never claims iCloud availability is connected. Live Apple sign-in has not been completed.
 
 References: [Web configuration](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web), [Apple environment setup](https://developer.apple.com/documentation/signinwithapple/configuring-your-environment-for-sign-in-with-apple), [Apple authorization endpoint](https://developer.apple.com/documentation/signinwithapplerestapi/request-an-authorization-to-the-sign-in-with-apple-server.), [Separate iCloud calendar OAuth pilot](https://developer.apple.com/forums/thread/825772).
+
+## Staging deployment evidence
+
+Source commit `6f5a8a4` was deployed to the separate staging project as `dpl_5ewMv9nXXo5C583WAAkujkNobwz3`. The stable URL is https://wharf-calendar-staging.vercel.app. Browser inspection confirmed the Sign in with Apple button and no Apple username/password fields. The button is disabled pending registration. Authorized hosted checks returned `icloud:false`, `apple:false`; legacy password submission returned HTTP 410, and the official Apple start endpoint returned HTTP 503 with the registration explanation. No real Apple login token was exchanged. Production was not deployed or migrated.
