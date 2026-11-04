@@ -8,6 +8,8 @@ async function complete({refresh=true,saved=false,permission=true,meeting=true,p
  let stored=0,snapshots=0,removed=0,extraAuthorization=0;
  const flow={calendar_intent:{},purpose:planner?'planner_connect':'connect',meeting_id:meeting?'meeting':null,nonce:'nonce'};
  const {GET}=loadWithMocks<{GET:(request:Request)=>Promise<Response>}>(new URL('../app/api/auth/google/callback/route.ts',import.meta.url),{
+  '@/lib/calendar-intent':{runCalendarIntent:(_intent:unknown,work:()=>Promise<unknown>)=>work(),bindCalendarAccount:async()=>{}},
+  '@/lib/provider-switch-guard':{isStandaloneProviderAccount:()=>false,captureGoogleSwitch:async()=>({check:async()=>{},remove:async()=>{removed++}})},
   '@/lib/planner-access':{},'next/server':{},'@/lib/slack-workflow':{},'@/lib/slack-attendance':{},'@/lib/agent-calendar-authorization':{},'@/lib/google-event-payload':{},
   '@/lib/auth':{session:async()=>({id:'session',google_sub:null}),hash:()=> 'hashed',appUrl:()=> 'https://wharf.example',meeting:async()=>({id:'meeting',constraints:'{}'}),sql:()=>async(strings:TemplateStringsArray)=>strings.join('').includes('DELETE FROM oauth_states')?[flow]:[{id:'session'}]},
   '@/lib/calendar-invitation':{validEmail:()=>true},
@@ -20,13 +22,13 @@ async function complete({refresh=true,saved=false,permission=true,meeting=true,p
  return {status:new URL(response.headers.get('location')!).searchParams.get('calendar'),stored,snapshots,removed,extraAuthorization};
 }
 test('new attendee signs in, stores ongoing access, and joins in one callback without another authorization trip',async()=>{
- assert.deepEqual(await complete(),{status:'joined',stored:1,snapshots:1,removed:0,extraAuthorization:0});
+ assert.deepEqual(await complete(),{status:'joined',stored:1,snapshots:1,removed:1,extraAuthorization:0});
 });
 test('planner combined authorization also joins immediately, including when optional event access is declined',async()=>{
- assert.deepEqual(await complete({planner:true}),{status:'joined',stored:1,snapshots:1,removed:0,extraAuthorization:0});
+ assert.deepEqual(await complete({planner:true}),{status:'joined',stored:1,snapshots:1,removed:1,extraAuthorization:0});
 });
 test('returning signed-out user reuses saved offline access when Google omits a refresh token',async()=>{
- assert.deepEqual(await complete({refresh:false,saved:true}),{status:'joined',stored:0,snapshots:1,removed:0,extraAuthorization:0});
+ assert.deepEqual(await complete({refresh:false,saved:true}),{status:'joined',stored:0,snapshots:1,removed:1,extraAuthorization:0});
 });
 test('declined free/busy or missing offline access does not join or silently repeat consent',async()=>{
  for(const options of [{permission:false},{refresh:false}]){
@@ -34,7 +36,7 @@ test('declined free/busy or missing offline access does not join or silently rep
  }
 });
 test('header calendar linking saves the connection without joining a meeting or repeating sign-in',async()=>{
- assert.deepEqual(await complete({meeting:false}),{status:'connected',stored:1,snapshots:0,removed:0,extraAuthorization:0});
+ assert.deepEqual(await complete({meeting:false}),{status:'connected',stored:1,snapshots:0,removed:1,extraAuthorization:0});
 });
 
 test('returning planner persists newly approved event access without replacing the saved refresh token',async()=>{
@@ -43,7 +45,7 @@ test('returning planner persists newly approved event access without replacing t
   calls++;assert.equal(sub,'google-user');assert.equal(token,'encrypted');
   assert.deepEqual(generation,{version:3,connectionId:'saved-generation'});grantedScopes=scopes;
  }});
- assert.deepEqual(result,{status:'joined',stored:0,snapshots:1,removed:0,extraAuthorization:0});
+ assert.deepEqual(result,{status:'joined',stored:0,snapshots:1,removed:1,extraAuthorization:0});
  assert.equal(calls,1);assert.ok(grantHasFreeBusy(grantedScopes));assert.ok(grantHasEventWrite(grantedScopes));
 });
 test('a changed saved grant prevents the callback from claiming a successful scope upgrade',async()=>{

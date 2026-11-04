@@ -2,20 +2,24 @@ import type {Metadata} from 'next';
 import {privacyPolicy,googleDataSharing,googleDataProtection} from '@/lib/privacy-policy';
 import styles from './privacy.module.css';
 
-export const metadata:Metadata={title:'Privacy Policy | Wharf',description:'How Wharf accesses, uses, shares, protects, and retains Google user data.'};
+export const metadata:Metadata={title:'Privacy Policy | Wharf',description:'How Wharf accesses, uses, shares, protects, and retains account and calendar data.'};
 
 export default function Privacy(){
  return <main className={styles.policy}>
   <a href="/">← Wharf</a><h1>Wharf Privacy Policy</h1>
   <p>Last updated: November 2, 2026</p>
-  <p>This policy explains how Wharf handles your information when you use its website, Google Calendar connection, agent API, and Slack integration.</p>
+  <p>This policy explains how Wharf handles your information when you use its website, Google and Outlook calendar connections, Sign in with Apple, earlier iCloud connections, agent API, and Slack integration.</p>
   <nav aria-label="Privacy policy sections"><ul>
    <li><a href="#google-data">Google data we access and use</a></li>
+   <li><a href="#apple-signin">Sign in with Apple</a></li>
+   <li><a href="#other-calendars">Outlook and iCloud calendars</a></li>
    <li><a href="#data-sharing">Who receives Google user data</a></li>
    <li><a href="#data-protection">How we protect Google user data</a></li>
    <li><a href="#retention">Retention, disconnection, and deletion</a></li>
   </ul></nav>
   <section id="google-data"><h2>Google data we access and use</h2><p>{privacyPolicy.availability}</p><p>{privacyPolicy.profile}</p></section>
+  <section id="apple-signin"><h2>Sign in with Apple</h2><p>{privacyPolicy.appleSignIn}</p></section>
+  <section id="other-calendars"><h2>Outlook and iCloud calendars</h2><p>{privacyPolicy.otherCalendars}</p></section>
   <section id="data-sharing"><h2>Who receives Google user data</h2>
    <p>We share, transfer, or disclose Google user data and derived shared availability to the following recipients for these purposes:</p>
    {googleDataSharing.map(({recipient,details})=><div key={recipient}><h3>{recipient}</h3><p>{details}</p></div>)}

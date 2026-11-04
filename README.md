@@ -2,6 +2,8 @@
 
 Shared meeting availability for people and agents. Next.js on Vercel, Neon Postgres, Google Calendar free/busy.
 
+The draft multi-provider implementation adds Outlook and iCloud to the website calendar picker. See [calendar provider setup, privacy, limitations, and isolated staging validation](docs/calendar-providers.md). The Google-specific sections below describe the existing Google and Slack booking paths, not native Outlook/iCloud event creation. Real-account provider and mixed-invitation validation is still required before release.
+
 ## Run and deploy
 
 Node 22.13 or later is required. Run `npm ci`, configure `.env.local`, then `npm run dev`. Use `npm run build` for a production build.

@@ -24,3 +24,25 @@ test('starts clipboard write during the click and supplies the created URL later
   if(originalItem)Object.defineProperty(globalThis,'ClipboardItem',originalItem);else Reflect.deleteProperty(globalThis,'ClipboardItem');
  }
 });
+
+test('an unresolved clipboard write cannot block calendar sign-in after meeting creation',async t=>{
+ const originalNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+ const originalItem=Object.getOwnPropertyDescriptor(globalThis,'ClipboardItem');
+ t.mock.timers.enable({apis:['setTimeout']});
+ try{
+  let complete!:()=>void;
+  Object.defineProperty(globalThis,'ClipboardItem',{configurable:true,value:class {}});
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{write:()=>new Promise<void>(resolve=>{complete=resolve})}}});
+  const copy=beginInviteCopy();let finished=false;
+  void copy.result.then(()=>{finished=true});
+  t.mock.timers.tick(10000);await Promise.resolve();
+  assert.equal(finished,false,'Do not time out while the meeting is still being created');
+  copy.resolve('https://example.test/?meeting=clipboard');
+  t.mock.timers.tick(1499);await Promise.resolve();assert.equal(finished,false);
+  t.mock.timers.tick(1);assert.equal(await copy.result,false);
+  complete();await Promise.resolve();assert.equal(await copy.result,false,'Late clipboard completion must not change the reported result');
+ }finally{
+  if(originalNavigator)Object.defineProperty(globalThis,'navigator',originalNavigator);else Reflect.deleteProperty(globalThis,'navigator');
+  if(originalItem)Object.defineProperty(globalThis,'ClipboardItem',originalItem);else Reflect.deleteProperty(globalThis,'ClipboardItem');
+ }
+});

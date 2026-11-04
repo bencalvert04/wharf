@@ -1,8 +1,9 @@
+import {guardCalendarDatabase} from './calendar-intent';
 import {isSameOrigin} from './request-origin';
 import {randomBytes,createHash,timingSafeEqual} from 'node:crypto';
 import {cookies} from 'next/headers';
 import {neon} from '@neondatabase/serverless';
-export const sql=()=>neon(process.env.DATABASE_URL!);
+export const sql=()=>guardCalendarDatabase(neon(process.env.DATABASE_URL!));
 export const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
 export const token=()=>randomBytes(32).toString('base64url');
 export const appUrl=()=>process.env.APP_URL||'http://localhost:3000';
