@@ -1,5 +1,9 @@
 # Microsoft staging test
 
+## Latest delivery result, November 4, 2026
+
+The staging sender is now configured under the user's Gmail account with a hidden credential, and Google OAuth is active in staging. Hosted Outlook-planned finalization sent one email to each of two Google/Outlook attendees, with one SMTP attempt per recipient. The Outlook recipient accepted through native RSVP controls and the organizer received a matching calendar reply. Native Google-planned delivery and a declined Outlook RSVP also passed separately. See [the current live acceptance record](calendar-provider-validation.md) for timestamps, message IDs, normal-refresh duplicate checks, and remaining gaps. Earlier unconfigured-sender statements below describe the initial setup only.
+
 ## Current setup, November 4, 2026
 
 The user completed signup directly. Browser inspection confirmed a provisioned inbox and calendar for the dedicated test account `wharf.calendar.test2026@outlook.com`. No password is stored in this repository.

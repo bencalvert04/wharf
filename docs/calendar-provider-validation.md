@@ -1,5 +1,11 @@
 # Calendar provider staging validation
 
+## Current live status, November 4, 2026
+
+Google and Microsoft now both have successful live calendar reads in isolated staging. Known Google busy time and Outlook recurrence/DST cases agree with shared availability. Both hosted booking paths have been exercised with mixed Google/Outlook attendees: native Google creation/guest decline/Google response propagation, and Outlook-planned email outbox delivery/guest acceptance/organizer receipt. Normal page refresh left one native event job or two email jobs respectively, with one SMTP attempt per recipient and no observed duplicate delivery. These passes do not cover interrupted HTTP responses, repeated finalization POSTs, or SMTP ambiguous failures.
+
+Google's identity, saved-token reuse, and planner owned-event grant passed live. A fresh independent Google attendee-only consent screen, live partial denial, and separate-browser concurrency cases remain untested. Microsoft's successful reads still depend on the explicitly approved staging-only `Calendars.Read` experiment; the default ReadBasic path remains blocked by Graph 403. Apple identity/calendar activation remains blocked on developer eligibility/configuration and pilot access, with no substantive support reply found. Production remains unchanged and PR #11 remains draft.
+
 ## Latest Apple onboarding change
 
 The user requested official Sign in with Apple instead of password entry. The replacement implementation removes the password form and rejects old iCloud password submissions. The Apple login button requires developer registration and stays disabled until configured. See [Apple sign-in setup](apple-signin.md). Historical iCloud connection instructions below are superseded and must not be used.
@@ -153,3 +159,29 @@ The transport message was confirmed in Gmail Sent (`1a1a761e8f339ac3`) and in th
 A fresh Google attendee connection from the planner's browser correctly reached the owned-calendar event scope upgrade. Google's existing-access details list free/busy plus identity/email/profile; the new grant is owned-event access. The user explicitly directed the developer warning continuation. A separate event-grant confirmation was presented when the broader scope appeared; no new event scope has yet been accepted by the agent.
 
 After import, Outlook Calendar showed exactly one matching event on November 6 at 10:00 to 10:30 local, with organizer Wharf and the initial state `You didn't respond`. Clicking Accept with Email organizer checked changed it to `You accepted`. Gmail received `Accepted: Wharf staging invitation transport validation` at `2026-11-04T16:33:13Z`, message `1a1a768556c19913`. Its calendar reply contains `METHOD:REPLY`, `PARTSTAT=ACCEPTED`, the exact original UID, and 17:00 to 17:30 UTC. Thus the standalone formatter/SMTP test passed receipt, local time, calendar import, and round-trip acceptance RSVP. No decline or repeated hosted finalization test has yet been completed. There was one sent transport-test message and one corresponding Outlook calendar item.
+
+## Live Google and mixed-provider validation, November 4, 2026
+
+The previous Google request had not saved a calendar credential. A fresh request completed after the user approved the owned-event grant. The staging connection now records identity/profile/email, `calendar.freebusy`, and `calendar.events.owned`, with a saved refresh credential. Meeting `42395564-2050-4cbe-ab3c-f7b25c039780` gained its Google attendee at `2026-11-04T16:45:58.314Z` alongside the existing Outlook attendee.
+
+A synthetic primary Google Calendar event, `Wharf STAGING TEST busy availability`, ID `hkrkeuhjnngp5q2ll3e0mbhgcs`, was created without guests for November 8, 2027, 13:00 to 13:30 Denver time. Removing/rejoining with saved Google access refreshed the snapshot at `2026-11-04T16:47:50.497Z`. An exact assertion found the expected 20:00 to 20:30 UTC interval. The shared view excluded both Outlook's moved 11:00 to 11:30 occurrence and Google's 13:00 to 13:30 fixture, showing the expected intervening free windows. No unrelated personal event details were recorded.
+
+As the Google identity in the meeting's planner browser session, the user-selected test slot was November 8, 2027, 12:00 to 12:30 Denver time. Hosted finalization created native Google event `eb8934704683eac4123c28a1cc6594b58f0f540731338444456a8c09fe88e8c5`, delivered at `2026-11-04T16:48:47.911Z`. Provider readback confirmed organizer `bencalvert04@gmail.com`, the exact times, and exactly one guest, the dummy Outlook account. The database has one native event and zero email-outbox jobs for this meeting. Refreshing the confirmed page retained the event. This is refresh evidence, not a repeated finalization POST test.
+
+The native Google invitation arrived directly in Outlook's inbox at 09:49 Mountain time with the correct local time and native RSVP controls. Declining through Outlook sent `Declined: Wharf Outlook fall DST validation` to the organizer, received in Gmail as message `1a1a7784ce7b3396` at `2026-11-04T16:50:39Z`. Provider-side guest status propagation is checked separately; initial readback still showed needsAction immediately after the response.
+
+Saved Google reuse also joined meeting `0f9a02bc-74f6-4aef-a7d0-c56235896c91` without new consent at `2026-11-04T16:51:00.190Z`, producing a second mixed Google/Outlook meeting for hosted SMTP finalization validation.
+
+Google Calendar subsequently confirmed the native guest status as `declined`. This completes native Google creation, guest receipt, Outlook decline, organizer reply receipt, and provider-side response propagation. Exactly one matching Google event was found.
+
+## Hosted Outlook-planned email booking, November 4, 2026
+
+After signing out of Google and signing in as the dummy Microsoft account, the same planner browser retained meeting ownership and both saved attendee snapshots. This tests the existing browser-session ownership model; it is not evidence of a different independent browser's organizer authorization. The Outlook identity selected March 12, 2027, 13:00 to 13:30 Denver time (20:00 to 20:30 UTC) in meeting `0f9a02bc-74f6-4aef-a7d0-c56235896c91`.
+
+Hosted Create meeting froze that time and queued exactly two email jobs, one for each distinct attendee email. Both were delivered with one attempt and no error: `98db6b68-4bdb-484b-bab9-ce9ad97f4078` at `2026-11-04T16:54:36.103Z`, and `f8a90bf4-7f9e-4bc6-9998-9d679c7c4e32` at `2026-11-04T16:54:36.432Z`. Message IDs use `<wharf-JOB_ID@gmail.com>`. There are zero native Google jobs for this meeting. The hosted page reports Meeting created and invitations sent to all attendees.
+
+Gmail search confirmed the dummy recipient's sent message `1a1a77be0f60db54` and the Google participant's received/Sent/Inbox message `1a1a77bdee4ca727`. Outlook received its copy directly in Inbox and exposed native RSVP controls, without attachment import. Accepting produced a sent response at 09:55 Mountain time, shown in Outlook Sent Items as `Meeting accepted Wharf Wharf Outlook saved access check`. The previous separate transport test's acceptance remains distinguishable at 09:33, and native Google decline at 09:50. A follow-up Gmail search hit a connector rate limit, so organizer receipt for this hosted acceptance is checked separately.
+
+Refreshing the confirmed website retained exactly two sent jobs, each with attempts=1 and no error. The UI no longer offers Create meeting. No duplicate delivery was observed during this normal refresh path. Repeated finalization POSTs, interruption after SMTP acceptance, concurrent delivery workers, and ambiguous-error review remain covered by automated tests or outstanding live cases; this normal-path run does not establish those failure cases.
+
+The hosted email acceptance was received in organizer Gmail as `1a1a77c9fca59d07`, subject `Accepted: Wharf Outlook saved access check`, at `2026-11-04T16:55:22Z`. Its attachment verified `METHOD:REPLY`, `PARTSTAT=ACCEPTED`, UID `0f9a02bc-74f6-4aef-a7d0-c56235896c91@gmail.com`, and 20:00 to 20:30 UTC on March 12, 2027. Thus the hosted email path passed real receipt, correct timezone, native Outlook acceptance, and round-trip organizer receipt, without manual calendar import for that message.
