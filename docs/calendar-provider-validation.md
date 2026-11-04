@@ -129,3 +129,11 @@ The table below is the acceptance checklist, not a blanket PASS. Completed perso
 - iCloud floating/unrecognized-zone timed events intentionally fail. Users must use supported calendar times; reconnecting alone does not fix those events.
 - Microsoft/iCloud disconnect deletes local credentials. Users must also revoke consent or the app-specific password at the provider when they want provider-side revocation.
 - PGlite and mocked transport tests do not validate Neon multi-process lock contention, consent screens, actual calendar reads, email receipt, or RSVP. Keep the PR draft and out of production until the live evidence is complete. The isolated staging deployment is for collecting that evidence.
+
+## Google staging activation, November 4, 2026
+
+The user completed Google owner sign-in and delegated the staging-client choice. A separate Web client `Wharf isolated staging` was created in the existing Wharf Google project `root-engine-512707-n9`. Public client ID: `364023655800-cc6j0flacaicrjq8s0f8apgmf8tivkrl.apps.googleusercontent.com`. Its sole callback is `https://wharf-calendar-staging.vercel.app/api/auth/google/callback`; no JavaScript origin was added. Google notes callback domains are automatically reflected in authorized consent domains. The existing production OAuth client was not edited.
+
+The one-time secret was transferred directly from browser memory into the hidden staging `GOOGLE_CLIENT_SECRET` field, then cleared from memory and the creation dialog dismissed. `GOOGLE_CLIENT_ID` was also saved only for the Production environment of the separate staging project. No secret was written to the local environment, repository, or logs. Deployment `dpl_5qEY7CcjbFY8DPyHbTZbSpY8Hm5n` reached READY at `https://wharf-calendar-staging-9knu20csj-wharf1.vercel.app` and serves the staging alias with Vercel Authentication retained.
+
+The user does not have the Wharf sender-account login. The current implementation accepts another Gmail sender with an app password, so `wharfmeetings@gmail.com` is not a hard requirement. Sender selection and direct credential setup are pending. No personal Gmail sending credential has been created or stored, and no message has been sent.
