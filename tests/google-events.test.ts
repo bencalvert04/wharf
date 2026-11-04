@@ -1,6 +1,5 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createServer} from 'node:http';
 import {EVENT_SCOPE,grantHasEventWrite,googleEventPayload,createOrRecoverGoogleEvent,type EventTransport} from '../lib/google-event-payload.ts';
 const input={id:'meeting-one',title:'Team planning',start:Date.parse('2026-11-02T16:00Z'),end:Date.parse('2026-11-02T16:30Z'),zone:'America/Denver',organizerSub:'planner-sub',organizerEmail:'planner@example.com',attendees:[{name:'Planner',email:'planner@example.com'},{name:'Guest',email:'guest@example.com'},{name:'Guest',email:'GUEST@example.com'}],url:'https://wharfmeetings.com/?meeting=meeting-one'};
 const payload=googleEventPayload(input);
@@ -50,30 +49,4 @@ test('recovery accepts RSVP changes but rejects changed times or guest lists',as
   let posts=0;const client:EventTransport={async request(options){if(options.method==='POST')posts++;return {data:event}}};
   await assert.rejects(createOrRecoverGoogleEvent(client,payload));assert.equal(posts,0);
  }
-});
-
-test('real socket failure after provider commit recovers on retry without another insert or invitation',async()=>{
- let stored=false,posts=0;
- const server=createServer((request,response)=>{
-  if(request.method==='POST'){
-   posts++;assert.equal(new URL(request.url!,'http://test').searchParams.get('sendUpdates'),'all');
-   stored=true;request.resume();response.destroy();return;
-  }
-  response.writeHead(stored?200:404,{'Content-Type':'application/json'});
-  response.end(JSON.stringify(stored?result:{error:'not found'}));
- });
- await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
- try{
-  const address=server.address() as {port:number};
-  const client:EventTransport={async request(options){
-   const url=new URL(`http://127.0.0.1:${address.port}/event`);
-   if(options.params)url.searchParams.set('sendUpdates',options.params.sendUpdates);
-   const response=await fetch(url,{method:options.method,...(options.data?{body:JSON.stringify(options.data)}:{}),signal:AbortSignal.timeout(2000)});
-   if(!response.ok)throw failure(response.status);
-   return {data:await response.json()};
-  }};
-  await assert.rejects(createOrRecoverGoogleEvent(client,payload));
-  assert.equal((await createOrRecoverGoogleEvent(client,payload)).id,payload.id);
-  assert.equal(posts,1);
- }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()))}
 });

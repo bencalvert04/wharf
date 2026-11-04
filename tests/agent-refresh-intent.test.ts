@@ -21,7 +21,7 @@ async function fixture(){
  return {database,db,assertOutsideTransaction:()=>assert.equal(inTransaction,false,'provider network work must be outside DB transactions')};
 }
 
-for(const staleAccount of [null,'icloud:first','google-second'])test(`mixed-provider refresh ${staleAccount?'rejects changed '+staleAccount+' after fetch without updating any participant':'commits every participant when intents remain current'}`,async()=>{
+for(const staleAccount of [null,'icloud:first','google-second','read-failure'])test(`mixed-provider refresh ${staleAccount==='read-failure'?'preserves all snapshots on provider failure':staleAccount?'rejects changed '+staleAccount+' after fetch without updating any participant':'commits every participant when intents remain current'}`,async()=>{
  const stale=staleAccount!==null;
  const {database,db,assertOutsideTransaction}=await fixture();let providerReads=0,googleReads=0;
  try{
@@ -29,6 +29,7 @@ for(const staleAccount of [null,'icloud:first','google-second'])test(`mixed-prov
    './calendar-intent':{captureAccountIntent,runCalendarIntent},
    './provider-connections':{providerConnection:async(account:string)=>account==='icloud:first'?{credential:'mock'}:null,readProviderAvailability:async()=>{
     assertOutsideTransaction();providerReads++;
+    if(staleAccount==='read-failure')throw Error('Invalid calendar response.');
     const fetched=[{start:10,end:20}];
     // A different browser disconnects/reconnects this account after its fetch.
     if(stale){

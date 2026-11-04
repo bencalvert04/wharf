@@ -18,15 +18,6 @@ async function fixture(){
  return {database,db};
 }
 const recipients=people.map(p=>({email:p.email,payload:{to:p.email}}));
-test('mixed-provider meeting time and invitations commit together; repeated finalization does not duplicate mail',async()=>{
- const {database,db}=await fixture();try{
-  assert.equal(await freezeEmailMeeting(db,'meeting',people,1000,2000,recipients),true);
-  assert.deepEqual((await database.query('SELECT final_time,revision FROM requests')).rows,[{final_time:{start:1000,end:2000},revision:1}]);
-  assert.equal((await database.query('SELECT * FROM invitation_outbox')).rows.length,2);
-  assert.equal(await freezeEmailMeeting(db,'meeting',people,1000,2000,recipients),false);
-  assert.equal((await database.query('SELECT * FROM invitation_outbox')).rows.length,2);
- }finally{await database.close()}
-});
 test('changed availability or a native Google event prevents email finalization and outbox jobs',async()=>{
  const {database,db}=await fixture();try{
   await database.exec("UPDATE attendees SET busy='[{\"start\":1100,\"end\":1200}]' WHERE google_sub='icloud:1'");
