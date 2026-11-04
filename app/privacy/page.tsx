@@ -86,6 +86,6 @@ export default function Privacy(){
    <p>Leaving a meeting removes your availability snapshot. Wharf keeps your calendar account ID, name, and membership so you can rejoin from Pending meetings, until the meeting is deleted or expires. You can remove a meeting from Pending without affecting others; Wharf keeps that preference until you reopen or rejoin it, or it is deleted or expires.</p>
    <p>Unfinished meetings disappear from Pending after seven days without activity. Requests expire after 30 days, and daily cleanup removes expired records and associated snapshots. Delivery records expire with their meeting. Browser sessions expire after 30 days. Deleting a meeting from Wharf does not cancel its Google Calendar event; cancel it in Google Calendar.</p>
   </section>
-  <section id="contact"><h2>Contact</h2><p>Questions? Email <a href="mailto:bencalvert04@gmail.com">bencalvert04@gmail.com</a>.</p></section>
+  <section id="contact"><h2>Contact</h2><p>Questions? Email <a href="mailto:bencalvert04@gmail.com">bencalvert04@gmail.com</a> or <a href="mailto:raycshaw36@gmail.com">raycshaw36@gmail.com</a>.</p></section>
  </main>;
 }
