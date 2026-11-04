@@ -14,6 +14,18 @@ After explicit user approval, the isolated staging experiment with `Calendars.Re
 
 An automatic clipboard write was found to stall create-and-connect. A bounded wait and regression test fixed it, and subsequent hosted create-and-connect flows passed. All **238 automated tests**, TypeScript, and the hosted build pass. Source commit `32ef3a8` is deployed as `dpl_96GqbtxWED8WMzCXLWpbgGjCAHsV` with Vercel Authentication retained. See the detailed setup record for account, meeting IDs, and capture timestamps.
 
+## November 4 follow-up: Google and invitation readiness
+
+On commit `551919c`, the targeted Google and invitation regression suite passed **42/42 tests** with application credentials removed. It covers combined Google start/callback and scope upgrade, stale provider callbacks, native Google event recovery, invitation encoding, and atomic email finalization/duplicate queue protection. These remain synthetic tests, not live Google consent, invitation receipt, or RSVP evidence. Log: `/tmp/wharf-google-invitation-regression-20261104.log`.
+
+Staging meeting `42395564-2050-4cbe-ab3c-f7b25c039780` was used for the real hosted missing-sender check: the Outlook planner selected a valid future slot and attempted Create meeting. Read-only Neon assertions confirmed `final_time IS NULL` and zero invitation jobs afterward. No message was sent. The environment still lacks `INVITATION_FROM` and `GMAIL_APP_PASSWORD`; configure the staging sender before repeating receipt/RSVP tests. Use `wharf.calendar.test2026@outlook.com` as the disposable recipient, with the user explicitly requesting invitation testing.
+
+No Google OAuth credentials were found in the local worktrees or existing staging configuration. Google Cloud setup was opened for project `root-engine-512707-n9`; the owner account `bencalvert04@gmail.com` requires passkey verification. The user was asked to complete that sign-in directly and to sign into the sender account or identify its existing secure credential location. No Google client, callback, grant, or sender credential was changed. Production remains unchanged.
+
+After owner sign-in, create a separate staging Web OAuth client, register exactly `https://wharf-calendar-staging.vercel.app/api/auth/google/callback`, and securely configure only the staging project's `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Preserve the production OAuth client and audience. Use the existing stable staging vault key. Redeploy staging after configuration. Complete identity-only login, attendee free/busy, planner owned-event consent and saved-token upgrade, denial, account switching, and native event receipt/RSVP. For the Outlook planner, finalize through the email outbox, verify the actual dummy inbox and calendar, retry the same confirmation, and compare received count and stable UID against the outbox.
+
+Apple's support mailbox check found only the case acknowledgment and no eligibility decision. The official iCloud OAuth pilot remains separate from Sign in with Apple identity; see [Apple follow-up](apple-signin.md).
+
 ## Historical reconciliation status, November 2, 2026
 
 PR #11 remains draft and unfinished. Reconciliation starts at provider commit `09f8f39` and main `eda55cd`. Main's merged Google approval flow (PR #14), refresh-token scope upgrade, and privacy disclosures are retained. The reconciliation is committed locally as `d2b549c`. A separate staging environment was subsequently created at the user's request; see the setup record below. No real-account calendar authorization or email invitation has been completed.
