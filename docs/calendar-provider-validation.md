@@ -10,7 +10,7 @@ Google's identity, saved-token reuse, and planner owned-event grant passed live.
 
 The user requested official Sign in with Apple instead of password entry. The replacement implementation removes the password form and rejects old iCloud password submissions. The Apple login button requires developer registration and stays disabled until configured. See [Apple sign-in setup](apple-signin.md). Historical iCloud connection instructions below are superseded and must not be used.
 
-## November 4 Microsoft staging update
+## Historical initial Microsoft staging checks, November 4
 
 The staging Microsoft callback and separate 180-day secret were configured with explicit user approval. The secret expires May 3, 2027 and is saved only as a hidden secret in the separate staging Vercel project. The original app secret, production settings, and stable staging vault key were preserved. Redeployment reached READY and the provider endpoint reports Microsoft enabled. See [the setup and evidence record](microsoft-staging.md).
 
@@ -112,7 +112,7 @@ Do not use `scripts/configure-vercel.mjs` for staging: it writes production conf
 
 ## Live acceptance record
 
-The table below is the acceptance checklist, not a blanket PASS. Completed personal Outlook checks are recorded above and in the detailed evidence record; all other provider and delivery cases remain NOT RUN. Record the account alias, environment, tested commit, timestamp, expected/actual behavior, and evidence before changing a result to PASS. Run the account lifecycle cases separately for each available provider. Microsoft 365/BYU is additional coverage, not a substitute for personal Outlook. Historical iCloud password cases are not actionable while calendar access remains disabled.
+The table below is the acceptance checklist, not a blanket PASS. Completed Google, personal Outlook, mixed availability, delivery, and retry checks are recorded in the current status and detailed evidence below. Apple activation cases remain NOT RUN while disabled. Record the account alias, environment, tested commit, timestamp, expected/actual behavior, and evidence before changing a result to PASS. Run the account lifecycle cases separately for each available provider. Microsoft 365/BYU is additional coverage, not a substitute for personal Outlook. Historical iCloud password cases are not actionable while calendar access remains disabled.
 
 | Case | Required result |
 | --- | --- |
@@ -134,7 +134,7 @@ The table below is the acceptance checklist, not a blanket PASS. Completed perso
 - Website finalization checks saved snapshots. A failed refresh preserves the old snapshot and does not create a persistent booking block. This candidate does not guarantee a fresh read of every live calendar before booking. A future live-read booking design needs an explicit freshness policy and failure behavior.
 - iCloud floating/unrecognized-zone timed events intentionally fail. Users must use supported calendar times; reconnecting alone does not fix those events.
 - Microsoft/iCloud disconnect deletes local credentials. Users must also revoke consent or the app-specific password at the provider when they want provider-side revocation.
-- PGlite and mocked transport tests do not validate Neon multi-process lock contention, consent screens, actual calendar reads, email receipt, or RSVP. Keep the PR draft and out of production until the live evidence is complete. The isolated staging deployment is for collecting that evidence.
+- PGlite and mocked transport tests do not validate Neon multi-process lock contention, consent screens, actual calendar reads, email receipt, or RSVP. The Google/Outlook candidate is ready for review with the recorded live and injected-failure evidence. Keep Apple disabled until its own checks pass, and treat production rollout as a separate step.
 
 ## Google staging activation, November 4, 2026
 
