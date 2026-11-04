@@ -8,25 +8,26 @@ const c:Constraints={title:'Team',start:'2026-11-02',end:'2026-11-04',duration:3
 const msEvent=(start='2026-11-02T16:00:00',end='2026-11-02T17:00:00',showAs='busy')=>({start:{dateTime:start,timeZone:'UTC'},end:{dateTime:end,timeZone:'UTC'},showAs,isCancelled:false});
 const ics=(event:string)=>({data:'BEGIN:VCALENDAR\r\nVERSION:2.0\r\n'+event+'\r\nEND:VCALENDAR'});
 const event=(body:string)=>'BEGIN:VEVENT\r\nUID:one\r\n'+body+'\r\nEND:VEVENT';
-test('broader Microsoft read compatibility requires an explicit staging flag and matching consent',t=>{
- const before={environment:process.env.WHARF_ENVIRONMENT,compatibility:process.env.MICROSOFT_STAGING_READ_COMPATIBILITY};
- t.after(()=>{
-  for(const [key,value] of [['WHARF_ENVIRONMENT',before.environment],['MICROSOFT_STAGING_READ_COMPATIBILITY',before.compatibility]]){
-   if(value===undefined)delete process.env[key!];else process.env[key!]=value;
-  }
- });
- process.env.MICROSOFT_STAGING_READ_COMPATIBILITY='true';
- for(const environment of ['production','preview','']){
-  process.env.WHARF_ENVIRONMENT=environment;assert.equal(microsoftCalendarScope(),'Calendars.ReadBasic');
+test('Microsoft consistently requests delegated calendar read and requires that exact grant',t=>{
+ const old=process.env.WHARF_ENVIRONMENT;
+ t.after(()=>{if(old===undefined)delete process.env.WHARF_ENVIRONMENT;else process.env.WHARF_ENVIRONMENT=old});
+ for(const environment of ['production','preview','staging','']){
+  process.env.WHARF_ENVIRONMENT=environment;
+  assert.equal(microsoftCalendarScope(),'Calendars.Read');
+  const scopes=new URL(microsoftAuthorize('state','challenge')).searchParams.get('scope')!;
+  assert.match(scopes,/ Calendars.Read$/);assert.doesNotMatch(scopes,/ReadWrite|ReadBasic/);
  }
- process.env.WHARF_ENVIRONMENT='staging';
- assert.equal(microsoftCalendarScope(),'Calendars.Read');
- const scopes=new URL(microsoftAuthorize('test-state','test-challenge')).searchParams.get('scope')!;
- assert.match(scopes,/ Calendars.Read$/);assert.doesNotMatch(scopes,/ReadWrite/);
  assert.equal(microsoftCalendarGranted('User.Read Calendars.Read'),true);
  for(const missing of [undefined,'','Calendars.ReadBasic','Calendars.ReadWrite'])assert.equal(microsoftCalendarGranted(missing),false);
- process.env.MICROSOFT_STAGING_READ_COMPATIBILITY='false';assert.equal(microsoftCalendarScope(),'Calendars.ReadBasic');
- assert.equal(microsoftCalendarGranted('User.Read Calendars.ReadBasic'),true);
+});
+test('old limited or missing Microsoft refresh grants require reconnection before calendar access',async t=>{
+ const before=[process.env.MICROSOFT_CLIENT_ID,process.env.MICROSOFT_CLIENT_SECRET];
+ process.env.MICROSOFT_CLIENT_ID='test';process.env.MICROSOFT_CLIENT_SECRET='test';
+ t.after(()=>{for(const [i,key] of ['MICROSOFT_CLIENT_ID','MICROSOFT_CLIENT_SECRET'].entries()){if(before[i]===undefined)delete process.env[key];else process.env[key]=before[i]}});
+ let scope:unknown='Calendars.ReadBasic';
+ t.mock.method(globalThis,'fetch',async()=>Response.json({access_token:'limited-token',scope}));
+ for(scope of ['Calendars.ReadBasic',undefined,'Calendars.ReadWrite'])await assert.rejects(microsoftTokens({grant_type:'refresh_token',refresh_token:'test'}),/Reconnect/);
+ scope='User.Read Calendars.Read';assert.equal((await microsoftTokens({grant_type:'refresh_token',refresh_token:'test'})).access_token,'limited-token');
 });
 test('Outlook excludes free/cancelled events, blocks tentative/OOF/unknown, and rejects malformed times',()=>{
  const events=[msEvent(),msEvent(undefined,undefined,'tentative'),msEvent(undefined,undefined,'oof'),msEvent(undefined,undefined,'unknown'),msEvent(undefined,undefined,'free'),{...msEvent(),isCancelled:true}];
@@ -55,12 +56,24 @@ test('Outlook fails closed on later-page errors and rejects foreign next links b
  assert.throws(()=>graphCalendarUrl('https://graph.microsoft.com.evil.test/v1.0/me/calendarView'));
  assert.throws(()=>graphCalendarUrl('https://graph.microsoft.com/v1.0/me/messages'));
 });
+test('a later Graph outage rejects the whole read and a subsequent fresh read succeeds',async t=>{
+ let calls=0,fail=true;
+ t.mock.method(console,'warn',()=>{});
+ t.mock.method(globalThis,'fetch',async()=>{
+  calls++;
+  if(calls===1)return Response.json({value:[msEvent()],'@odata.nextLink':'https://graph.microsoft.com/v1.0/me/calendarView?$skiptoken=next'});
+  if(fail)return Response.json({error:{code:'ErrorAccessDenied'}},{status:403});
+  return Response.json({value:[msEvent()]});
+ });
+ await assert.rejects(microsoftAvailability('test-token',c),/unavailable/);assert.equal(calls,2);
+ fail=false;assert.equal((await microsoftAvailability('test-token',c)).length,1);
+});
 test('Microsoft code exchange uses PKCE, server secret and the exact callback without calendar write access',async t=>{
  const oldId=process.env.MICROSOFT_CLIENT_ID,oldSecret=process.env.MICROSOFT_CLIENT_SECRET;process.env.MICROSOFT_CLIENT_ID='test-client';process.env.MICROSOFT_CLIENT_SECRET='test-secret';t.after(()=>{if(oldId===undefined)delete process.env.MICROSOFT_CLIENT_ID;else process.env.MICROSOFT_CLIENT_ID=oldId;if(oldSecret===undefined)delete process.env.MICROSOFT_CLIENT_SECRET;else process.env.MICROSOFT_CLIENT_SECRET=oldSecret});
  t.mock.method(globalThis,'fetch',async(url:any,init:any)=>{
   assert.match(String(url),/microsoftonline.com/);assert.equal(init.body.get('code_verifier'),'verifier');assert.equal(init.body.get('redirect_uri'),'https://wharf.example/api/auth/microsoft/callback');
   assert.doesNotMatch(init.body.get('scope'),/ReadWrite/i);
-  return Response.json({access_token:'access',refresh_token:'refresh',scope:'Calendars.ReadBasic'});
+  return Response.json({access_token:'access',refresh_token:'refresh',scope:'Calendars.Read'});
  });
  const url=new URL(microsoftAuthorize('state','challenge'));
  assert.equal(url.searchParams.get('state'),'state');assert.equal(url.searchParams.get('code_challenge_method'),'S256');

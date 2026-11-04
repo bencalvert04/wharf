@@ -1,5 +1,9 @@
 # Microsoft staging test
 
+## Permission fix, November 4, 2026
+
+The user requested resolving the remaining Outlook permission issue. The validated `Calendars.Read` scope is now the default request, rather than a staging-only experiment. Missing or limited returned scopes are rejected during both exchange and refresh. Existing ReadBasic-only users must reconnect and consent; no write permission or additional calendar fields were added. The old compatibility flag no longer affects behavior. Historical experiment records below are retained as evidence of the choice.
+
 ## Latest delivery result, November 4, 2026
 
 The staging sender is now configured under the user's Gmail account with a hidden credential, and Google OAuth is active in staging. Hosted Outlook-planned finalization sent one email to each of two Google/Outlook attendees, with one SMTP attempt per recipient. The Outlook recipient accepted through native RSVP controls and the organizer received a matching calendar reply. Native Google-planned delivery and a declined Outlook RSVP also passed separately. See [the current live acceptance record](calendar-provider-validation.md) for timestamps, message IDs, normal-refresh duplicate checks, and remaining gaps. Earlier unconfigured-sender statements below describe the initial setup only.
