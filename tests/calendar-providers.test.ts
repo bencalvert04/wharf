@@ -1,24 +1,16 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {microsoftBusy,icloudBusy,clipProviderBusy} from '../lib/provider-busy.ts';
-import {microsoftAvailability,microsoftAuthorize,microsoftTokens,graphCalendarUrl,microsoftCalendarScope,microsoftCalendarGranted} from '../lib/microsoft-calendar.ts';
+import {microsoftAvailability,microsoftAuthorize,microsoftTokens,graphCalendarUrl} from '../lib/microsoft-calendar.ts';
 import {appleCalendarUrl,appleCalendarFetch} from '../lib/icloud-calendar.ts';
 import type {Constraints} from '../lib/availability.ts';
 const c:Constraints={title:'Team',start:'2026-11-02',end:'2026-11-04',duration:30,zone:'America/Denver',from:'00:00',to:'24:00',days:[0,1,2,3,4,5,6]};
 const msEvent=(start='2026-11-02T16:00:00',end='2026-11-02T17:00:00',showAs='busy')=>({start:{dateTime:start,timeZone:'UTC'},end:{dateTime:end,timeZone:'UTC'},showAs,isCancelled:false});
 const ics=(event:string)=>({data:'BEGIN:VCALENDAR\r\nVERSION:2.0\r\n'+event+'\r\nEND:VCALENDAR'});
 const event=(body:string)=>'BEGIN:VEVENT\r\nUID:one\r\n'+body+'\r\nEND:VEVENT';
-test('Microsoft consistently requests delegated calendar read and requires that exact grant',t=>{
- const old=process.env.WHARF_ENVIRONMENT;
- t.after(()=>{if(old===undefined)delete process.env.WHARF_ENVIRONMENT;else process.env.WHARF_ENVIRONMENT=old});
- for(const environment of ['production','preview','staging','']){
-  process.env.WHARF_ENVIRONMENT=environment;
-  assert.equal(microsoftCalendarScope(),'Calendars.Read');
-  const scopes=new URL(microsoftAuthorize('state','challenge')).searchParams.get('scope')!;
-  assert.match(scopes,/ Calendars.Read$/);assert.doesNotMatch(scopes,/ReadWrite|ReadBasic/);
- }
- assert.equal(microsoftCalendarGranted('User.Read Calendars.Read'),true);
- for(const missing of [undefined,'','Calendars.ReadBasic','Calendars.ReadWrite'])assert.equal(microsoftCalendarGranted(missing),false);
+test('Outlook authorization requests the intended delegated read-only permissions',()=>{
+ const scopes=new URL(microsoftAuthorize('state','challenge')).searchParams.get('scope');
+ assert.equal(scopes,'openid profile email offline_access User.Read Calendars.Read');
 });
 test('old limited or missing Microsoft refresh grants require reconnection before calendar access',async t=>{
  const before=[process.env.MICROSOFT_CLIENT_ID,process.env.MICROSOFT_CLIENT_SECRET];

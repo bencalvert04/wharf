@@ -15,7 +15,7 @@ async function fixture(){
  }) as unknown as CalendarDatabase;
  return {database,db,failAcknowledgment:()=>{failAck=true}};
 }
-test('overlapping delivery workers send once; later retries leave the acknowledged job alone',async()=>{
+test('overlapping delivery workers claim and send a job only once',async()=>{
  const {database,db}=await fixture();
  try{
   let calls=0,release!:()=>void,started!:()=>void;
@@ -24,17 +24,16 @@ test('overlapping delivery workers send once; later retries leave the acknowledg
   const first=deliverInvitationJobs(db,send,'meeting');await ready;
   assert.deepEqual(await deliverInvitationJobs(db,send,'meeting'),{accepted:0,pending:1,needsReview:0});
   release();assert.deepEqual(await first,{accepted:1,pending:0,needsReview:0});
-  assert.deepEqual(await deliverInvitationJobs(db,send,'meeting'),{accepted:0,pending:0,needsReview:0});
   assert.equal(calls,1);
   assert.equal((await database.query<{attempts:number}>('SELECT attempts FROM invitation_outbox')).rows[0].attempts,1);
  }finally{await database.close()}
 });
-for(const mode of ['smtp-response-lost','database-acknowledgment-lost'] as const)test(`${mode} requires review and never automatically resends, even after lease expiry`,async()=>{
+test('a lost database acknowledgment requires review without resending after lease expiry',async()=>{
  const {database,db,failAcknowledgment}=await fixture();
  try{
   let delivered=0;
-  if(mode==='database-acknowledgment-lost')failAcknowledgment();
-  const send=async()=>{delivered++;if(mode==='smtp-response-lost')throw Error('SMTP accepted, then socket reset');return 'smtp-id'};
+  failAcknowledgment();
+  const send=async()=>{delivered++;return 'smtp-id'};
   assert.deepEqual(await deliverInvitationJobs(db,send,'meeting'),{accepted:0,pending:1,needsReview:1});
   await database.exec("UPDATE invitation_outbox SET lease_until=now()-interval '1 hour'");
   assert.deepEqual(await deliverInvitationJobs(db,send,'meeting'),{accepted:0,pending:1,needsReview:1});

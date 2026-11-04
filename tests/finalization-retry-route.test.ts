@@ -46,11 +46,12 @@ test('actual finalization handler recovers a discarded response and concurrent r
   assert.equal((await f.database.query<{revision:number}>('SELECT revision FROM requests')).rows[0].revision,1);
  }finally{await f.database.close()}
 });
-test('actual finalization retries keep ambiguous SMTP delivery pending for review without resending',async()=>{
+test('finalization retries keep ambiguous SMTP delivery pending for review even after lease expiry',async()=>{
  const f=await fixture(true);try{
   for(let i=0;i<2;i++){
    const response=await f.request();assert.equal(response.status,202);
    const body=await response.json();assert.equal(body.delivery.needsReview,2);
+   await f.database.exec("UPDATE invitation_outbox SET lease_until=now()-interval '1 hour'");
   }
   assert.equal(f.sends(),2);
  }finally{await f.database.close()}
