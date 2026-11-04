@@ -4,7 +4,7 @@
 
 Google and Microsoft now both have successful live calendar reads in isolated staging. Known Google busy time and Outlook recurrence/DST cases agree with shared availability. Both hosted booking paths have been exercised with mixed Google/Outlook attendees: native Google creation/guest decline/Google response propagation, and Outlook-planned email outbox delivery/guest acceptance/organizer receipt. Normal page refresh left one native event job or two email jobs respectively, with one SMTP attempt per recipient and no observed duplicate delivery. These passes do not cover interrupted HTTP responses, repeated finalization POSTs, or SMTP ambiguous failures.
 
-Google's identity, saved-token reuse, and planner owned-event grant passed live. A fresh independent Google attendee-only consent screen, live partial denial, and separate-browser concurrency cases remain untested. Microsoft now consistently requests the successfully validated delegated `Calendars.Read` scope. ReadBasic-only users must reconnect; old limited refresh grants are rejected before calendar reads. The staging compatibility flag is obsolete. Apple identity/calendar activation remains blocked on developer eligibility/configuration and pilot access, with no substantive support reply found. Production remains unchanged and PR #11 remains draft.
+Google's identity, saved-token reuse, and planner owned-event grant passed live. A fresh independent Google attendee-only consent screen, live partial denial, and separate-browser concurrency cases remain untested. Microsoft now consistently requests the successfully validated delegated `Calendars.Read` scope. ReadBasic-only users must reconnect; old limited refresh grants are rejected before calendar reads. The staging compatibility flag is obsolete. Apple identity/calendar activation remains blocked on developer eligibility/configuration and pilot access, with no substantive support reply found. Production remains unchanged. PR #11 is ready for review with Apple disabled; merge and production rollout are separate steps.
 
 ## Latest Apple onboarding change
 
@@ -71,9 +71,9 @@ Historical iCloud password instructions are superseded. Do not enter Apple crede
 
 ## Needed to continue live validation
 
-- A resolution for personal Outlook's default ReadBasic failure before treating that path as release-ready. The broader read experiment is restricted to staging. BYU administrator approval remains a separate organizational-account prerequisite.
-- Staging Google OAuth configuration and a consenting Google regression account. Apple developer eligibility/configuration and a supported official calendar authorization path remain unresolved; Sign in with Apple alone is identity-only.
-- An approved staging invitation sender and recipient addresses, with mailbox/calendar access to verify receipt, RSVP, and duplicate prevention. No delivery test has been completed.
+- Outlook now uses the validated Calendars.Read request. Existing limited grants must reconnect. BYU administrator approval remains a separate organizational-account prerequisite.
+- Apple developer eligibility/configuration and a supported official calendar authorization path remain unresolved; Sign in with Apple alone is identity-only. Google OAuth is configured and the consenting account passed the live cases recorded above.
+- Additional independent-account and failure coverage as listed above. Staging sender, Google regression configuration, real receipt/RSVP, normal-refresh duplicate checks, and controlled retry/failure tests are now completed; older setup entries below are historical.
 
 Keep secrets out of this record, screenshots, shell arguments, logs, commits, and PRs. Evidence may record test-account aliases, meeting identifiers, timestamps, provider results, invitation UID/message IDs, and redacted screenshots.
 
@@ -94,7 +94,7 @@ For `APP_URL=http://localhost:3010`, register these exact callbacks:
 - Google: `http://localhost:3010/api/auth/google/callback`.
 - Microsoft Web platform: `http://localhost:3010/api/auth/microsoft/callback`.
 
-For hosted staging, use the approved HTTPS origin and the same callback paths. Preserve existing production callbacks. In Entra, verify personal and organizational accounts, delegated `User.Read`, `Calendars.ReadBasic`, and `offline_access`. A client-secret authentication check alone is not delegated calendar access. Inspect the configured secret's expiration through Entra without exposing its value.
+For hosted staging, use the approved HTTPS origin and the same callback paths. Preserve existing production callbacks. In Entra, verify personal and organizational accounts, delegated `User.Read`, `Calendars.Read`, and `offline_access`. A client-secret authentication check alone is not delegated calendar access. Inspect the configured secret's expiration through Entra without exposing its value.
 
 Once the target has been identified and approved, apply additive migrations before running the new handlers:
 
