@@ -3,14 +3,18 @@ import {allowed,type Constraints} from './availability.ts';
 import {clipProviderBusy,microsoftBusy} from './provider-busy.ts';
 export const microsoftConfigured=()=>!!(process.env.MICROSOFT_CLIENT_ID&&process.env.MICROSOFT_CLIENT_SECRET);
 const endpoint='https://login.microsoftonline.com/common/oauth2/v2.0';
-const scope='openid profile email offline_access User.Read Calendars.ReadBasic';
+// Explicit staging experiment for personal-account ReadBasic service failures.
+// Production always retains ReadBasic; broader access still requires consent.
+export const microsoftCalendarScope=()=>process.env.WHARF_ENVIRONMENT==='staging'&&process.env.MICROSOFT_STAGING_READ_COMPATIBILITY==='true'?'Calendars.Read':'Calendars.ReadBasic';
+const scope=()=>`openid profile email offline_access User.Read ${microsoftCalendarScope()}`;
+export const microsoftCalendarGranted=(granted:unknown)=>typeof granted==='string'&&granted.toLowerCase().split(/\s+/).includes(microsoftCalendarScope().toLowerCase());
 export const microsoftRedirect=()=>appUrl()+'/api/auth/microsoft/callback';
 export function microsoftAuthorize(state:string,challenge:string){
- return endpoint+'/authorize?'+new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID!,response_type:'code',redirect_uri:microsoftRedirect(),response_mode:'query',scope,state,code_challenge:challenge,code_challenge_method:'S256',prompt:'select_account'});
+ return endpoint+'/authorize?'+new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID!,response_type:'code',redirect_uri:microsoftRedirect(),response_mode:'query',scope:scope(),state,code_challenge:challenge,code_challenge_method:'S256',prompt:'select_account'});
 }
 export async function microsoftTokens(input:Record<string,string>){
  if(!microsoftConfigured())throw Error('Microsoft Calendar setup is incomplete.');
- const response=await fetch(endpoint+'/token',{method:'POST',body:new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID!,client_secret:process.env.MICROSOFT_CLIENT_SECRET!,scope,...input}),signal:AbortSignal.timeout(15000),cache:'no-store'});
+ const response=await fetch(endpoint+'/token',{method:'POST',body:new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID!,client_secret:process.env.MICROSOFT_CLIENT_SECRET!,scope:scope(),...input}),signal:AbortSignal.timeout(15000),cache:'no-store'});
  const data=await response.json();
  if(!response.ok||!data.access_token)throw Error('Microsoft authorization failed. Reconnect your calendar.');
  return data as {access_token:string;refresh_token?:string;scope:string};

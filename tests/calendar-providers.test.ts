@@ -1,13 +1,33 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {microsoftBusy,icloudBusy,clipProviderBusy} from '../lib/provider-busy.ts';
-import {microsoftAvailability,microsoftAuthorize,microsoftTokens,graphCalendarUrl} from '../lib/microsoft-calendar.ts';
+import {microsoftAvailability,microsoftAuthorize,microsoftTokens,graphCalendarUrl,microsoftCalendarScope,microsoftCalendarGranted} from '../lib/microsoft-calendar.ts';
 import {appleCalendarUrl,appleCalendarFetch} from '../lib/icloud-calendar.ts';
 import type {Constraints} from '../lib/availability.ts';
 const c:Constraints={title:'Team',start:'2026-11-02',end:'2026-11-04',duration:30,zone:'America/Denver',from:'00:00',to:'24:00',days:[0,1,2,3,4,5,6]};
 const msEvent=(start='2026-11-02T16:00:00',end='2026-11-02T17:00:00',showAs='busy')=>({start:{dateTime:start,timeZone:'UTC'},end:{dateTime:end,timeZone:'UTC'},showAs,isCancelled:false});
 const ics=(event:string)=>({data:'BEGIN:VCALENDAR\r\nVERSION:2.0\r\n'+event+'\r\nEND:VCALENDAR'});
 const event=(body:string)=>'BEGIN:VEVENT\r\nUID:one\r\n'+body+'\r\nEND:VEVENT';
+test('broader Microsoft read compatibility requires an explicit staging flag and matching consent',t=>{
+ const before={environment:process.env.WHARF_ENVIRONMENT,compatibility:process.env.MICROSOFT_STAGING_READ_COMPATIBILITY};
+ t.after(()=>{
+  for(const [key,value] of [['WHARF_ENVIRONMENT',before.environment],['MICROSOFT_STAGING_READ_COMPATIBILITY',before.compatibility]]){
+   if(value===undefined)delete process.env[key!];else process.env[key!]=value;
+  }
+ });
+ process.env.MICROSOFT_STAGING_READ_COMPATIBILITY='true';
+ for(const environment of ['production','preview','']){
+  process.env.WHARF_ENVIRONMENT=environment;assert.equal(microsoftCalendarScope(),'Calendars.ReadBasic');
+ }
+ process.env.WHARF_ENVIRONMENT='staging';
+ assert.equal(microsoftCalendarScope(),'Calendars.Read');
+ const scopes=new URL(microsoftAuthorize('test-state','test-challenge')).searchParams.get('scope')!;
+ assert.match(scopes,/ Calendars.Read$/);assert.doesNotMatch(scopes,/ReadWrite/);
+ assert.equal(microsoftCalendarGranted('User.Read Calendars.Read'),true);
+ for(const missing of [undefined,'','Calendars.ReadBasic','Calendars.ReadWrite'])assert.equal(microsoftCalendarGranted(missing),false);
+ process.env.MICROSOFT_STAGING_READ_COMPATIBILITY='false';assert.equal(microsoftCalendarScope(),'Calendars.ReadBasic');
+ assert.equal(microsoftCalendarGranted('User.Read Calendars.ReadBasic'),true);
+});
 test('Outlook excludes free/cancelled events, blocks tentative/OOF/unknown, and rejects malformed times',()=>{
  const events=[msEvent(),msEvent(undefined,undefined,'tentative'),msEvent(undefined,undefined,'oof'),msEvent(undefined,undefined,'unknown'),msEvent(undefined,undefined,'free'),{...msEvent(),isCancelled:true}];
  assert.equal(microsoftBusy(events).length,4);

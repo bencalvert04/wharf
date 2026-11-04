@@ -1,6 +1,6 @@
 import {runCalendarIntent} from '@/lib/calendar-intent';
 import {session,sql,hash,meeting,appUrl} from '@/lib/auth';
-import {microsoftTokens,microsoftProfile,microsoftRedirect} from '@/lib/microsoft-calendar';
+import {microsoftTokens,microsoftProfile,microsoftRedirect,microsoftCalendarGranted} from '@/lib/microsoft-calendar';
 import {storeProviderConnection} from '@/lib/provider-connections';
 import {joinProviderMeeting} from '@/lib/provider-flow';
 import {validEmail} from '@/lib/calendar-invitation';
@@ -22,7 +22,7 @@ export async function GET(req:Request){
   if(!code||(flow.meeting_id&&(!row||row.final_time)))return redirect('expired');
   if(row&&JSON.parse(row.constraints).demo&&row.owner_session!==s.id)return redirect('expired');
   const tokens=await microsoftTokens({grant_type:'authorization_code',code,code_verifier:flow.verifier,redirect_uri:microsoftRedirect()});
-  if(!tokens.refresh_token||!tokens.scope.toLowerCase().split(/\s+/).includes('calendars.readbasic'))return redirect('permission');
+  if(!tokens.refresh_token||!microsoftCalendarGranted(tokens.scope))return redirect('permission');
   const identity=await microsoftProfile(tokens.access_token);
   if(!validEmail(identity.email))return redirect('failed');
   const account=s.google_sub||'microsoft:'+identity.id;
