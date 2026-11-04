@@ -4,6 +4,12 @@
 
 The user requested official Sign in with Apple instead of password entry. The replacement implementation removes the password form and rejects old iCloud password submissions. The Apple login button requires developer registration and stays disabled until configured. See [Apple sign-in setup](apple-signin.md). Historical iCloud connection instructions below are superseded and must not be used.
 
+## November 4 Microsoft staging update
+
+The staging Microsoft callback and separate 180-day secret were configured with explicit user approval. The secret expires May 3, 2027 and is saved only as a hidden secret in the separate staging Vercel project. The original app secret, production settings, and stable staging vault key were preserved. Redeployment reached READY and the provider endpoint reports Microsoft enabled. See [the setup and evidence record](microsoft-staging.md).
+
+Live personal Outlook **permission denial passed** for meeting `4a3ede77-7b19-4ae6-a66f-eceb9e7e0987`: Microsoft returned to staging with the cancellation message, zero saved provider connections, and zero meeting attendees. Acceptance and actual Graph reads remain pending. Other acceptance cases below remain NOT RUN. An indefinitely pending automatic clipboard write was found to block the initial create-and-connect flow; a bounded wait and regression test were added, with hosted verification still pending.
+
 ## Status as of November 2, 2026
 
 PR #11 remains draft and unfinished. Reconciliation starts at provider commit `09f8f39` and main `eda55cd`. Main's merged Google approval flow (PR #14), refresh-token scope upgrade, and privacy disclosures are retained. The reconciliation is committed locally as `d2b549c`. A separate staging environment was subsequently created at the user's request; see the setup record below. No real-account calendar authorization or email invitation has been completed.
@@ -84,7 +90,7 @@ Do not use `scripts/configure-vercel.mjs` for staging: it writes production conf
 
 ## Live acceptance record
 
-Every row below is **NOT RUN** in this reconciliation. Record the account alias, environment, tested commit, timestamp, expected/actual behavior, and evidence before changing a result to PASS. Run the account lifecycle cases separately for personal Outlook, iCloud, and Google. Microsoft 365/BYU is additional coverage, not a substitute for personal Outlook.
+Except for the personal Outlook denial check recorded above, every row below is **NOT RUN** in this reconciliation. Record the account alias, environment, tested commit, timestamp, expected/actual behavior, and evidence before changing a result to PASS. Run the account lifecycle cases separately for each available provider. Microsoft 365/BYU is additional coverage, not a substitute for personal Outlook. Historical iCloud password cases are not actionable while calendar access remains disabled.
 
 | Case | Required result |
 | --- | --- |

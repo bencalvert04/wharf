@@ -1,22 +1,24 @@
 # Microsoft staging test
 
-## Current blockers, November 2, 2026
+## Current setup, November 4, 2026
 
 The user completed signup directly. Browser inspection confirmed a provisioned inbox and calendar for the dedicated test account `wharf.calendar.test2026@outlook.com`. No password is stored in this repository.
 
-No Microsoft app secret was found in the local environment files for the main, reconciliation, or staging worktrees. The Entra portal requires sign-in. The known application ID is `1f104508-0140-443d-bcd7-8c1874c2ead6`, but registration ownership, secret expiration, and staging callback configuration have not been verified. Creating an Outlook inbox does not grant access to this existing app registration.
+The Entra portal was verified while signed in as the Microsoft account `wharfmeetings@gmail.com`. The application is Wharf, client ID `1f104508-0140-443d-bcd7-8c1874c2ead6`, tenant `d39181f6-e830-4ed6-8e64-b4861e5a21f9`, registration object `9fe929b0-6112-4776-9332-b19af69eed1f`. It supports organizational directories and personal Microsoft accounts. Delegated `User.Read`, `Calendars.ReadBasic`, and `offline_access` were verified. No write permission was added.
 
-Ray's follow-up identifies the registration account as the **Microsoft account** `wharfmeetings@gmail.com`, tenant `d39181f6-e830-4ed6-8e64-b4861e5a21f9`, registration object `9fe929b0-6112-4776-9332-b19af69eed1f`. These identifiers are handoff information, not a fresh portal verification. The browser reached Microsoft's email-code verification for that account; the account owner must complete sign-in before registration inspection can continue.
+With the user's explicit approval, the exact Web callback `https://wharf-calendar-staging.vercel.app/api/auth/microsoft/callback` was added. The existing production and localhost callbacks were preserved. A separate credential named `Wharf isolated staging 2026-11-04` was created with the portal's recommended 180-day lifetime, expiring **May 3, 2027**. Its value was transferred directly into the staging Vercel secret field, without writing it to the repository or logs. The existing credential expiring April 27, 2027 was preserved.
 
-The public `MICROSOFT_CLIENT_ID` was added to the **Production environment of the separate staging project** `prj_TCxNuo3KWBnZxdyR0CmqVZ75b08n`. The app secret remains absent. No callback was changed and no redeployment was performed for this partial configuration. After adding a valid secret and registering the callback, redeploy staging so its server receives the environment changes. The actual production Wharf project was not changed.
+`MICROSOFT_CLIENT_ID` and hidden `MICROSOFT_CLIENT_SECRET` are configured in the **Production environment of the separate staging project** `prj_TCxNuo3KWBnZxdyR0CmqVZ75b08n`. Existing `APP_URL`, staging database, and vault key were retained. Redeployment `GeycEYqfFTiT8FSKpuUFs4i9id43` reached READY at `https://wharf-calendar-staging-1cfy08ump-wharf1.vercel.app` and was aliased to the staging URL. An authenticated provider check returned `microsoft:true`, with Google, iCloud, and Apple false. This is configuration evidence only, not completed delegated calendar access. The actual production Wharf project was not changed.
 
 Read-only checks confirmed the staging provider state/connection and Apple state/account tables, connection-generation and calendar-intent columns, the approved local staging URL/database host, and the existing local vault key's 64-hex format. The remote staging vault key is present as a sensitive variable. Neither local nor remote vault keys were changed. Vercel team membership lists only Ben as owner, with no separate Ray member. The staging project link and access status were sent to Ray at the user's request: `https://vercel.com/wharf1/wharf-calendar-staging`.
 
-The registration owner must add the following exact **Web** callback while preserving existing callbacks:
+Invitation delivery remains blocked on the separate staging sender setup. Google regression and Apple identity setup remain unconfigured. Sign in with Apple does not grant iCloud calendar access, and the password-based iCloud connection was removed at the user's request.
 
-`https://wharf-calendar-staging.vercel.app/api/auth/microsoft/callback`
+### First live authorization checks
 
-Verify personal and organizational account support and delegated `User.Read`, `Calendars.ReadBasic`, and `offline_access`. Store a valid app secret securely in the isolated staging project. Keep the existing staging vault key stable. Do not configure production or enable the staging button with placeholder credentials. Invitation delivery remains blocked on the separate staging sender setup.
+On November 4, staging meeting `4a3ede77-7b19-4ae6-a66f-eceb9e7e0987` was created for March 12 through 16, 2027, 09:00 to 17:00 America/Denver, 30-minute slots. Microsoft presented the dedicated personal account and requested profile, basic calendar read, and ongoing access. **Denial passed**: clicking Deny returned to the same meeting with `calendar=cancelled` and the visible cancellation message. Read-only staging database checks confirmed zero provider connections and zero attendees for this meeting. Acceptance is pending user confirmation; no delegated calendar-read success is claimed.
+
+The initial create-and-connect action exposed an unrelated clipboard stall before the authorization request was sent. Reopening the saved meeting and joining reached Microsoft correctly. The clipboard helper now limits waiting to 1.5 seconds after the created invite URL is available, with the existing manual Copy invite link fallback. A regression test covers an indefinitely pending clipboard write and late completion. The updated helper still needs hosted verification after deployment.
 
 ## Calendar fixtures ready for import
 
