@@ -10,6 +10,8 @@ The staging Microsoft callback and separate 180-day secret were configured with 
 
 Live personal Outlook **permission denial passed** for meeting `4a3ede77-7b19-4ae6-a66f-eceb9e7e0987`: Microsoft returned to staging with the cancellation message, zero saved provider connections, and zero meeting attendees. Acceptance and actual Graph reads remain pending. Other acceptance cases below remain NOT RUN. An indefinitely pending automatic clipboard write was found to block the initial create-and-connect flow; a bounded wait and regression test were added, with hosted verification still pending.
 
+The updated source passed all 237 automated tests, TypeScript, and the build. Commit `6239337` is deployed on staging as `dpl_BngXsa1fqofh3pVpzvUCULwE8sQR` with Vercel Authentication retained.
+
 ## Status as of November 2, 2026
 
 PR #11 remains draft and unfinished. Reconciliation starts at provider commit `09f8f39` and main `eda55cd`. Main's merged Google approval flow (PR #14), refresh-token scope upgrade, and privacy disclosures are retained. The reconciliation is committed locally as `d2b549c`. A separate staging environment was subsequently created at the user's request; see the setup record below. No real-account calendar authorization or email invitation has been completed.
