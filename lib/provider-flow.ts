@@ -13,6 +13,26 @@ export async function connectionContext(input:any){
 }
 export async function joinProviderMeeting(row:{id:string;constraints:string},account:string,name:string,sessionId:string,inviteeId:string|null):Promise<void>{
  if(!currentCalendarIntent())return runCalendarIntent(await captureSessionIntent(sql(),sessionId,account),()=>joinProviderMeeting(row,account,name,sessionId,inviteeId));
- const busy=await readProviderAvailability(account,JSON.parse(row.constraints));
- await persistCalendarSnapshot(row.id,account,name,busy,sessionId,inviteeId);
+ let stage='calendar-read';
+ try{
+  const busy=await readProviderAvailability(account,JSON.parse(row.constraints));
+  stage='snapshot-save';
+  await persistCalendarSnapshot(row.id,account,name,busy,sessionId,inviteeId);
+ }catch(error){
+  // Fixed labels only: provider responses, database messages, identities, and
+  // credentials must never be copied into logs while diagnosing live failures.
+  const reasons:Record<string,string>={
+   'Microsoft authorization failed. Reconnect your calendar.':'microsoft-token',
+   'Microsoft Calendar is unavailable. Reconnect or try again.':'microsoft-http',
+   'Calendar did not return UTC times.':'calendar-timezone',
+   'Invalid calendar time.':'calendar-time',
+   'Calendar returned incomplete data.':'calendar-data',
+   'Calendar disconnected while reading availability.':'connection-changed',
+   'The meeting changed while connecting. Please try again.':'meeting-changed',
+  };
+  const reason=error instanceof Error?reasons[error.message]:undefined;
+  const code=(error as {code?:unknown})?.code;
+  console.warn('Calendar join failed',{stage,reason:reason||'other',...(typeof code==='string'&&/^[0-9A-Z]{5}$/.test(code)?{databaseCode:code}:{})});
+  throw error;
+ }
 }

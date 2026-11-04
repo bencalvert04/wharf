@@ -33,7 +33,7 @@ export async function microsoftAvailability(accessToken:string,c:Constraints){
  for(let page=0;url;page++){
   if(page>=100)throw Error('Calendar has too many results. Please use a smaller meeting range.');
   const response=await fetch(graphCalendarUrl(url),{headers:{Authorization:'Bearer '+accessToken,Prefer:'outlook.timezone="UTC"'},signal:AbortSignal.timeout(15000),cache:'no-store',redirect:'error'});
-  if(!response.ok)throw Error('Microsoft Calendar is unavailable. Reconnect or try again.');
+  if(!response.ok){console.warn('Microsoft calendar request failed',{status:response.status});throw Error('Microsoft Calendar is unavailable. Reconnect or try again.');}
   const data=await response.json();busy.push(...microsoftBusy(data.value));
   if(data['@odata.nextLink']!==undefined&&typeof data['@odata.nextLink']!=='string')throw Error('Invalid calendar response.');
   url=data['@odata.nextLink']||'';
