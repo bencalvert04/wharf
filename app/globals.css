@@ -466,4 +466,4 @@ html[data-navigating] .view{animation:none}
 @media(prefers-reduced-motion:reduce){.calendar-picker.modal,.calendar-picker::backdrop,.calendar-picker[data-closing],.calendar-picker[data-closing]::backdrop{animation:none}}
 
 .staging-notice{padding:10px 20px;text-align:center;background:#fff3cd;color:#5f4700;border-bottom:1px solid #e3cb73;font-size:13px;line-height:1.5}
-.apple-signin-button{display:flex;align-items:center;justify-content:center;gap:10px;min-height:48px;width:100%;padding:12px 18px;border:1px solid #fff;border-radius:999px;background:#000;color:#fff;font:inherit;font-size:14px;font-weight:500;cursor:pointer}.apple-signin-button svg{width:20px;height:20px}.apple-signin-button:disabled{opacity:.5;cursor:not-allowed}.apple-signin-button:focus-visible{outline:3px solid #598dd8;outline-offset:3px}
+.apple-signin-button svg{width:20px;height:20px}
