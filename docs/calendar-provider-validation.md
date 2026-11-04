@@ -8,11 +8,13 @@ The user requested official Sign in with Apple instead of password entry. The re
 
 The staging Microsoft callback and separate 180-day secret were configured with explicit user approval. The secret expires May 3, 2027 and is saved only as a hidden secret in the separate staging Vercel project. The original app secret, production settings, and stable staging vault key were preserved. Redeployment reached READY and the provider endpoint reports Microsoft enabled. See [the setup and evidence record](microsoft-staging.md).
 
-Live personal Outlook **permission denial passed** for meeting `4a3ede77-7b19-4ae6-a66f-eceb9e7e0987`: Microsoft returned to staging with the cancellation message, zero saved provider connections, and zero meeting attendees. Subsequent explicitly approved consent completed token exchange, profile retrieval, and encrypted credential storage. **Calendar reads failed** with Graph HTTP 403 `ErrorAccessDenied`, including after saved-token refresh. No attendee/free snapshot was inserted. A staging-only broader read-permission experiment is prepared, pending separate consent. Other acceptance cases below remain NOT RUN. An indefinitely pending automatic clipboard write was found to block the initial create-and-connect flow; a bounded wait and regression test were added, with hosted verification still pending.
+Live personal Outlook **permission denial passed** for meeting `4a3ede77-7b19-4ae6-a66f-eceb9e7e0987`, with no credential or attendee inserted. Consent with the default `Calendars.ReadBasic` completed token exchange and encrypted storage, but calendarView returned HTTP 403 `ErrorAccessDenied`, including after refresh. No false free snapshot was inserted.
 
-The updated source passed all 237 automated tests, TypeScript, and the build. Commit `6239337` is deployed on staging as `dpl_BngXsa1fqofh3pVpzvUCULwE8sQR` with Vercel Authentication retained.
+After explicit user approval, the isolated staging experiment with `Calendars.Read` succeeded. Actual calendar reads passed exact UTC assertions for spring/fall DST, daily recurrence, moved and deleted occurrences, all-day busy blocking within meeting hours, Free exclusion, and tentative/out-of-office blocking. Saved reuse, second-meeting creation, sign-out/in, removal/rejoin, local disconnect, clean reconnect, and a two-tab sign-out invalidating a pending callback also passed. These results apply to the broader staging read scope only. Cross-provider switches, separate-session races, provider-side revocation, pagination at live scale, and invitation receipt/RSVP remain untested.
 
-## Status as of November 2, 2026
+An automatic clipboard write was found to stall create-and-connect. A bounded wait and regression test fixed it, and subsequent hosted create-and-connect flows passed. All **238 automated tests**, TypeScript, and the hosted build pass. Source commit `32ef3a8` is deployed as `dpl_96GqbtxWED8WMzCXLWpbgGjCAHsV` with Vercel Authentication retained. See the detailed setup record for account, meeting IDs, and capture timestamps.
+
+## Historical reconciliation status, November 2, 2026
 
 PR #11 remains draft and unfinished. Reconciliation starts at provider commit `09f8f39` and main `eda55cd`. Main's merged Google approval flow (PR #14), refresh-token scope upgrade, and privacy disclosures are retained. The reconciliation is committed locally as `d2b549c`. A separate staging environment was subsequently created at the user's request; see the setup record below. No real-account calendar authorization or email invitation has been completed.
 
@@ -35,7 +37,7 @@ The original main checkout was clean and remains untouched. Work is isolated on 
 - A new independent vault key and cleanup secret were generated for this empty environment and stored in sensitive staging environment variables. Keep this vault key stable. Production credentials and data were not copied.
 - Private local configuration is in ignored, owner-readable `.env.staging.local` in the `wharf-staging` worktree. The remote environment pull contains placeholders for sensitive variables and is not a runnable replacement for that file.
 - `APP_URL` is the staging origin above and `WHARF_ENVIRONMENT=staging` displays a test-site banner and noindex metadata. Staging build verified both.
-- iCloud is configured for account-owner connection. No account credentials have been entered yet. Microsoft and Google OAuth and the invitation sender are intentionally unconfigured. The user has an iCloud calendar but no Outlook account.
+- At initial setup, iCloud password entry was available and OAuth/sender settings were absent. This is historical: password entry is now disabled, and the dedicated personal Outlook account and Microsoft staging configuration were completed on November 4. Google, Apple identity, and the invitation sender remain unconfigured.
 - Existing Vercel preview/development configurations shared production's database, so those were not reused. GitHub CI and recovered old logs supplied mocked/synthetic validation, not a confirmed isolated staging site or real provider validation.
 - Source: branch `codex/calendar-staging`, derived from the reconciled commit above. Neither PR #11 nor main has been merged or pushed by this staging setup. The live Wharf project is unchanged.
 
@@ -47,13 +49,13 @@ At `2026-11-02T22:15:40Z`, an authenticated staging smoke check created meeting 
 
 The staging build and TypeScript check pass. The earlier reconciled source passed all 226 automated tests. The production project still points at deployment `dpl_4uTXAdq2Jf1fGXYovRi1Fi8v2KDL`; staging points at its own deployment above.
 
-For iCloud, the account owner generates an Apple app-specific password under Apple Account > Sign-In and Security > App-Specific Passwords, then enters it directly into the staging site's iCloud form. Never put it in chat or this record. This uses CalDAV, not Sign in with Apple. An account with two-factor authentication is required.
+Historical iCloud password instructions are superseded. Do not enter Apple credentials into Wharf. Official Sign in with Apple identity setup is waiting on developer eligibility/configuration, and does not itself authorize iCloud calendar reads.
 
 ## Needed to continue live validation
 
-- Microsoft registration access to verify the secret expiration, supported account types, delegated permissions, and exact Web callbacks. The supplied public client ID is `1f104508-0140-443d-bcd7-8c1874c2ead6`.
-- Consenting personal Outlook and iCloud test accounts, plus a Google regression account. The account owner completes sign-in and MFA. iCloud uses an app-specific password, never the normal Apple password.
-- An approved staging invitation sender and recipient addresses, with mailbox/calendar access to verify receipt and RSVP. BYU administrator approval remains a separate organizational-account prerequisite.
+- A resolution for personal Outlook's default ReadBasic failure before treating that path as release-ready. The broader read experiment is restricted to staging. BYU administrator approval remains a separate organizational-account prerequisite.
+- Staging Google OAuth configuration and a consenting Google regression account. Apple developer eligibility/configuration and a supported official calendar authorization path remain unresolved; Sign in with Apple alone is identity-only.
+- An approved staging invitation sender and recipient addresses, with mailbox/calendar access to verify receipt, RSVP, and duplicate prevention. No delivery test has been completed.
 
 Keep secrets out of this record, screenshots, shell arguments, logs, commits, and PRs. Evidence may record test-account aliases, meeting identifiers, timestamps, provider results, invitation UID/message IDs, and redacted screenshots.
 
@@ -92,7 +94,7 @@ Do not use `scripts/configure-vercel.mjs` for staging: it writes production conf
 
 ## Live acceptance record
 
-Except for the personal Outlook denial check recorded above, every row below is **NOT RUN** in this reconciliation. Record the account alias, environment, tested commit, timestamp, expected/actual behavior, and evidence before changing a result to PASS. Run the account lifecycle cases separately for each available provider. Microsoft 365/BYU is additional coverage, not a substitute for personal Outlook. Historical iCloud password cases are not actionable while calendar access remains disabled.
+The table below is the acceptance checklist, not a blanket PASS. Completed personal Outlook checks are recorded above and in the detailed evidence record; all other provider and delivery cases remain NOT RUN. Record the account alias, environment, tested commit, timestamp, expected/actual behavior, and evidence before changing a result to PASS. Run the account lifecycle cases separately for each available provider. Microsoft 365/BYU is additional coverage, not a substitute for personal Outlook. Historical iCloud password cases are not actionable while calendar access remains disabled.
 
 | Case | Required result |
 | --- | --- |
