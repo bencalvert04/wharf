@@ -22,7 +22,10 @@ export type CreateMeeting=z.infer<typeof createMeetingSchema>;
 export function toConstraints(v:CreateMeeting):Constraints{return {...(v.openJoin?{openJoin:true}:{}),title:v.title,start:v.startDate,end:v.endDate||v.startDate,duration:v.durationMinutes,zone:v.timezone,from:v.windowMode==='continuous'?(v.dailyStart||'00:00'):v.dayStart,to:v.windowMode==='continuous'?(v.dailyEnd||'24:00'):v.dayEnd,...(v.windowMode==='continuous'?{windowStart:`${v.startDate}T${v.dayStart}`,windowEnd:`${v.endDate||v.startDate}T${v.dayEnd}`}:{ }),days:[...new Set(v.weekdays)].sort()}}
 export const finalizeSchema=z.object({slotId:z.string().min(1).max(100),revision:z.number().int().min(0)}).strict();
 export const pageSchema=z.object({offset:z.coerce.number().int().min(0).max(100000).default(0),limit:z.coerce.number().int().min(1).max(100).default(20)}).strict();
-export const createInputSchema=z.toJSONSchema(createMeetingSchema,{io:"input"});
+export const createInputSchema={...z.toJSONSchema(createMeetingSchema,{io:"input"}),anyOf:[
+ {properties:{openJoin:{const:true},participants:{maxItems:0}},required:['openJoin']},
+ {properties:{openJoin:{const:false},participants:{minItems:1}},required:['participants']}
+]};
 export const finalizeInputSchema=z.toJSONSchema(finalizeSchema);
 
 export const prepareCalendarSchema=z.object({organizerParticipantId:z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/)}).strict();

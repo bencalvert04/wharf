@@ -1,14 +1,15 @@
-import {randomUUID,createHmac} from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 import {ZodError} from 'zod';
 import {sql,hash,keyMatches,appUrl,sameOrigin} from './auth';
 import {createMeetingSchema,toConstraints,finalizeSchema,pageSchema} from './agent-contract';
 import {meetingSlots} from './agent-slots';
+import {describeAgentMeeting,invitationToken} from './agent-view';
 
 export class AgentError extends Error{constructor(public code:string,message:string,public status=400,public nextAction='Correct the request and retry.'){super(message)}}
 export function agentKey(req:Request){const key=req.headers.get('authorization')?.match(/^Bearer ([A-Za-z0-9_-]{43,128})$/)?.[1];if(!key)throw new AgentError('unauthorized','Supply a random 32-byte base64url meeting key as Authorization: Bearer <key>.',401,'Generate and save a key before creation; reuse that meeting’s key for subsequent calls.');return key}
 export async function agentBody(req:Request){if(!sameOrigin(req))throw new AgentError('invalid_origin','Origin is not allowed.',403);const raw=await req.text();if(Buffer.byteLength(raw)>32768)throw new AgentError('payload_too_large','Limit request bodies to 32 KB.',413);try{return JSON.parse(raw)}catch{throw new AgentError('invalid_json','Send a valid JSON object.')}}
 export async function agentResponse(run:()=>Promise<unknown>,status=200){try{return Response.json(await run(),{status,headers:{'Cache-Control':'no-store'}})}catch(e){const known=e instanceof AgentError,zod=e instanceof ZodError;return Response.json({error:{code:known?e.code:zod?'invalid_input':'service_unavailable',message:known?e.message:zod?'Check the highlighted fields.':'Wharf could not complete this request. Retry with the same key and inputs.',retryable:!known&&!zod,nextAction:known?e.nextAction:zod?'Correct the fields and retry.':'Retry after 15 seconds.',...(zod?{fields:e.issues.map(i=>({path:i.path.join('.'),message:i.message}))}:{})}},{status:known?e.status:zod?400:503,headers:{'Cache-Control':'no-store',...(!known&&!zod?{'Retry-After':'15'}:{})}})}}
-export const invitationToken=(key:string,id:string,participantId:string)=>createHmac('sha256',key).update(`wharf-invite-v1:${id}:${participantId}`).digest('base64url');
+export {invitationToken} from './agent-view';
 export async function loadAgentMeeting(id:string,key:string){
  const [row]=await sql()`SELECT r.*,
   (SELECT jsonb_build_object('participantId',c.participant_id,'authorized',COALESCE(c.authorized_at IS NOT NULL AND c.authorized_sub=p.google_sub,false)) FROM agent_calendar_authorizations c JOIN request_invitees p ON p.meeting_id=c.meeting_id AND p.id=c.participant_id WHERE c.meeting_id=r.id) AS calendar_authorization,
@@ -19,14 +20,8 @@ export async function loadAgentMeeting(id:string,key:string){
  if(!row||!keyMatches(key,row.planner_key))throw new AgentError('meeting_not_found','Meeting not found, expired, or this key does not grant access.',404,'Check the meeting ID and its saved key.');
  return row;
 }
-export function describeMeeting(row:any,key:string){
- const c=JSON.parse(row.constraints),people=row.people as any[];
- const participants=(c.openJoin?(row.invitees as any[]).filter(p=>people.some(a=>a.googleSub===p.googleSub)):(row.invitees as any[])).map(p=>{const a=people.find(a=>a.googleSub===p.googleSub);return {id:p.id,name:p.name,status:a?'responded':'awaiting_response',googleDisplayName:a?.name||null,capturedAt:a?.capturedAt||null,invitationUrl:`${appUrl()}/?meeting=${row.id}&invite=${invitationToken(key,row.id,p.id)}`}});
- const waiting=participants.filter(p=>p.status==='awaiting_response').map(p=>p.id),complete=waiting.length===0;
- const slots=complete?meetingSlots(row.id,c,people):[];
- const status=row.final_time?'finalized':c.openJoin&&!people.length?'awaiting_responses':waiting.length?'awaiting_responses':slots.length?'ready':'no_overlap';
- return {id:row.id,openJoin:!!c.openJoin,...(c.openJoin?{invitationUrl:`${appUrl()}/?meeting=${row.id}`} : {}),title:c.title,status,revision:Number(row.revision),createdAt:row.created_at,expiresAt:new Date(Date.parse(row.created_at)+30*86400000).toISOString(),constraints:c,participants,responseSummary:{expected:participants.length,responded:participants.length-waiting.length,waitingFor:waiting},availability:{source:'google_calendar_snapshot',live:false,slotCount:slots.length,slotsUrl:`${appUrl()}/api/v1/meetings/${row.id}/slots`},finalTime:row.final_time||null,calendarEventCreated:row.calendar_event?.status==='created',calendar:row.calendar_event||null,calendarAuthorization:row.calendar_authorization||null,nextAction:c.openJoin?{type:'open_meeting',message:'Share invitationUrl with the group. Anyone may join; the first person to connect is the planner. Availability covers only people who have joined, not an inferred full roster. The planner can choose a time and send calendar invites in the website.'}:status==='awaiting_responses'?{type:'share_invitations',participantIds:waiting,pollAfterSeconds:30,message:'Send each person only their own invitation URL. They must connect Google themselves. Poll after 30 seconds; do not treat partial responses as consensus.'}:status==='ready'?{type:'choose_slot',message:'Get exact slots, prepare organizer calendar authorization, then book the chosen slot with this revision to create a Google event and invite everyone. Use finalize only to save a time without invitations.'}:status==='no_overlap'?{type:'revise_request',message:'No future slot fits everyone. Create a new request with a wider range or different duration after agreeing changes with the organizer.'}:row.calendar_event?.status==='created'?{type:'done',message:'Google Calendar event created and invitations requested for all guests. Guest calendar settings control automatic display.'}:row.calendar_event?{type:'retry_booking',pollAfterSeconds:30,message:'Google event creation is pending. Retry book with finalTime.slotId and finalTime.basedOnRevision after 30 seconds; the same event is recovered without duplicate invitations.'}:{type:'book_meeting',message:'Time saved in Wharf. To create a Google event and send invitations, prepare organizer authorization then book with finalTime.slotId and finalTime.basedOnRevision.'}};
-}
+export function describeMeeting(row:any,key:string,slots?:ReturnType<typeof meetingSlots>){return describeAgentMeeting(row,key,appUrl(),slots)}
+
 export async function createAgentMeeting(req:Request,raw:unknown){
  const key=agentKey(req),v=createMeetingSchema.parse(raw),c=toConstraints(v);
  const requestId=req.headers.get('idempotency-key');
@@ -43,14 +38,14 @@ export async function createAgentMeeting(req:Request,raw:unknown){
  SELECT created.id,p->>'id',p->>'name',(p->>'position')::int,p->>'tokenHash' FROM created,jsonb_array_elements(${JSON.stringify(records)}::jsonb) p`;
  const [existing]=await sql()`SELECT id,agent_input_hash,created_at FROM requests WHERE planner_key=${plannerHash} AND agent_request_id=${requestId}`;
  if(!existing)throw new AgentError('key_already_used','This meeting key already belongs to another creation attempt.',409,'Generate a new random meeting key for a new request.');
- if(existing.agent_input_hash!==fingerprint)throw new AgentError('idempotency_conflict','This key was already used with different meeting details.',409,'Use the original inputs for a retry, or a new Idempotency-Key for a new meeting.');
- if(Date.parse(existing.created_at)+30*86400000<=Date.now())throw new AgentError('meeting_expired','The original meeting expired.',410,'Use a new Idempotency-Key to create a new meeting.');
+ if(existing.agent_input_hash!==fingerprint)throw new AgentError('idempotency_conflict','This key was already used with different meeting details.',409,'Use the original inputs for a retry, or a new meeting key AND Idempotency-Key for a new meeting.');
+ if(Date.parse(existing.created_at)+30*86400000<=Date.now())throw new AgentError('meeting_expired','The original meeting expired.',410,'Use a new meeting key AND Idempotency-Key to create a new meeting.');
  // Fresh creation needs no aggregate read or availability scan. Keep link delivery fast.
  if(existing.id===id)return {...describeMeeting({id,constraints:JSON.stringify(c),created_at:now,revision:0,invitees:participants.map(p=>({...p,googleSub:null})),people:[]},key),replayed:false};
  return {...describeMeeting(await loadAgentMeeting(existing.id,key),key),replayed:true};
 }
 export async function getAgentMeeting(id:string,key:string){return describeMeeting(await loadAgentMeeting(id,key),key)}
-export async function getAgentSlots(id:string,key:string,query:unknown){const {offset,limit}=pageSchema.parse(query),row=await loadAgentMeeting(id,key),meeting=describeMeeting(row,key);const slots=meeting.status==='ready'?meetingSlots(id,JSON.parse(row.constraints),row.people):[];return {meetingId:id,status:meeting.status,revision:meeting.revision,source:'google_calendar_snapshot',slots:slots.slice(offset,offset+limit),total:slots.length,nextOffset:offset+limit<slots.length?offset+limit:null,nextAction:meeting.nextAction}}
+export async function getAgentSlots(id:string,key:string,query:unknown){const {offset,limit}=pageSchema.parse(query),row=await loadAgentMeeting(id,key),c=JSON.parse(row.constraints),complete=row.invitees.every((p:any)=>row.people.some((a:any)=>a.googleSub===p.googleSub)),candidates=complete||c.openJoin?meetingSlots(id,c,row.people):[],meeting=describeMeeting(row,key,candidates);const slots=meeting.status==='ready'?candidates:[];return {meetingId:id,status:meeting.status,revision:meeting.revision,source:'google_calendar_snapshot',actions:meeting.actions,slots:slots.slice(offset,offset+limit),total:slots.length,nextOffset:offset+limit<slots.length?offset+limit:null,nextAction:meeting.nextAction}}
 export async function finalizeAgentMeeting(id:string,key:string,raw:unknown){
  const input=finalizeSchema.parse(raw),row=await loadAgentMeeting(id,key),view=describeMeeting(row,key);
  if(row.final_time){if(row.final_time.slotId===input.slotId&&row.final_time.basedOnRevision===input.revision)return {...view,replayed:true};throw new AgentError('already_finalized','This meeting already has a confirmed time.',409,'Read the meeting to see the confirmed time.');}
