@@ -15,8 +15,8 @@ export default function CalendarPicker({onClose,onConnect,invitationName='',mode
  }
  async function connect(provider:CalendarChoice){if(connecting.current||closing.current)return;connecting.current=true;setBusy(true);setError('');try{await onConnect(provider)}catch(e){setError(e instanceof Error?e.message:'Could not continue.')}finally{connecting.current=false;setBusy(false)}}
  return <dialog ref={dialog} className="calendar-picker modal" data-closing={isClosing||undefined} aria-labelledby="calendar-picker-title" onCancel={e=>{e.preventDefault();close()}} onClick={e=>{if(e.target!==e.currentTarget)return;const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close()}}>
- <button type="button" className="modal-close icon-button" aria-label={mode==='signin'?'Close login options':'Close calendar options'} disabled={busy||isClosing} onClick={close}><X size={18}/></button>
- <h2 id="calendar-picker-title">{mode==='signin'?'Login to Wharf':'Link your calendar'}</h2>
+ <button type="button" className="modal-close icon-button" aria-label="Close calendar options" disabled={busy||isClosing} onClick={close}><X size={18}/></button>
+ <h2 id="calendar-picker-title">{mode==='signin'?'Connect your calendar':'Link your calendar'}</h2>
  {invitationName&&<p>This invitation is for <strong>{invitationName}</strong>. Continue only if it was meant for you.</p>}
  {mode==='calendar'&&<p>Choose a calendar to share your availability.</p>}
  <div className="calendar-provider-options">
