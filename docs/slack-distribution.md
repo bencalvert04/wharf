@@ -42,3 +42,14 @@ Terms: https://wharfmeetings.com/terms
 Contact: bencalvert04@gmail.com
 
 Google OAuth verification and workspace administrator policies independently control whether new users can connect calendars. A public Slack install does not bypass Google consent, verification limits, or administrator approval.
+
+## Release record: November 5, 2026
+
+- Applied the additive installation/state tables to the production database.
+- Configured Slack client credentials and app ID in Vercel; enabled the public install route.
+- Deployed the release to `wharfmeetings.com` and verified the landing page, install redirect, invalid-state rejection (303), and unsigned webhook rejection (401).
+- An authenticated production help event completed successfully in one attempt, exercising the original workspace token lookup, job worker, interpreter and private Slack reply.
+- Enabled public distribution in Slack. Slack reports one active workspace; Marketplace review is not submitted.
+- Saved listing description and landing/privacy/support URLs in Slack. Listing screenshots, remaining review answers, a full demo and adoption are still required.
+- The live OAuth flow reaches the correct workspace consent screen. Final browser Allow is pending owner confirmation because it accepts terms; the callback has not yet been verified end to end against Slack.
+- Google Cloud Console requested owner passkey verification. The existing Google verification instructions remain applicable; current approval status could not be verified in this session.
