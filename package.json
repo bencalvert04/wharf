@@ -17,6 +17,7 @@
     "test:agents": "node --env-file=.env.production.local --import tsx scripts/verify-agents.mjs",
     "test:mcp": "node --env-file=.env.production.local scripts/verify-mcp.mjs",
     "email:verify": "node --env-file=.env.local scripts/verify-email.mjs",
+    "apple:check": "node scripts/check-apple-config.mjs",
     "staging:check": "node scripts/check-calendar-staging.mjs"
   },
   "dependencies": {
