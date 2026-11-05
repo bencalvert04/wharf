@@ -446,6 +446,13 @@ header{view-transition-name:site-header}
 
 @media(max-width:620px){.hero-grid-hover{mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%)}}
 
+/* Attendance confirmation uses the browser's modal focus handling. */
+.attendance-complete{position:fixed;inset:0;color:var(--text);background:var(--bg);border:1px solid var(--border);margin:auto;width:min(440px,calc(100vw - 32px));max-height:calc(100svh - 48px);overflow:auto;text-align:center;padding:36px 28px 28px;box-shadow:0 24px 80px #0002}
+.attendance-complete::backdrop{background:#0c15234d;backdrop-filter:blur(4px)}
+.attendance-complete-check{display:grid;place-items:center;width:64px;height:64px;margin:0 auto 24px;border-radius:50%;color:var(--accent-text);background:var(--highlight);border:1px solid var(--highlight-border)}
+.attendance-complete h2{font-size:28px;letter-spacing:-.04em;margin-bottom:14px}
+.attendance-complete p{line-height:1.65}
+.attendance-complete .attendance-complete-note{font-size:13px;margin:16px 0 26px;color:var(--muted)}
 .calendar-picker.modal{position:fixed;inset:0;margin:auto;width:min(380px,calc(100vw - 32px));max-width:none;padding:36px 28px 24px;border-radius:16px;color:var(--text);background:var(--bg);border:1px solid var(--border);max-height:90dvh;overflow:auto;box-shadow:0 24px 80px #0003;animation:calendar-picker-in 140ms ease-out both}
 .calendar-picker::backdrop{background:#0006;backdrop-filter:blur(5px);animation:calendar-picker-in 140ms ease-out both}
 .calendar-picker[data-closing]{animation:calendar-picker-out 140ms ease-in both;pointer-events:none}
