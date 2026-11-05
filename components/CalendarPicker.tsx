@@ -25,7 +25,7 @@ export default function CalendarPicker({onClose,onConnect,invitationName='',mode
  </div>
  {mode==='signin'&&<p className="micro" id="apple-signin-help">{providers?.apple?'Apple login does not connect your iCloud calendar.':'Apple login is coming soon.'}</p>}
  <p className="calendar-picker-privacy"><a href="/privacy" target="_blank" rel="noreferrer">Privacy</a></p>
- {!providers&&!error&&<p role="status">Loading options…</p>}{providers&&(['google','microsoft'] as const).filter(provider=>!providers[provider]).map(provider=><p key={provider} role="status">{provider==='google'?'Google':'Microsoft'} is unavailable right now.</p>)}
- {busy&&<p role="status">Connecting…</p>}{error&&<p role="alert">{error}</p>}
+ {!providers&&!error&&<p className="sr-only" role="status">Loading options…</p>}{providers&&(['google','microsoft'] as const).filter(provider=>!providers[provider]).map(provider=><p key={provider} role="status">{provider==='google'?'Google':'Microsoft'} is unavailable right now.</p>)}
+ {busy&&<p className="sr-only" role="status">Connecting…</p>}{error&&<p role="alert">{error}</p>}
  </dialog>;
 }
