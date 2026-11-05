@@ -1,15 +1,2 @@
-import {beginCalendarIntent,runCalendarIntent} from '@/lib/calendar-intent';
-import {session,sameOrigin,json,sql} from '@/lib/auth';
-import {disconnectCalendar} from '@/lib/calendar-connection';
-export async function POST(req:Request){
- if(!sameOrigin(req))return json({error:'Invalid origin.'},403);
- try{
-  const s=await session();
-  if(!s?.google_sub)return json({error:'Sign in to disconnect your calendar.'},401);
-  const intent=await beginCalendarIntent(sql(),s.id,s.google_sub);
-  return await runCalendarIntent(intent,async()=>{
-  await disconnectCalendar(s.google_sub);
-  return json({disconnected:true});
-  });
- }catch{return json({error:'Calendar access is paused, but Google has not confirmed revocation. Please try disconnecting again.'},503)}
-}
+// Disconnecting and logging out are the same account action.
+export {DELETE as POST} from '@/app/api/auth/account/route';

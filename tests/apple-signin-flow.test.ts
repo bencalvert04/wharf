@@ -20,7 +20,7 @@ async function fixture(){
   'next/headers':{cookies:async()=>({get:(k:string)=>cookies.has(k)?{value:cookies.get(k)}:undefined,set:(k:string,v:string,o:any)=>{cookies.set(k,v);cookieOptions.push(o)}})},
   '@/lib/calendar-intent':intent,
   '@/lib/auth':{sameOrigin:(r:Request)=>r.headers.get('origin')==='https://wharf.example',json:(data:unknown,status=200)=>Response.json(data,{status}),session:async()=> (await database.query("SELECT * FROM sessions WHERE id='session'")).rows[0],sql:()=>intent.guardCalendarDatabase(db),hash:(v:string)=>createHash('sha256').update(v).digest('hex'),token:()=>randomBytes(32).toString('base64url'),appUrl:()=> 'https://wharf.example'},
-  '@/lib/apple-signin':{appleConfigured:()=>configured,appleDisplayName,appleAuthorize:(state:string,nonce:string)=>'https://appleid.apple.com/auth/authorize?'+new URLSearchParams({state,nonce}),exchangeAppleCode:async()=>{exchanges++;await interleave();return {account:'apple:person',email:'verified@example.test'}}},
+  '@/lib/apple-signin':{appleLoginAvailable:()=>configured,appleDisplayName,appleAuthorize:(state:string,nonce:string)=>'https://appleid.apple.com/auth/authorize?'+new URLSearchParams({state,nonce}),exchangeAppleCode:async()=>{exchanges++;await interleave();return {account:'apple:person',email:'verified@example.test'}}},
  };
  const start=loadWithMocks<{POST:Function}>(new URL('../app/api/auth/apple/start/route.ts',import.meta.url),common).POST;
  const callback=loadWithMocks<{POST:Function}>(new URL('../app/api/auth/apple/callback/route.ts',import.meta.url),common).POST;

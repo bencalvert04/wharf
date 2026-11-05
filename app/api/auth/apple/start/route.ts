@@ -1,11 +1,11 @@
 import {cookies} from 'next/headers';
-import {appleAuthorize,appleConfigured} from '@/lib/apple-signin';
+import {appleAuthorize,appleLoginAvailable} from '@/lib/apple-signin';
 import {beginCalendarIntent,runCalendarIntent} from '@/lib/calendar-intent';
 import {session,sql,hash,token,sameOrigin,json} from '@/lib/auth';
 
 export async function POST(req:Request){
  if(!sameOrigin(req))return json({error:'Invalid origin.'},403);
- if(!appleConfigured())return json({error:'Sign in with Apple is not available yet. The site owner needs to finish Apple registration.'},503);
+ if(!appleLoginAvailable())return json({error:'Sign in with Apple is not available yet. The site owner needs to finish Apple registration.'},503);
  try{
   const raw=await req.text();if(raw.length>1000)return json({error:'Request too large.'},413);
   const input=JSON.parse(raw),returnId=input.returnMeetingId;

@@ -1,5 +1,5 @@
 import {cookies} from 'next/headers';
-import {appleConfigured,exchangeAppleCode,appleDisplayName} from '@/lib/apple-signin';
+import {appleLoginAvailable,exchangeAppleCode,appleDisplayName} from '@/lib/apple-signin';
 import {bindCalendarAccount,runCalendarIntent} from '@/lib/calendar-intent';
 import {sql,hash,appUrl} from '@/lib/auth';
 
@@ -7,7 +7,7 @@ export async function POST(req:Request){
  let meetingId='';
  const redirect=(status:string)=>new Response(null,{status:303,headers:{Location:appUrl()+'/?'+new URLSearchParams({...(meetingId?{meeting:meetingId}:{}),signin:status}),'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
  try{
-  if(!appleConfigured())return redirect('unavailable');
+  if(!appleLoginAvailable())return redirect('unavailable');
   if(!req.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded'))return redirect('failed');
   const raw=await req.text();if(raw.length>16000)return redirect('failed');
   const params=new URLSearchParams(raw),state=params.get('state'),jar=await cookies(),binding=jar.get('__Host-wharf_apple')?.value;

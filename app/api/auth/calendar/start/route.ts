@@ -13,7 +13,7 @@ export async function POST(req:Request){
   const raw=await req.text();if(raw.length>4000)return json({error:'Request too large.'},413);
   const input=JSON.parse(raw);
   if(input.provider==='google')return startGoogle(new Request(req.url,{method:'POST',headers:req.headers,body:JSON.stringify(input)}));
-  if(input.provider==='icloud')return json({error:'Password-based iCloud connections are no longer supported. Use Sign in with Apple to sign into Wharf. iCloud calendar access is not available yet.'},410);
+  if(input.provider==='icloud')return json({error:'Password-based iCloud connections are no longer supported. iCloud calendar access is not available yet. Choose Google or Microsoft to connect and sign in.'},410);
   if(!['microsoft','saved'].includes(input.provider))return json({error:'Choose a calendar provider.'},400);
   if(!tokenVaultConfigured())return json({error:'Calendar credential encryption is not configured.'},503);
   if(input.provider==='microsoft'&&!microsoftConfigured())return json({error:'Outlook setup is not complete yet. The site owner needs to configure Microsoft sign-in.'},503);

@@ -466,3 +466,6 @@ header{view-transition-name:site-header}
 
 .staging-notice{padding:10px 20px;text-align:center;background:#fff3cd;color:#5f4700;border-bottom:1px solid #e3cb73;font-size:13px;line-height:1.5}
 .apple-signin-button svg{width:20px;height:20px}
+
+.apple-signin-button[data-coming-soon]{background:var(--soft)}
+.provider-coming-soon{font-size:11px;font-weight:400;white-space:nowrap}
