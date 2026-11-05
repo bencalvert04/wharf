@@ -4,6 +4,7 @@ export async function channelRoster(channel:string,call:typeof slack=slack){
  do{
   const page=await call('conversations.members',{channel,limit:200,...(cursor?{cursor}:{})});
   for(const id of page.members||[])ids.add(id);
+  if(ids.size>50)throw Error('Wharf supports conversations with up to 50 members. Use a smaller channel or group DM.');
   cursor=page.response_metadata?.next_cursor||'';
  }while(cursor);
  const people:{id:string;name:string}[]=[];

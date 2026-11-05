@@ -88,7 +88,7 @@ Organizer selection is fixed for a meeting. Event booking requires verified atte
 
 ## Slack bot
 
-The single-workspace Slack integration uses Anthropic for request interpretation by default, or Typesafe Jev when `SLACK_INTERPRETER=jev`; Jev mode can still use Anthropic to word short replies. It uses organizer-only controls for confirmation and booking. See [setup and demo instructions](docs/slack.md) and the [Slack app manifest](docs/slack-manifest.json).
+The Slack integration supports workspace OAuth installation through `/slack` and uses Anthropic for request interpretation by default, or Typesafe Jev when `SLACK_INTERPRETER=jev`; Jev mode can still use Anthropic to word short replies. It uses organizer-only controls for confirmation and booking. See [public distribution and release instructions](docs/slack-distribution.md), [workflow instructions](docs/slack.md) and the [Slack app manifest](docs/slack-manifest.json).
 
 ## Pending meeting retention and re-entry
 

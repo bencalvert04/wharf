@@ -1,3 +1,4 @@
+import {withSlackWorkspace} from '../lib/slack-context.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {formatSlackHistory,slackHistory} from '../lib/slack-history.ts';
@@ -22,5 +23,5 @@ test('history filters nonhuman and out-of-window messages and bounds context siz
 
 test('history is conversation scoped and falls back on errors without retrying',async()=>{
  const original=globalThis.fetch;let calls=0;
- try{globalThis.fetch=async(url,options)=>{calls++;assert.match(String(url),/conversations.history/);const body=options!.body as URLSearchParams;assert.equal(body.get('channel'),'C1');assert.equal(body.get('latest'),'1793059000');assert.equal(body.get('limit'),'15');return new Response('',{status:429})};assert.equal(await slackHistory('C1','1793059000'),'');assert.equal(calls,1)}finally{globalThis.fetch=original}
+ try{globalThis.fetch=async(url,options)=>{calls++;assert.match(String(url),/conversations.history/);const body=options!.body as URLSearchParams;assert.equal(body.get('channel'),'C1');assert.equal(body.get('latest'),'1793059000');assert.equal(body.get('limit'),'15');return new Response('',{status:429})};assert.equal(await withSlackWorkspace({teamId:'T1',botToken:'test-token',botUserId:'U1'},()=>slackHistory('C1','1793059000')),'');assert.equal(calls,1)}finally{globalThis.fetch=original}
 });

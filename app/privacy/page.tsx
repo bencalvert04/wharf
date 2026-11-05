@@ -7,7 +7,7 @@ export default function Privacy(){
  return <main className={styles.policy}>
   <a href="/">← Wharf</a>
   <h1>Wharf Privacy Policy</h1>
-  <p>Last updated: November 4, 2026</p>
+  <p>Last updated: November 5, 2026</p>
   <p>This policy explains how Wharf handles information when you use its website, calendar connections, agent API, or Slack integration.</p>
   <nav aria-label="Privacy policy sections"><ul>
    <li><a href="#google-data">Google sign-in and calendar</a></li>
@@ -69,7 +69,8 @@ export default function Privacy(){
   </section>
 
   <section id="slack"><h2>Slack and AI services</h2>
-   <p>When you use the Wharf Slack bot, we process scheduling messages that mention it, Slack user IDs, display names, and the scheduling time zone. Wharf responds only to mentions in configured conversations. To understand a request, it may also read up to 15 human messages from the preceding seven days in the conversation and thread, limited to 6,000 characters, along with author IDs and timestamps.</p>
+   <p>When you install Wharf, we store the workspace ID and name, installer’s Slack user ID, bot user ID, granted permissions, and an encrypted workspace-specific bot token. Workspace tokens use authenticated encryption bound to the workspace. Uninstalling removes the stored token when Slack delivers its uninstall event. We retain installation metadata and a revocation marker to reject stale work; contact support to request deletion. Uninstalling Slack does not disconnect individual Google Calendar connections or cancel calendar events.</p>
+   <p>When you use the Wharf Slack bot, we process scheduling messages that mention it, Slack user IDs, display names, and the scheduling time zone. Wharf responds to mentions in public channels and group DMs where it has been added, and to the requester’s follow-up replies in an active scheduling thread. The original pilot workspace may restrict which conversations are enabled. To understand a request, it may also read up to 15 human messages from the preceding seven days in the conversation and thread, limited to 6,000 characters, along with author IDs and timestamps.</p>
    <p>Depending on the configured interpreter, Anthropic (Claude) or Typesafe (Jev) processes the scheduling text, relevant context, timestamps, and time zone to propose meeting details. Slack IDs may appear in that text. When Jev is selected, Anthropic may separately process limited message text to word a short reply. Neither provider receives Google Calendar snapshots, access tokens, or meeting credentials from Wharf.</p>
    <p>Slack receives replies, suggested shared times, and a meeting link. Anyone with the link can see meeting details and can join an open meeting or claim an unclaimed invitation with their calendar account. After joining, they can see participant names and shared availability. Organizer calendar authorization links are sent privately.</p>
    <p>For follow-up questions, Wharf separately stores up to 12 recent entries from the same requester’s thread, including their messages, Wharf’s clarification prompts, and proposed meeting details. It uses this context for up to one day after the last update; daily cleanup removes expired context. Relevant requester messages go to the configured interpreter, but background conversation history is not saved in this clarification record. Slack workflow records expire after 30 days, and successful job payloads are removed after processing.</p>

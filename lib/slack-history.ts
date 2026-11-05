@@ -1,3 +1,4 @@
+import {slackBotToken} from './slack-context.ts';
 type Message={ts:string;text?:string;user?:string;bot_id?:string;subtype?:string};
 export function formatSlackHistory(messages:Message[],before:string){
  return messages.filter(m=>Number(m.ts)<Number(before)&&Number(m.ts)>=Number(before)-7*86400&&m.text&&!m.bot_id&&!m.subtype)
@@ -10,7 +11,7 @@ export async function slackHistory(channel:string,before:string,thread?:string){
   const signal=AbortSignal.timeout(1500);
   const read=async(method:string,extra:Record<string,string>={})=>{
    const body=new URLSearchParams({channel,latest:before,inclusive:'false',oldest:String(Number(before)-7*86400),limit:'15',...extra});
-   const response=await fetch(`https://slack.com/api/${method}`,{method:'POST',headers:{Authorization:`Bearer ${process.env.SLACK_BOT_TOKEN}`,'Content-Type':'application/x-www-form-urlencoded'},body,signal});
+   const response=await fetch(`https://slack.com/api/${method}`,{method:'POST',headers:{Authorization:`Bearer ${slackBotToken()}`,'Content-Type':'application/x-www-form-urlencoded'},body,signal});
    if(!response.ok)return [];
    const data=await response.json();return data.ok?data.messages||[]:[];
   };
