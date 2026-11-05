@@ -1,3 +1,4 @@
+import {inSlackWorkspace} from './slack-installations';
 import {getAgentSlots} from './agent-api';
 import {refreshAgentAvailability} from './agent-refresh';
 import {openToken} from './token-vault';
@@ -17,7 +18,7 @@ export async function attendanceMeeting(r:any,user:string){
 export async function completeSlackAttendance(id:string,sessionId:string,sub:string){
  await completeAttendanceLink(sql(),id,sessionId,sub);
  const [r]=await sql()`SELECT s.* FROM slack_meetings s JOIN slack_attendance_links l ON l.slack_meeting_id=s.id WHERE l.id=${id}`;
- if(r)await notifyCalendarsReady(r).catch(()=>console.warn('Calendar readiness notification failed'));
+ if(r)await inSlackWorkspace(r.team_id,()=>notifyCalendarsReady(r)).catch(()=>console.warn('Calendar readiness notification failed'));
 }
 export async function attendFromSlack(r:any,payload:any,automatic=false){
  const user=payload.user.id;

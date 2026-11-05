@@ -1,3 +1,5 @@
+import {bindCalendarAccount,runCalendarIntent} from '@/lib/calendar-intent';
+import {captureGoogleSwitch,isStandaloneProviderAccount} from '@/lib/provider-switch-guard';
 import {plannerAccess} from '@/lib/planner-access';
 import {after} from 'next/server';
 import {resumeSlackBooking} from '@/lib/slack-workflow';
@@ -7,8 +9,7 @@ import {grantHasEventWrite} from '@/lib/google-event-payload';
 import {session,sql,hash,meeting,appUrl} from '@/lib/auth';
 import {validEmail} from '@/lib/calendar-invitation';
 import {google} from '@/lib/google';
-import {beginGoogleFlow} from '@/lib/google-flow';
-import {joinWithSavedCalendar,saveCalendarGrant,saveCalendarScopes,saveCalendarSnapshot,prepareCalendarConsent,calendarConnection} from '@/lib/calendar-connection';
+import {saveCalendarGrant,saveCalendarScopes,saveCalendarSnapshot,prepareCalendarConsent,calendarConnection} from '@/lib/calendar-connection';
 import {grantHasFreeBusy} from '@/lib/calendar-access';
 
 export const maxDuration=120;
@@ -21,8 +22,15 @@ export async function GET(req:Request){
  try{
   const p=new URL(req.url).searchParams,s=await session(),state=p.get('state');
   if(!s||!state)return redirect('expired');
+  if(isStandaloneProviderAccount(s.google_sub))return redirect('accountswitch');
   const [flow]=await sql()`DELETE FROM oauth_states WHERE id=${hash(state)} AND session_id=${s.id} AND expires_at>now() RETURNING *`;
-  if(!flow)return redirect('expired');
+  if(!flow?.calendar_intent)return redirect('expired');
+  return await runCalendarIntent(flow.calendar_intent,async()=>{
+  // Reject already-superseded flows before exchanging a provider code.
+  await sql()`SELECT 1 AS active_calendar_intent`;
+  // Capture a guarded database handle so later removal checks the intent in
+  // the same transaction as the delete, even if another tab starts meanwhile.
+  let switchGuard=s.google_sub?await captureGoogleSwitch(sql(),s.google_sub,s.id,s.google_sub):null;
   if(flow.slack_attendance_id){
    const [link]=await sql()`SELECT s.team_id,s.channel_id FROM slack_attendance_links l JOIN slack_meetings s ON s.id=l.slack_meeting_id WHERE l.id=${flow.slack_attendance_id} AND l.session_id=${s.id} AND l.expires_at>now() AND l.completed_at IS NULL`;
    if(!link)return redirect('expired');
@@ -41,16 +49,26 @@ export async function GET(req:Request){
   let picture:string|null=null;
   try{const url=new URL(identity.picture||'');if(url.protocol==='https:'&&(url.hostname==='googleusercontent.com'||url.hostname.endsWith('.googleusercontent.com')))picture=url.href}catch{}
   const name=(identity.name||'Guest').slice(0,100);
-  await sql()`UPDATE sessions SET google_sub=${identity.sub},name=${name},picture=${picture},email=${identity.email} WHERE id=${s.id}`;
-  if(agentAuthorization){await completeAgentCalendarAuthorization(flow,identity,tokens);after(()=>resumeSlackBooking(flow.return_meeting_id));return redirect('eventready')}
+  await bindCalendarAccount(sql(),identity.sub);
+  await switchGuard?.check();
+  // An ordinary Google account switch must never remove the prior account's grant.
+  if(!switchGuard||s.google_sub!==identity.sub)switchGuard=await captureGoogleSwitch(sql(),identity.sub,s.id,s.google_sub||null);
+  await switchGuard.check();
+  const establishSession=async()=>{
+   const [updated]=await sql()`UPDATE sessions SET google_sub=${identity.sub},name=${name},picture=${picture},email=${identity.email} WHERE id=${s.id} AND google_sub IS NOT DISTINCT FROM ${s.google_sub||null}::text AND expires_at>now() RETURNING id`;
+   if(!updated)throw Error('Session expired');
+  };
+  const checkSwitch=()=>switchGuard!.check(identity.sub);
+  if(agentAuthorization){await completeAgentCalendarAuthorization(flow,identity,tokens);await establishSession();after(()=>resumeSlackBooking(flow.return_meeting_id));return redirect('eventready')}
   if(flow.purpose==='events'){
    const planned=await meeting(flow.return_meeting_id);
    if(!planned||!(await plannerAccess(planned,s)).allowed||JSON.parse(planned.constraints).demo)return redirect('expired');
    if(!grantHasFreeBusy(tokens.scope)||!grantHasEventWrite(tokens.scope)||!tokens.refresh_token)return redirect('eventpermission');
    await saveCalendarGrant(identity.sub,tokens.refresh_token,{version:Number(flow.connection_version),connectionId:flow.connection_id},tokens.scope);
+   await establishSession();
    return redirect('eventready');
   }
-  if(flow.purpose==='connect'||flow.purpose==='planner_connect'||(row&&flow.expected_sub)){
+  if(flow.purpose==='connect'||flow.purpose==='planner_connect'||flow.purpose==='join'){
    // Google may allow profile sign-in while the user declines calendar permission.
    if(!grantHasFreeBusy(tokens.scope))return redirect('permission');
    if(tokens.refresh_token){
@@ -63,15 +81,15 @@ export async function GET(req:Request){
     if(flow.expected_sub&&(saved.connection_id!==flow.connection_id||Number(saved.version)!==Number(flow.connection_version)))return redirect('expired');
     await saveCalendarScopes(identity.sub,saved.refresh_token,{version:Number(saved.version),connectionId:saved.connection_id},tokens.scope!);
    }
-   if(!row){return redirect('connected')}
+   await establishSession();
+   if(!row){await switchGuard.remove(identity.sub);return redirect('connected')}
    client.setCredentials(tokens);
-   await saveCalendarSnapshot(client,{id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null);
+   await saveCalendarSnapshot(client,{id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null,checkSwitch);
    await finishAttendance(flow,s.id,identity.sub);
-
+   await switchGuard.remove(identity.sub);
    return redirect('joined');
   }
-  if(!row)return redirect('signedin');
-  if(await joinWithSavedCalendar({id:row.id,constraints:row.constraints},identity.sub,name,s.id,flow.invitee_id||null)){await finishAttendance(flow,s.id,identity.sub);return redirect('joined')}
-  return Response.redirect(await beginGoogleFlow(s.id,row.id,null,identity.sub,flow.invitee_id||null,'join',flow.slack_attendance_id||null),303);
+  return redirect('permission');
+  });
  }catch{return redirect('failed')}
 }

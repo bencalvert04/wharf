@@ -1,3 +1,6 @@
+import {inSlackWorkspace,slackInstallation} from './slack-installations';
+import {withSlackWorkspace} from './slack-context';
+import {slackBotUserId} from './slack-context';
 import {dismissSlackPrompt} from './slack-dismiss';
 import {loadSlackProposal,insertSlackMeeting} from './slack-proposal';
 import {encodeSlackRequest} from './slack-jev-candidates';
@@ -28,6 +31,7 @@ const refresh=(id:string)=>slackButton('Click to attend','wharf_attend',id);
 export async function slackMention(envelope:any){
  const promptStarted=Date.now();
  const e=envelope.event,thread=e.thread_ts||e.ts;
+ const timezone=await slack('users.info',{user:e.user}).then(data=>{const zone=data.user?.tz;if(typeof zone!=='string')return 'UTC';try{new Intl.DateTimeFormat('en',{timeZone:zone});return zone}catch{return 'UTC'}}).catch(()=>process.env.SLACK_DEFAULT_TIMEZONE||'UTC');
  const requestMessage=process.env.SLACK_INTERPRETER==='jev'?encodeSlackRequest(e.text,Number(e.ts)*1000):e.text.slice(0,4000);
  let interpretation:SlackInterpretation|undefined;
  let intent:string=slackIntent(e.text);
@@ -38,7 +42,7 @@ export async function slackMention(envelope:any){
    slackHistory(e.channel,e.ts,e.thread_ts)
   ]);
   if(usage.n>100){await slackPrivateMessage(e.channel,e.user,'The daily scheduling limit has been reached. Try again tomorrow.');return}
-  interpretation=await interpretJev([...(context?.messages||[]),requestMessage].slice(-12).join('\nFollow-up: '),process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver',Date.now(),history);
+  interpretation=await interpretJev([...(context?.messages||[]),requestMessage].slice(-12).join('\nFollow-up: '),timezone,Date.now(),history);
   intent=interpretation.intent||'other';
   if(intent==='other'){
    const question=await shortSlackReply(e.text,'Briefly answer or ask how to help arrange a meeting. Do not infer missing details.','Tell me a day, time window, and meeting length, and I’ll help arrange it.');
@@ -66,8 +70,8 @@ export async function slackMention(envelope:any){
  if(!interpretation&&intent==='help'){await slackPrivateMessage(e.channel,e.user,"Tell me when you want to meet, like “15 minutes sometime today.” I’ll include everyone here and help you choose a time privately.");return}
  const started=promptStarted;
  // Run metadata calls alongside the database/model work, with a bounded fallback.
- const group=(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(e.channel);
- const fallback=group?'Group meeting':process.env.SLACK_CHANNEL_NAME||'all-wharf';
+ const group=e.channel_type==='mpim'||(process.env.SLACK_GROUP_CHANNEL_IDS||'').split(',').includes(e.channel);
+ const fallback='Group meeting';
  const historyPromise=interpretation?Promise.resolve(''):slackHistory(e.channel,e.ts,e.thread_ts);
  const namePromise=Promise.race([
   slackMeetingName(e.channel,group).catch(()=>fallback),
@@ -83,7 +87,7 @@ export async function slackMention(envelope:any){
  await sql()`INSERT INTO slack_context(team_id,channel_id,thread_ts,user_id,messages) VALUES(${envelope.team_id},${e.channel},${thread},${e.user},${JSON.stringify(messages)}::jsonb) ON CONFLICT(team_id,channel_id,thread_ts,user_id) DO UPDATE SET messages=EXCLUDED.messages,proposal=NULL,updated_at=now()`;
  // A workspace-level daily cap bounds model spend even when channel members repeatedly mention the bot.
  if(usage.n>100){await slackPrivateMessage(e.channel,e.user,'The daily scheduling limit has been reached. Try again tomorrow.');return}
- const result:SlackInterpretation=interpretation||await interpretOpenSlackRequest(messages.join('\nFollow-up: ').slice(-12000),process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver',Date.now(),await historyPromise);
+ const result:SlackInterpretation=interpretation||await interpretOpenSlackRequest(messages.join('\nFollow-up: ').slice(-12000),timezone,Date.now(),await historyPromise);
  if(!result.draft){await sql()`UPDATE slack_context SET messages=${JSON.stringify([...messages,`Wharf asked: ${result.question}`].slice(-12))}::jsonb,updated_at=now() WHERE team_id=${envelope.team_id} AND channel_id=${e.channel} AND thread_ts=${thread} AND user_id=${e.user}`;await askPrivately(e.channel,e.user,thread,result.question!,result.duration);return}
  if(!result.requestedTitle)result.draft.title=await namePromise;
  if(result.confirmation){
@@ -143,7 +147,7 @@ async function invitations(r:any){
  // Membership is only for notification, after the usable link is already visible.
  if(d.openJoin&&group){try{
   const members=await slack('conversations.members',{channel:r.channel_id,limit:100});
-  const mentions=members.members.filter((id:string)=>id!==process.env.SLACK_BOT_USER_ID).map((id:string)=>`<@${id}>`).join(' ');
+  const mentions=members.members.filter((id:string)=>id!==slackBotUserId()).map((id:string)=>`<@${id}>`).join(' ');
   if(mentions)await slackMessage(r.channel_id,`${mentions}, please <${url}|click to attend> if applicable.`,posted.ts);
  }catch{console.warn('Slack attendance notification failed; meeting link was delivered')}}
 }
@@ -256,11 +260,11 @@ async function bookFromSlack(r:any){
 export async function resumeSlackBooking(meetingId:string){
  try{
   const rows=await sql()`SELECT * FROM slack_meetings WHERE meeting_id=${meetingId} AND pending_booking=true AND created_at>now()-interval '30 days'`;
-  for(const r of rows)await bookFromSlack(r);
+  for(const r of rows)await inSlackWorkspace(r.team_id,()=>bookFromSlack(r));
  }catch(error){
   console.error('Slack booking resume failed',{code:error instanceof AgentError?error.code:'integration_error'});
   try{const rows=await sql()`SELECT * FROM slack_meetings WHERE meeting_id=${meetingId} AND pending_booking=true`;
-  for(const r of rows)await reply(r,error instanceof AgentError?`${slackEscape(error.message)} ${slackEscape(error.nextAction)}`:'Calendar authorization succeeded, but booking could not finish. Ask me to book again to retry.')}catch{console.error('Slack booking resume notification failed')}
+  for(const r of rows)await inSlackWorkspace(r.team_id,()=>reply(r,error instanceof AgentError?`${slackEscape(error.message)} ${slackEscape(error.nextAction)}`:'Calendar authorization succeeded, but booking could not finish. Ask me to book again to retry.'))}catch{console.error('Slack booking resume notification failed')}
  }
 }
 
@@ -268,7 +272,12 @@ export async function runSlackJob(id:string){
  const started=Date.now();
  const [job]=await sql()`UPDATE slack_jobs SET status='running',lease_until=now()+interval '3 minutes',attempts=attempts+1 WHERE id=${id} AND status<>'done' AND (lease_until IS NULL OR lease_until<now()) AND attempts<3 RETURNING *`;
  if(!job)return;
- try{if(job.payload.type==='event_callback')await slackMention(job.payload);else await slackAction(job.payload);await sql()`UPDATE slack_jobs SET status='done',payload=jsonb_build_object('team_id',payload->>'team_id','type',payload->>'type') WHERE id=${id}`}
+ const team=job.payload.team_id||job.payload.team?.id;
+ const installation=await slackInstallation(team||'');
+ if(!installation){await sql()`UPDATE slack_jobs SET status='done',payload='{}'::jsonb,lease_until=NULL WHERE id=${id}`;return}
+ return withSlackWorkspace(installation,async()=>{
+ try{if(job.payload.type==='event_callback')await slackMention(job.payload);else await slackAction(job.payload);await sql()`UPDATE slack_jobs SET status='done',payload=jsonb_build_object('team_id',COALESCE(payload->>'team_id',payload->'team'->>'id'),'type',payload->>'type') WHERE id=${id}`}
  catch(error){await sql()`UPDATE slack_jobs SET status='failed',lease_until=NULL WHERE id=${id}`;const p=job.payload,e=p.event;const meta=p.type==='view_submission'?JSON.parse(p.view.private_metadata||'{}'):null;const channel=e?.channel||p.channel?.id||meta?.channel,thread=e?.thread_ts||e?.ts||p.message?.thread_ts||p.message?.ts||meta?.thread;if(meta&&channel)await askPrivately(channel,p.user.id,thread,'I could not process that answer. Please try again.');else if(channel&&(e?.user||p.user?.id))await slackPrivateMessage(channel,e?.user||p.user.id,error instanceof AgentError?`${slackEscape(error.message)} ${slackEscape(error.nextAction)}`:'I could not complete that step. Try the button again or mention me again. If it continues, ask the workspace owner to check the bot configuration.');console.error('Slack workflow failed',{jobId:id,code:error instanceof AgentError?error.code:'integration_error',errorType:error instanceof Error?error.name:'unknown',durationMs:Date.now()-started})}
  finally{console.info('Slack job finished',{jobId:id,durationMs:Date.now()-started})}
+ });
 }

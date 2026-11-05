@@ -2,6 +2,8 @@
 
 Shared meeting availability for people and agents. Next.js on Vercel, Neon Postgres, Google Calendar free/busy.
 
+The draft multi-provider implementation adds Outlook and iCloud to the website calendar picker. See [calendar provider setup, privacy, limitations, and isolated staging validation](docs/calendar-providers.md). The Google-specific sections below describe the existing Google and Slack booking paths, not native Outlook/iCloud event creation. Real-account provider and mixed-invitation validation is still required before release.
+
 ## Run and deploy
 
 Node 22.13 or later is required. Run `npm ci`, configure `.env.local`, then `npm run dev`. Use `npm run build` for a production build.
@@ -12,7 +14,7 @@ Do not commit environment files, planner keys, invitation tokens, or MCP credent
 
 ## Calendar and privacy
 
-Google sign-in identifies the user. Attending a meeting asks for ongoing primary-calendar free/busy access if no saved grant exists. Refresh tokens are encrypted, authenticated, and bound to the Google account. Wharf uses them when the person joins a meeting and for on-demand availability refreshes when the Slack bot suggests a time after calendars connect or finds a time to book; it does not continuously refresh existing snapshots. Disconnecting revokes the grant and deletes its connection record (including encrypted credentials, account identifier, scopes and version metadata). If revocation cannot be confirmed, local use is paused and the connection record is kept only for a retry. Existing meeting snapshots, memberships and sessions are not deleted by disconnect.
+Google sign-in connects the calendar and requests ongoing primary-calendar free/busy access. Refresh tokens are encrypted, authenticated, and bound to the Google account. Wharf uses them when the person joins a meeting and for on-demand availability refreshes when the Slack bot suggests a time after calendars connect or finds a time to book; it does not continuously refresh existing snapshots. Disconnecting revokes the grant and deletes its connection record (including encrypted credentials, account identifier, scopes and version metadata). If revocation cannot be confirmed, local use is paused and the connection record is kept only for a retry. Disconnecting also signs the account out of its sessions. Existing meeting snapshots and memberships are retained.
 
 Only free/busy intervals within the meeting's working hours are stored. Event titles, descriptions, guests and locations are not read. Planner credentials and joined browser sessions can read aggregate availability and names, not individual busy intervals. Invitation URLs expose meeting constraints and any confirmed time. A personal invitation token additionally reveals its intended participant label.
 
@@ -86,7 +88,7 @@ Organizer selection is fixed for a meeting. Event booking requires verified atte
 
 ## Slack bot
 
-The single-workspace Slack integration uses Anthropic for request interpretation by default, or Typesafe Jev when `SLACK_INTERPRETER=jev`; Jev mode can still use Anthropic to word short replies. It uses organizer-only controls for confirmation and booking. See [setup and demo instructions](docs/slack.md) and the [Slack app manifest](docs/slack-manifest.json).
+The Slack integration supports workspace OAuth installation through `/slack` and uses Anthropic for request interpretation by default, or Typesafe Jev when `SLACK_INTERPRETER=jev`; Jev mode can still use Anthropic to word short replies. It uses organizer-only controls for confirmation and booking. See [public distribution and release instructions](docs/slack-distribution.md), [workflow instructions](docs/slack.md) and the [Slack app manifest](docs/slack-manifest.json).
 
 ## Pending meeting retention and re-entry
 
