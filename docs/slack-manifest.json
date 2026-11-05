@@ -22,14 +22,19 @@
         "channels:read",
         "channels:history"
       ]
-    }
+    },
+    "redirect_urls": [
+      "https://wharfmeetings.com/api/slack/oauth/callback"
+    ]
   },
   "settings": {
     "event_subscriptions": {
       "request_url": "https://wharfmeetings.com/api/slack/events",
       "bot_events": [
         "app_mention",
-        "message.mpim"
+        "message.mpim",
+        "app_uninstalled",
+        "tokens_revoked"
       ]
     },
     "interactivity": {

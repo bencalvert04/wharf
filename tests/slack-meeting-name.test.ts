@@ -1,3 +1,4 @@
+import {withSlackWorkspace} from '../lib/slack-context.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {attendeeMeetingName,slackMeetingName} from '../lib/slack-meeting-name.ts';
@@ -8,5 +9,5 @@ test('DM names include every human and exclude apps and deleted users',()=>{
 });
 test('channel title comes from current Slack metadata',async()=>{
  const original=fetch;globalThis.fetch=async()=>Response.json({ok:true,channel:{name:'renamed-channel'}});
- try{assert.equal(await slackMeetingName('C1',false),'renamed-channel')}finally{globalThis.fetch=original}
+ try{assert.equal(await withSlackWorkspace({teamId:'T1',botToken:'test-token',botUserId:'U1'},()=>slackMeetingName('C1',false)),'renamed-channel')}finally{globalThis.fetch=original}
 });
