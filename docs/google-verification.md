@@ -4,7 +4,7 @@ Project: `root-engine-512707-n9` (number `364023655800`).
 App: https://wharfmeetings.com
 Privacy policy: https://wharfmeetings.com/privacy
 
-The November 2 privacy update adds explicit recipient/purpose disclosures and protection mechanisms. It does not change OAuth permissions, calendar access, or meeting creation. Google must still review the updated policy and a new demonstration video; these changes do not constitute approval.
+Status checked in Google Verification Center on November 5, 2026: homepage, privacy policy, branding, and minimum scopes are complete, last reviewed November 4. Data access is still under review. The outstanding app-functionality issue is the OAuth demonstration video. The November 3 email specifically requires expanding the “Services” link so every permission is visible, then replying with the replacement video link. Do not resubmit the already-complete privacy or scope steps unnecessarily.
 
 ## Scope mapping
 
@@ -51,7 +51,7 @@ For the reply, explicitly state that ordinary browser review uses Google sign-in
 1. Upload the replacement video to YouTube as **Unlisted** or **Public**. Verify that someone signed out can watch it.
 2. Replace the old video URL in Google Auth Platform > Data Access. Confirm the justification matches the current combined consent flow: organizer event access can be granted while connecting, but event creation happens only after meeting confirmation. Keep the existing scope set.
 3. The branding privacy URL should remain `https://wharfmeetings.com/privacy`. Useful direct links are `/privacy#data-sharing` and `/privacy#data-protection`.
-4. Follow the Verification Center's current instructions to continue the existing review. Reply to the latest October 30 email thread with the policy URL, the new video URL, timestamps for consent and source-calendar evidence, the reviewer navigation steps, and any required private test-access information. Do not claim the demo is complete until the replacement is accessible.
+4. Follow the Verification Center's current instructions to continue the existing review. Reply to the latest November 3 email in the existing verification thread with the policy URL, the new video URL, timestamps for consent and source-calendar evidence, the reviewer navigation steps, and any required private test-access information. Do not claim the demo is complete until the replacement is accessible.
 
 ## Sources
 
