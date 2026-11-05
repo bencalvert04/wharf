@@ -1,0 +1,219 @@
+/* Wharf for Slack — built on the global tokens in app/globals.css */
+:global(.agent-shell) main.page{max-width:1080px;padding:0 24px 96px}
+
+/* Hero */
+.hero{--hero-mask:radial-gradient(ellipse 900px 640px at 50% 323px,#000 40%,transparent 100%);position:relative;display:flex;flex-direction:column;align-items:center;padding:88px 0 72px;isolation:isolate}
+.hero::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:56px 56px;background-position:center -1px;mask-image:var(--hero-mask);-webkit-mask-image:var(--hero-mask)}
+.heroCopy{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:720px}
+.heroCopy h1{font-size:clamp(40px,6.2vw,72px);line-height:1.02;letter-spacing:-.055em;margin:28px 0 22px;max-width:14ch}
+.lede{font-size:clamp(16px,1.6vw,19px);line-height:1.6;color:var(--muted);margin:0;max-width:34em;text-wrap:balance}
+.actions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:36px}
+.fine{font-size:13px;color:var(--faint);margin:16px 0 0}
+
+.status{text-align:left;display:flex;gap:10px;align-items:flex-start;margin:24px 0 0;padding:12px 16px;border-radius:10px;font-size:14px;line-height:1.5;border:1px solid}
+.status svg{flex-shrink:0;margin-top:2px}
+.success{background:#effbf3;border-color:#bfe8cc;color:#14612f}
+.error{background:#fff4f4;border-color:#f6d0d1;color:#a3262b}
+
+.hero :global(.hero-grid-hover){mask-image:var(--hero-mask);-webkit-mask-image:var(--hero-mask)}
+@media(max-width:620px){.hero{--hero-mask:radial-gradient(ellipse 95% 520px at 50% 300px,#000 35%,transparent 100%)}}
+
+/* Interactive Slack desktop window */
+.demo{width:100%;max-width:980px;margin-top:64px}
+.slack{--aubergine:#3f0e40;--aubergine-dark:#350d36;--slack-text:#1d1c1d;--slack-muted:#616061;--slack-link:#1264a3;--slack-line:#1d1c1d21;
+ background:#fff;color:var(--slack-text);border-radius:14px;overflow:hidden;font-size:15px;line-height:1.46668;letter-spacing:0;text-align:left;
+ box-shadow:0 0 0 1px #0000001f,0 8px 16px #0000000d,0 32px 64px #00000026}
+.slack p{margin:0}
+.slack button{font-family:inherit}
+.titlebar{position:relative;height:40px;display:flex;align-items:center;justify-content:center;background:var(--aubergine-dark);border-bottom:1px solid #ffffff14}
+.lights{position:absolute;left:16px;display:flex;gap:8px}
+.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}
+.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.search{display:flex;align-items:center;gap:8px;width:min(46%,420px);height:26px;padding:0 10px;border-radius:6px;background:#ffffff1f;color:#ffffffb3;font-size:13px}
+.workspace{display:grid;grid-template-columns:240px minmax(0,1fr);height:560px}
+.sidebar{display:block;background:var(--aubergine);color:#ffffffb3;padding:12px 10px;overflow:hidden}
+.team{display:flex;align-items:center;gap:4px;color:#fff;font-weight:900;font-size:18px;padding:4px 10px 14px;margin-bottom:8px!important;border-bottom:1px solid #ffffff1f}
+.sideItem,.sideHeading{display:flex;align-items:center;gap:9px;height:28px;padding:0 10px;border-radius:6px;white-space:nowrap;overflow:hidden;font-size:15px}
+.sideHeading{margin-top:14px!important;gap:6px}
+.sideItem svg{opacity:.8;flex-shrink:0}
+.activeChannel{background:#1164a3;color:#fff;font-weight:700}
+.activeChannel svg{opacity:1}
+.appIcon{width:18px;height:18px;border-radius:4px;flex-shrink:0;object-fit:cover}
+.channel{display:flex;flex-direction:column;min-width:0;min-height:0}
+.channelHead{height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--slack-line)}
+.channelHead strong{display:flex;align-items:center;gap:4px;font-weight:900;font-size:18px}
+.members{display:flex;align-items:center;padding:3px 8px 3px 4px;border:1px solid var(--slack-line);border-radius:8px;font-size:13px;color:var(--slack-muted)}
+.members i{width:22px;height:22px;border-radius:5px;border:2px solid #fff;margin-right:-6px}
+.members i:last-of-type{margin-right:6px}
+.messages{flex:1;min-height:0;overflow-y:auto;padding:8px 0 4px;overscroll-behavior:contain;scrollbar-width:thin}
+.dayDivider{position:relative;text-align:center;margin:8px 0}
+.dayDivider::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--slack-line)}
+.dayDivider span{position:relative;display:inline-block;padding:2px 14px;border:1px solid var(--slack-line);border-radius:24px;background:#fff;font-size:13px;font-weight:700}
+.msg{display:flex;gap:10px;align-items:flex-start;padding:10px 20px;animation:msg-in .25s ease-out both}
+.msg:hover{background:#f8f8f8}
+.grow{flex:1;min-width:0}
+.avatar{width:36px;height:36px;flex-shrink:0;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;object-fit:cover;margin-top:2px}
+.name{display:flex;align-items:baseline;gap:6px;font-weight:900;font-size:15px;line-height:1.3;margin-bottom:2px!important}
+.name time{font-weight:400;font-size:12px;color:var(--slack-muted)}
+.appBadge{align-self:center;font-size:10px;font-weight:700;color:var(--slack-muted);background:#1d1c1d14;border-radius:2px;padding:0 4px;line-height:16px}
+.mention{color:var(--slack-link);background:#1d9bd11a;border-radius:3px;padding:0 2px}
+.context{display:block;margin-top:6px!important;font-size:13px;color:var(--slack-muted)}
+.contextNote{color:#007a5a;font-weight:700}
+.block{margin-top:4px;padding:4px 0 4px 14px;border-left:4px solid #ddd}
+.blockActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.blockActions a,.blockActions button{text-decoration:none;height:32px;display:inline-flex;align-items:center;gap:4px;padding:0 14px;border-radius:4px;font-weight:700;font-size:14px;transition:background-color .12s,box-shadow .12s}
+.btnPrimary{background:#007a5a;color:#fff;border:0}
+.btnPrimary:hover{background:#148567;box-shadow:0 1px 4px #0000004d}
+.btnSecondary{background:#fff;color:var(--slack-text);border:1px solid #1d1c1d4d}
+.btnSecondary:hover{background:#f8f8f8;box-shadow:0 1px 3px #00000014}
+.optionList{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:10px;padding:6px;border:1px solid var(--slack-line);border-radius:8px;box-shadow:0 4px 12px #0000001f;width:max-content;max-width:100%;background:#fff}
+.optionList button{width:100%;text-align:left;border:0;background:transparent;padding:6px 12px;border-radius:4px;font-size:14px;color:var(--slack-text)}
+.optionList button:hover{background:#1264a3;color:#fff}
+.optionList .optionChosen{font-weight:700}
+.reactions{display:flex;gap:6px;margin-top:8px!important}
+.reactions button{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:12px;background:#f1f1f1;border:1px solid transparent;font-size:12px;color:var(--slack-muted)}
+.reactions button:hover{border-color:#1d1c1d4d;background:#fff}
+.reactions .reacted,.reactions .reacted:hover{background:#e8f5fa;border-color:#1d9bd1;color:var(--slack-link)}
+.ephemeral{background:#f8f8f8}
+.onlyYou{font-size:12px;color:var(--slack-muted)}
+.composer{padding:0 20px 6px}
+.composerBox{border:1px solid #1d1c1d4d;border-radius:8px;padding:10px 12px 6px;transition:border-color .15s,box-shadow .15s}
+.composerBox:focus-within{border-color:#1d1c1d80;box-shadow:0 1px 6px #0000001a}
+.composerBox input{width:100%;border:0;outline:0;background:transparent;font:inherit;font-size:15px;color:var(--slack-text);padding:0}
+.composerBox input::placeholder{color:#868686}
+.composerBox input:focus-visible{outline:0}
+.composerTools{display:flex;align-items:center;gap:14px;margin-top:12px;color:#868686;font-size:13px}
+.toolButton{display:inline-flex;border:0;background:transparent;color:inherit;padding:2px;border-radius:4px}
+.toolButton:hover{color:var(--slack-text);background:#f1f1f1}
+.send{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;border:0;border-radius:4px;background:#007a5a;color:#fff}
+.send:disabled{background:transparent;color:#bbb;opacity:1}
+.typing{display:flex;align-items:center;gap:6px;height:22px;font-size:12px;color:var(--slack-muted)}
+.typing b{font-weight:700;color:var(--slack-text)}
+.typingDots{display:inline-flex;gap:3px}
+.typingDots i{width:5px;height:5px;border-radius:50%;background:var(--slack-muted);animation:dot 1s infinite ease-in-out}
+.typingDots i:nth-child(2){animation-delay:.15s}.typingDots i:nth-child(3){animation-delay:.3s}
+@keyframes dot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+@keyframes msg-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.msg,.typingDots i{animation:none}}
+
+.tryRow{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin-top:20px;font-size:13px;color:var(--muted)}
+.chip{border:1px solid var(--border-strong);background:var(--bg);color:var(--text);border-radius:999px;padding:5px 12px;font-size:13px}
+.chip:hover:not(:disabled){background:var(--soft)}
+.resetButton{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;color:var(--muted);font-size:13px;padding:5px 8px;border-radius:6px}
+.resetButton:hover{color:var(--text);background:var(--soft)}
+
+/* Sections */
+.section{padding:80px 0 0}
+.sectionHead{margin-bottom:32px}
+.eyebrow{display:block;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:10px}
+.sectionHead h2,.closing h2{font-size:clamp(26px,3vw,32px);font-weight:600;letter-spacing:-.04em;line-height:1.15;margin:0}
+.section h3{font-size:16px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px}
+.section p{font-size:14px;line-height:1.65;color:var(--muted);margin:0}
+.section strong{color:var(--text);font-weight:500}
+.section q{color:var(--text)}
+
+/* Steps */
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.steps li{padding:28px 24px 32px;border-right:1px solid var(--border);background:var(--bg)}
+.steps li:last-child{border-right:0}
+.stepTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
+.stepIcon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--soft);border:1px solid var(--border);color:var(--text)}
+.stepNum{font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--faint)}
+
+/* Trust */
+.trust{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.trust>div{padding:24px;border:1px solid var(--border);border-radius:16px;background:var(--subtle)}
+.trust svg{color:var(--text);margin-bottom:16px}
+.notice{display:flex;gap:14px;align-items:flex-start;margin-top:16px;padding:20px 24px;border:1px solid var(--border);border-radius:16px}
+.notice svg{flex-shrink:0;margin-top:2px;color:var(--muted)}
+.notice a{color:var(--accent-text);text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;gap:2px}
+.notice a:hover{text-decoration:underline}
+
+/* Specs */
+.specs{margin:0;border-top:1px solid var(--border)}
+.specs>div{display:grid;grid-template-columns:200px 1fr;gap:24px;padding:18px 0;border-bottom:1px solid var(--border)}
+.specs dt{font-size:14px;font-weight:500}
+.specs dd{margin:0;font-size:14px;color:var(--muted)}
+.footnote{margin-top:20px!important;font-size:13px!important;color:var(--faint)!important;max-width:44em}
+
+/* Closing */
+.closing{position:relative;margin-top:96px;padding:56px 32px;text-align:center;border:1px solid var(--border);border-radius:20px;background:var(--subtle);overflow:hidden;isolation:isolate}
+.closing::before{content:"";position:absolute;inset:0;z-index:-1;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse 60% 90% at 50% 50%,#000 20%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 60% 90% at 50% 50%,#000 20%,transparent 100%)}
+.closing p{color:var(--muted);font-size:15px;margin:12px 0 0}
+.closing .actions{justify-content:center;margin-top:28px}
+
+
+/* Channels, history, and prompts */
+button.sideItem{width:100%;border:0;background:transparent;color:inherit;text-align:left;font-family:inherit;cursor:pointer}
+button.sideItem:hover:not(.activeChannel){background:#ffffff14}
+button.sideItem.activeChannel{background:#1164a3;color:#fff;font-weight:700}
+.sideStatic{cursor:default}
+.unread{color:#fff;font-weight:900}
+.mobileTabs{display:none}
+.headAvatar{width:22px;height:22px;border-radius:5px;margin-right:6px}
+.headRight{display:flex;align-items:center;gap:14px;min-width:0}
+.topic{font-size:13px;color:var(--slack-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.channelIntro{padding:28px 20px 12px}
+.channelIntro p{color:var(--slack-muted)}
+.channelIntroTitle{display:flex;align-items:center;gap:2px;font-size:22px;font-weight:900;color:var(--slack-text)!important;margin-bottom:4px!important}
+.appIntro{padding:36px 24px;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.appIntro img{border-radius:12px;margin-bottom:8px}
+.appIntroName{display:flex;align-items:center;gap:6px;font-size:22px;font-weight:900}
+.grouped{padding-top:2px;padding-bottom:2px}
+.gutterTime{width:36px;flex-shrink:0;font-size:11px;color:transparent;text-align:right;padding-top:3px}
+.grouped:hover .gutterTime{color:var(--slack-muted)}
+.onlyYou{display:flex;align-items:center;gap:5px;margin-bottom:2px!important}
+.slackbot{background:#e8f5fa;font-size:18px}
+.systemText{color:var(--slack-muted)}
+.blockGap{margin-top:8px!important}
+.btnSecondary:disabled,.btnPrimary:disabled{opacity:.5;cursor:default}
+.pulse{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 #007a5a00}50%{box-shadow:0 0 0 4px #007a5a2e}}
+.composerDisabled{background:#f8f8f8}
+.disabledNote{color:var(--slack-muted);font-size:14px}
+.demoNote{margin:10px 0 0;text-align:center;font-size:12px;color:var(--faint)}
+@media(prefers-reduced-motion:reduce){.pulse{animation:none}}
+@media(max-width:900px){.topic{display:none}}
+@media(max-width:620px){
+ .mobileTabs{display:flex;gap:4px;overflow-x:auto;padding:8px 10px;background:var(--aubergine);scrollbar-width:none}
+ .mobileTabs button{flex-shrink:0;border:0;border-radius:6px;background:transparent;color:#ffffffb3;font-family:inherit;font-size:13px;padding:5px 10px}
+ .mobileTabs .mobileTabActive{background:#1164a3;color:#fff;font-weight:700}
+ .mobileTabs .unread{color:#fff;font-weight:900}
+ .channelIntro{padding:20px 14px 8px}
+}
+
+.footerLinks{display:flex;gap:20px}
+
+@media(max-width:900px){
+ .hero{padding:64px 0 56px}
+ .workspace{grid-template-columns:200px minmax(0,1fr)}
+ .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .steps li:nth-child(2){border-right:0}
+ .steps li:nth-child(-n+2){border-bottom:1px solid var(--border)}
+ .trust{grid-template-columns:1fr}
+}
+@media(max-width:620px){
+ :global(.agent-shell) main.page{padding:0 16px 56px}
+ .hero{padding:40px 0 56px}
+ .heroCopy h1{font-size:clamp(36px,11vw,48px)}
+ .lede{font-size:16px}
+ .actions{flex-direction:column;align-items:stretch}
+ .section{padding-top:56px}
+ .steps{grid-template-columns:1fr}
+ .steps li{border-right:0;border-bottom:1px solid var(--border)}
+ .steps li:last-child{border-bottom:0}
+ .stepTop{margin-bottom:20px}
+ .specs>div{grid-template-columns:1fr;gap:4px}
+ .closing{margin-top:64px;padding:40px 20px}
+ .notice a{white-space:normal}
+ .demo{margin-top:40px}
+ .slack{font-size:14px}
+ .workspace{grid-template-columns:minmax(0,1fr);height:520px}
+ .sidebar,.lights{display:none}
+ .search{width:70%}
+ .channelHead{padding:0 14px}
+ .msg{padding:8px 14px}
+ .composer{padding:0 14px 6px}
+ .composerBox input{font-size:16px}
+ .tryRow>span{display:none}
+}
