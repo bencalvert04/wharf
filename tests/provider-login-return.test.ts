@@ -18,6 +18,6 @@ test('legacy iCloud password submission is rejected without connecting or joinin
  });
  const result=await POST(new Request('https://wharf.example/api/auth/calendar/start',{method:'POST',body:JSON.stringify({provider:'icloud',username:'test@example.test',password:'abcdefghijklmnop',returnMeetingId:'current-meeting'})}));
  assert.equal(result.status,410);
- assert.match((await result.json()).error,/Sign in with Apple/);
+ assert.match((await result.json()).error,/Choose Google or Microsoft/);
  assert.equal(joined,0);
 });

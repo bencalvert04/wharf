@@ -2,6 +2,8 @@ import {createRemoteJWKSet,importPKCS8,SignJWT,jwtVerify,type JWTVerifyGetKey} f
 
 const issuer='https://appleid.apple.com';
 const keys=createRemoteJWKSet(new URL(issuer+'/auth/keys'),{timeoutDuration:10000});
+// Apple login stays unavailable until it can connect iCloud in the same flow.
+export const appleLoginAvailable=()=>false;
 export const appleConfigured=()=>!!(process.env.APPLE_CLIENT_ID&&process.env.APPLE_TEAM_ID&&process.env.APPLE_KEY_ID&&process.env.APPLE_PRIVATE_KEY);
 export function appleRedirect(){
  const origin=new URL(process.env.APP_URL||'');

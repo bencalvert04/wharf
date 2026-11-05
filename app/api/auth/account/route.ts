@@ -1,23 +1,24 @@
 import {beginCalendarIntent,runCalendarIntent} from '@/lib/calendar-intent';
 import {session,sql,sameOrigin,json} from '@/lib/auth';
-import {providerConnection} from '@/lib/provider-connections';
-import {calendarConnection} from '@/lib/calendar-connection';
+import {providerConnection,disconnectProvider} from '@/lib/provider-connections';
+import {calendarConnection,disconnectCalendar} from '@/lib/calendar-connection';
 export async function GET(){try{const s=await session();const connection=s?.google_sub?await calendarConnection(s.google_sub):null;const provider=s?.google_sub?await providerConnection(s.google_sub):null;return json({user:s?.google_sub?{name:s.name||'Wharf account',picture:s.picture||null,calendarProvider:provider?.credential?provider.provider:connection?.refresh_token?'google':null,calendarConnected:!!provider?.credential||(!!connection?.refresh_token&&!connection.disconnecting),calendarDisconnectPending:!!connection?.disconnecting}:null})}catch{return json({error:'Could not load your account.'},503)}}
 export async function DELETE(req:Request){
  if(!sameOrigin(req))return json({error:'Invalid origin.'},403);
  try{
   const s=await session();
   if(s){
-   const intent=await beginCalendarIntent(sql(),s.id,s.google_sub||null,false);
+   const intent=await beginCalendarIntent(sql(),s.id,s.google_sub||null);
    await runCalendarIntent(intent,async()=>{
+    if(s.google_sub){await disconnectProvider(s.google_sub);await disconnectCalendar(s.google_sub);}
     const db=sql();await db.transaction([
-     db`UPDATE sessions SET google_sub=NULL,name=NULL,picture=NULL,email=NULL WHERE id=${s.id}`,
+     db`UPDATE sessions SET google_sub=NULL,name=NULL,picture=NULL,email=NULL WHERE id=${s.id} OR google_sub=${s.google_sub||null}`,
      db`DELETE FROM apple_signin_states WHERE session_id=${s.id}`,
      db`DELETE FROM oauth_states WHERE session_id=${s.id}`,
      db`DELETE FROM calendar_provider_states WHERE session_id=${s.id}`,
     ]);
    });
   }
-  return json({user:null});
- }catch{return json({error:'Could not sign out.'},503)}
+  return json({user:null,disconnected:true});
+ }catch{return json({error:'Could not finish disconnecting and logging out. Please retry.'},503)}
 }

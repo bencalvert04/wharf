@@ -9,11 +9,11 @@ test('first-time attendee requests identity and offline free/busy together witho
  assert.deepEqual(result.options.scope,['openid','profile','email',FREE_BUSY_SCOPE]);
  assert.ok(!('prompt' in result.options));assert.equal(result.options.include_granted_scopes,true);
 });
-test('linking outside a meeting also connects in one trip, while plain login stays identity-only',()=>{
+test('login and linking outside a meeting both connect in one trip',()=>{
  const connect=googleAuthorization('connect',null,null);
  assert.equal(connect.purpose,'connect');assert.ok(connect.options.scope.includes(FREE_BUSY_SCOPE));assert.equal(connect.options.access_type,'offline');
  const login=googleAuthorization('join',null,null);
- assert.equal(login.purpose,'join');assert.equal(login.calendar,false);assert.equal(login.options.access_type,'online');assert.deepEqual(login.options.scope,['openid','profile','email']);
+ assert.equal(login.purpose,'connect');assert.equal(login.calendar,true);assert.equal(login.options.access_type,'offline');assert.deepEqual(login.options.scope,['openid','profile','email',FREE_BUSY_SCOPE]);
 });
 test('event write access is requested only for planner connection or an explicit organizer upgrade',()=>{
  for(const purpose of ['join','connect'] as const)assert.ok(!googleAuthorization(purpose,'meeting',null).options.scope.includes(eventScope));
