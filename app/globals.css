@@ -38,7 +38,7 @@ h2{font-size:14px;font-weight:500;margin:0 0 6px;letter-spacing:-.01em}
 header{position:sticky;top:0;z-index:20;height:64px;display:flex;justify-content:space-between;align-items:center;padding:0 max(24px,calc((100% - 1080px)/2 + 24px));border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(180%) blur(12px)}
 .header-left{display:flex;align-items:center;gap:20px}
 .brand{border:0;background:transparent;padding:4px 0;display:flex;gap:9px;align-items:center;font-size:17px;font-weight:600;letter-spacing:-.03em;color:var(--text)}
-.brandmark{width:24px;height:24px;display:block;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.brandmark{width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1;letter-spacing:0;flex-shrink:0}
 nav{display:flex;align-items:center;gap:4px}
 nav button,.agent-shell nav a{border:0;background:transparent;color:var(--muted);display:flex;gap:6px;align-items:center;font-size:14px;padding:6px 10px;border-radius:6px;text-decoration:none;transition:background-color .15s,color .15s}
 nav button:hover,.agent-shell nav a:hover{color:var(--text);background:var(--soft)}
