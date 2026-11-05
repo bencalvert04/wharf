@@ -27,8 +27,8 @@ export async function POST(req:Request){
    const [saved]=await db`SELECT name FROM apple_accounts WHERE account_id=${identity.account}`;
    const name=saved?.name||appleDisplayName(params.get('user'))||'Apple user';
    await db.transaction([
-    db`INSERT INTO apple_accounts(account_id,name,email) VALUES(${identity.account},${name},${identity.email}) ON CONFLICT(account_id) DO UPDATE SET email=EXCLUDED.email,updated_at=now()`,
-    db`UPDATE sessions SET google_sub=${identity.account},name=${name},email=${identity.email},picture=NULL WHERE id=${s.id} AND google_sub IS NULL AND expires_at>now()`,
+    db`INSERT INTO apple_accounts(account_id,name,email,authenticated_at) VALUES(${identity.account},${name},${identity.email},${flow.created_at}) ON CONFLICT(account_id) DO UPDATE SET email=EXCLUDED.email,authenticated_at=EXCLUDED.authenticated_at,updated_at=now()`,
+    db`UPDATE sessions SET google_sub=${identity.account},name=${name},email=${identity.email},picture=NULL,apple_authenticated_at=${flow.created_at} WHERE id=${s.id} AND google_sub IS NULL AND expires_at>now()`,
    ]);
    // No attendee, snapshot, calendar credential, or invitation is created by login.
    return redirect('apple');

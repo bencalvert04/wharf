@@ -4,6 +4,7 @@ import {randomBytes,createHash} from 'node:crypto';
 import {PGlite} from '@electric-sql/pglite';
 import {calendarIntentSchema} from '../db/calendar-intent-schema.mjs';
 import {appleSigninSchema} from '../db/apple-signin-schema.mjs';
+import {appleNotificationSchema} from '../db/apple-notification-schema.mjs';
 import * as intent from '../lib/calendar-intent.ts';
 import {appleDisplayName} from '../lib/apple-signin.ts';
 import {loadWithMocks} from './module-fixture.ts';
@@ -11,7 +12,7 @@ import {loadWithMocks} from './module-fixture.ts';
 async function fixture(){
  const database=new PGlite();
  await database.exec(`CREATE TABLE sessions(id text PRIMARY KEY,google_sub text,name text,email text,picture text,expires_at timestamptz);CREATE TABLE oauth_states(id text);CREATE TABLE calendar_provider_states(id text);INSERT INTO sessions(id,expires_at) VALUES('session',now()+interval '1 day');`);
- for(const statement of [...calendarIntentSchema,...appleSigninSchema])await database.exec(statement);
+ for(const statement of [...calendarIntentSchema,...appleSigninSchema,...appleNotificationSchema])await database.exec(statement);
  const raw=Symbol('query');const query=(text:string,values:unknown[]=[])=>({[raw]:{text,values},then:(resolve:any,reject:any)=>database.query(text,values).then(r=>r.rows).then(resolve,reject)});
  const db:any=(parts:TemplateStringsArray,...values:unknown[])=>query(parts.reduce((out,part,index)=>out+(index?'$'+index:'')+part,''),values);
  db.query=query;db.transaction=(queries:any[])=>database.transaction(async tx=>{const results=[];for(const q of queries){const {text,values}=q[raw];results.push((await tx.query(text,values)).rows)}return results});

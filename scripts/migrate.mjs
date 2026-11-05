@@ -129,3 +129,6 @@ console.log('Calendar intent schema is ready.');
 const {appleSigninSchema}=await import('../db/apple-signin-schema.mjs');
 for(const statement of appleSigninSchema)await sql.query(statement);
 console.log('Apple sign-in schema is ready.');
+
+const {appleNotificationSchema}=await import('../db/apple-notification-schema.mjs');
+for(const statement of appleNotificationSchema)await sql.query(statement);

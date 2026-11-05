@@ -1,5 +1,7 @@
 import type {CalendarDatabase} from './calendar-connection-store.ts';
 
+export class InvitationNotSentError extends Error {}
+
 /** Claim once: SMTP cannot tell us whether an interrupted send was accepted. */
 export async function deliverInvitationJobs<Payload>(db:CalendarDatabase,send:(payload:Payload,id:string)=>Promise<string>,meetingId?:string){
  const jobs=await db`UPDATE invitation_outbox SET lease_until=now()+interval '2 minutes',
@@ -14,8 +16,9 @@ export async function deliverInvitationJobs<Payload>(db:CalendarDatabase,send:(p
    const messageId=await send(job.payload,job.id);
    await db`UPDATE invitation_outbox SET sent_at=now(),provider_id=${messageId},lease_until=NULL,last_error=NULL WHERE id=${job.id}`;
    accepted++;
-  }catch{
-   await db`UPDATE invitation_outbox SET lease_until=NULL,last_error='Delivery unconfirmed. Review Gmail Sent before attempting any resend.' WHERE id=${job.id}`;
+  }catch(error){
+   const reason=error instanceof InvitationNotSentError?error.message:'Delivery unconfirmed. Review Gmail Sent before attempting any resend.';
+   await db`UPDATE invitation_outbox SET lease_until=NULL,last_error=${reason} WHERE id=${job.id}`;
   }
  }));
  const [counts]=await db`SELECT count(*) FILTER(WHERE sent_at IS NULL)::int AS pending,

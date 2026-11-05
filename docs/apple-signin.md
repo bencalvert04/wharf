@@ -67,3 +67,9 @@ Apple's [official developer response](https://developer.apple.com/forums/thread/
 ## Readiness follow-up, November 5, 2026
 
 See [the current iCloud readiness report](icloud-readiness.md) for competitor research, the signed-in pilot access denial, prepared application content, code changes, and the remaining integration steps. The mailbox contains a second support acknowledgment dated November 4 but no substantive eligibility reply. The new `npm run apple:check` command validates identity configuration offline without claiming calendar access or Apple approval.
+
+## Website-flow comparison and revocation support, November 5, 2026
+
+The [follow-up website investigation](apple-web-signin-research.md) directly traced Spotify's standard Apple authorization flow and inspected WordPress.com's Apple option. Wharf already uses the observed code/form-post/name-email protocol. Clerk's shared development credentials provide a demo option, but its production integration still requires custom Apple registration. The signed-in standard Identifiers portal, independently of the iCloud pilot, denied this account access without developer-program enrollment or an enrolled team.
+
+The draft now adds signed revocation/account-deletion and email-forwarding notification processing, SMTP relay suppression, and callback authentication timestamps. Apply the new additive migration before the updated callback. Live notification delivery is unverified. The current account DELETE route is logout; a future local account-deletion feature will also need Apple token revocation. No production migration or deployment occurred.

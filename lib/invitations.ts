@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
-import {deliverInvitationJobs} from './invitation-delivery';
+import {appleRelayEmailEnabled} from './apple-notifications';
+import {InvitationNotSentError,deliverInvitationJobs} from './invitation-delivery';
 import {gmailConfigured,sendGmailInvitation} from './gmail-delivery';
 import {sql,appUrl,hash} from './auth';
 import {invitationEmail,validEmail} from './calendar-invitation';
@@ -34,5 +35,9 @@ export async function queueMeetingInvitations(meetingId:string){
 /** SMTP has no idempotency key. Ambiguous attempts require manual review. */
 export async function deliverInvitations(meetingId?:string){
  if(!invitationsConfigured())throw Error('Calendar invitation delivery is not configured.');
- return deliverInvitationJobs(sql(),sendGmailInvitation,meetingId);
+ const db=sql();
+ return deliverInvitationJobs<ReturnType<typeof invitationEmail>>(db,async(payload,id)=>{
+  for(const recipient of payload.to)if(!await appleRelayEmailEnabled(db,recipient))throw new InvitationNotSentError('Apple email forwarding is disabled. Invitation was not sent.');
+  return sendGmailInvitation(payload,id);
+ },meetingId);
 }
