@@ -351,16 +351,11 @@ pre{font-size:13px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;c
 .agent-docs dd{margin:4px 0 0;color:var(--muted);font-size:14px;line-height:1.6}
 .agent-links{display:flex;flex-wrap:wrap;gap:20px}
 
-/* Page transitions: crossfade with a short lift; the header stays put */
-@view-transition{navigation:auto}
+/* A single, short crossfade for in-app navigation. */
 header{view-transition-name:site-header}
-::view-transition-old(root){animation:page-out .16s cubic-bezier(.4,0,1,1) both}
-::view-transition-new(root){animation:page-in .32s cubic-bezier(.16,1,.3,1) both}
-@keyframes page-out{to{opacity:0;transform:translateY(-4px)}}
-@keyframes page-in{from{opacity:0;transform:translateY(8px)}}
-.view{animation:page-in .32s cubic-bezier(.16,1,.3,1) backwards}
-html[data-navigating] .view{animation:none}
-@media(prefers-reduced-motion:reduce){::view-transition-old(root),::view-transition-new(root),.view{animation:none!important}}
+::view-transition-old(root),::view-transition-new(root){animation-duration:180ms;animation-timing-function:ease-out}
+::view-transition-old(site-header){display:none}
+::view-transition-new(site-header){animation:none}
 
 @media(prefers-reduced-motion:reduce){*{transition:none!important}.demo-slider-hint.is-pulsing svg{animation:none!important}}
 
