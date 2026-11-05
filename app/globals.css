@@ -38,11 +38,13 @@ h2{font-size:14px;font-weight:500;margin:0 0 6px;letter-spacing:-.01em}
 header{position:sticky;top:0;z-index:20;height:64px;display:flex;justify-content:space-between;align-items:center;padding:0 max(24px,calc((100% - 1080px)/2 + 24px));border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(180%) blur(12px)}
 .header-left{display:flex;align-items:center;gap:20px}
 .brand{border:0;background:transparent;padding:4px 0;display:flex;gap:9px;align-items:center;font-size:17px;font-weight:600;letter-spacing:-.03em;color:var(--text)}
-.brandmark{width:24px;height:24px;display:block;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.brandmark{width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1;letter-spacing:0;flex-shrink:0}
 nav{display:flex;align-items:center;gap:4px}
-nav button,.agent-shell nav a{border:0;background:transparent;color:var(--muted);display:flex;gap:6px;align-items:center;font-size:14px;padding:6px 10px;border-radius:6px;text-decoration:none;transition:background-color .15s,color .15s}
-nav button:hover,.agent-shell nav a:hover{color:var(--text);background:var(--soft)}
+nav button,.agent-shell nav a,.slack-nav-link{border:0;background:transparent;color:var(--muted);display:flex;gap:6px;align-items:center;font-size:14px;padding:6px 10px;border-radius:6px;text-decoration:none;transition:background-color .15s,color .15s}
+nav button:hover,.agent-shell nav a:hover,.slack-nav-link:hover{color:var(--text);background:var(--soft)}
 nav button.active{color:var(--text)}
+.slack-nav-short{display:none}
+.slack-nav-link{white-space:nowrap}
 .nav-divider{height:16px;width:1px;background:var(--border);margin:0 8px}
 .icon-button{border:0;background:transparent;padding:6px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)}
 .icon-button:hover:not(:disabled){color:var(--text);background:var(--soft)}
@@ -351,16 +353,11 @@ pre{font-size:13px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;c
 .agent-docs dd{margin:4px 0 0;color:var(--muted);font-size:14px;line-height:1.6}
 .agent-links{display:flex;flex-wrap:wrap;gap:20px}
 
-/* Page transitions: crossfade with a short lift; the header stays put */
-@view-transition{navigation:auto}
+/* A single, short crossfade for in-app navigation. */
 header{view-transition-name:site-header}
-::view-transition-old(root){animation:page-out .16s cubic-bezier(.4,0,1,1) both}
-::view-transition-new(root){animation:page-in .32s cubic-bezier(.16,1,.3,1) both}
-@keyframes page-out{to{opacity:0;transform:translateY(-4px)}}
-@keyframes page-in{from{opacity:0;transform:translateY(8px)}}
-.view{animation:page-in .32s cubic-bezier(.16,1,.3,1) backwards}
-html[data-navigating] .view{animation:none}
-@media(prefers-reduced-motion:reduce){::view-transition-old(root),::view-transition-new(root),.view{animation:none!important}}
+::view-transition-old(root),::view-transition-new(root){animation-duration:180ms;animation-timing-function:ease-out}
+::view-transition-old(site-header){display:none}
+::view-transition-new(site-header){animation:none}
 
 @media(prefers-reduced-motion:reduce){*{transition:none!important}.demo-slider-hint.is-pulsing svg{animation:none!important}}
 
@@ -383,7 +380,9 @@ html[data-navigating] .view{animation:none}
  .header-left{display:contents}
  .brand{grid-column:1;grid-row:1;min-height:44px}
  header>nav{grid-column:2;grid-row:1;justify-content:flex-end;gap:0}
- header>nav>button{min-height:44px}
+ header>nav>button,header>nav>.slack-nav-link{min-height:44px}
+ .slack-nav-full{display:none}
+ .slack-nav-short{display:inline}
  .icon-button{min-width:44px;min-height:44px}
  .nav-divider{display:none}
  .header-left>nav{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:1fr 1fr;gap:0;margin:0 -16px;padding:0 16px;border-top:1px solid var(--border)}
@@ -446,3 +445,34 @@ html[data-navigating] .view{animation:none}
 @media(max-width:380px){.date-trigger{font-size:14px;gap:6px;padding:0 8px}.date-trigger>svg:first-child{display:none}.date-separator{padding:0}}
 
 @media(max-width:620px){.hero-grid-hover{mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%)}}
+
+/* Attendance confirmation uses the browser's modal focus handling. */
+.attendance-complete{position:fixed;inset:0;color:var(--text);background:var(--bg);border:1px solid var(--border);margin:auto;width:min(440px,calc(100vw - 32px));max-height:calc(100svh - 48px);overflow:auto;text-align:center;padding:36px 28px 28px;box-shadow:0 24px 80px #0002}
+.attendance-complete::backdrop{background:#0c15234d;backdrop-filter:blur(4px)}
+.attendance-complete-check{display:grid;place-items:center;width:64px;height:64px;margin:0 auto 24px;border-radius:50%;color:var(--accent-text);background:var(--highlight);border:1px solid var(--highlight-border)}
+.attendance-complete h2{font-size:28px;letter-spacing:-.04em;margin-bottom:14px}
+.attendance-complete p{line-height:1.65}
+.attendance-complete .attendance-complete-note{font-size:13px;margin:16px 0 26px;color:var(--muted)}
+.calendar-picker.modal{position:fixed;inset:0;margin:auto;width:min(380px,calc(100vw - 32px));max-width:none;padding:36px 28px 24px;border-radius:16px;color:var(--text);background:var(--bg);border:1px solid var(--border);max-height:90dvh;overflow:auto;box-shadow:0 24px 80px #0003;animation:calendar-picker-in 140ms ease-out both}
+.calendar-picker::backdrop{background:#0006;backdrop-filter:blur(5px);animation:calendar-picker-in 140ms ease-out both}
+.calendar-picker[data-closing]{animation:calendar-picker-out 140ms ease-in both;pointer-events:none}
+.calendar-picker[data-closing]::backdrop{animation:calendar-picker-out 140ms ease-in both}
+.calendar-picker h2{margin:0 20px 24px;text-align:center;font-size:24px;letter-spacing:-.035em}
+.calendar-picker p{text-align:center}
+.calendar-provider-options{display:grid;gap:12px;margin:24px 0 20px}
+.calendar-provider-option{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;padding:12px 18px;text-align:center;border:1px solid var(--border-strong);border-radius:999px;background:transparent;color:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.calendar-provider-option:hover:not(:disabled){border-color:var(--text);background:var(--soft)}
+.calendar-provider-option:disabled{opacity:.5;cursor:not-allowed}
+.provider-logo{display:block;flex:none;width:20px;height:20px;object-fit:contain}
+.calendar-picker .calendar-picker-privacy{margin:0;font-size:12px}
+.calendar-picker-privacy a{color:var(--muted);text-decoration:none}
+.calendar-picker-privacy a:hover{text-decoration:underline}
+@keyframes calendar-picker-in{from{opacity:0}to{opacity:1}}
+@keyframes calendar-picker-out{from{opacity:1}to{opacity:0}}
+@media(prefers-reduced-motion:reduce){.calendar-picker.modal,.calendar-picker::backdrop,.calendar-picker[data-closing],.calendar-picker[data-closing]::backdrop{animation:none}}
+
+.staging-notice{padding:10px 20px;text-align:center;background:#fff3cd;color:#5f4700;border-bottom:1px solid #e3cb73;font-size:13px;line-height:1.5}
+.apple-signin-button svg{width:20px;height:20px}
+
+.apple-signin-button[data-coming-soon]{background:var(--soft)}
+.provider-coming-soon{font-size:11px;font-weight:400;white-space:nowrap}

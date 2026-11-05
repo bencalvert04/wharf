@@ -1,10 +1,12 @@
+import {captureSessionIntent,currentCalendarIntent,runCalendarIntent} from './calendar-intent';
+import {providerConnection,readProviderAvailability} from './provider-connections';
 import {sql} from './auth';
 import {persistCalendarSnapshot} from './meeting-participation';
 import {google,parseBusy} from './google';
 import {allowed,type Constraints} from './availability';
 import {openToken,sealToken} from './token-vault';
 import {needsCalendarConsent,revocationComplete} from './calendar-access';
-import {prepareCalendarConnection,storeCalendarGrant,disconnectCalendarConnection,type CalendarGeneration} from './calendar-connection-store';
+import {prepareCalendarConnection,storeCalendarGrant,storeCalendarScopes,disconnectCalendarConnection,type CalendarGeneration} from './calendar-connection-store';
 import type {OAuth2Client} from 'google-auth-library';
 
 export async function calendarConnection(sub:string){
@@ -17,23 +19,32 @@ export async function prepareCalendarConsent(sub:string){
 export async function saveCalendarGrant(sub:string,refreshToken:string,generation:CalendarGeneration,scopes:string=''){
  await storeCalendarGrant(sql(),sub,sealToken(refreshToken,sub),generation,scopes);
 }
+export async function saveCalendarScopes(sub:string,encryptedToken:string,generation:CalendarGeneration,scopes:string){
+ await storeCalendarScopes(sql(),sub,encryptedToken,generation,scopes);
+}
 
-export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null){
+export async function saveCalendarSnapshot(client:OAuth2Client,row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null,beforePersist?:()=>Promise<void>){
  const c=JSON.parse(row.constraints) as Constraints,bounds=allowed(c);
  if(!bounds.length)throw Error('No dates');
  const result=await client.request({url:'https://www.googleapis.com/calendar/v3/freeBusy',method:'POST',
   data:{timeMin:new Date(bounds[0].start).toISOString(),timeMax:new Date(bounds.at(-1)!.end).toISOString(),items:[{id:'primary'}]}});
  const busy=parseBusy(result.data,c);
+ await beforePersist?.();
  await persistCalendarSnapshot(row.id,sub,name,busy,sessionId,inviteeId);
 }
 
-export async function joinWithSavedCalendar(row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null){
+export async function joinWithSavedCalendar(row:{id:string;constraints:string;owner_session?:string},sub:string,name:string,sessionId:string,inviteeId:string|null=null,googleOnly=false,beforePersist?:()=>Promise<void>):Promise<boolean>{
+ if(!currentCalendarIntent())return runCalendarIntent(await captureSessionIntent(sql(),sessionId,sub),()=>joinWithSavedCalendar(row,sub,name,sessionId,inviteeId,googleOnly,beforePersist));
+ if(!googleOnly&&(await providerConnection(sub))?.credential){
+  const busy=await readProviderAvailability(sub,JSON.parse(row.constraints));
+  await persistCalendarSnapshot(row.id,sub,name,busy,sessionId,inviteeId);return true;
+ }
  const connection=await calendarConnection(sub);
  if(!connection?.refresh_token||connection.disconnecting)return false;
  const client=google();
  client.setCredentials({refresh_token:openToken(connection.refresh_token,sub)});
  try{
-  await saveCalendarSnapshot(client,row,sub,name,sessionId,inviteeId);
+  await saveCalendarSnapshot(client,row,sub,name,sessionId,inviteeId,beforePersist);
   return true;
  }catch(error){
   if(!needsCalendarConsent(error))throw error;

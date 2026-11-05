@@ -1,5 +1,5 @@
-import type {sql} from './auth';
-export type CalendarDatabase=ReturnType<typeof sql>;
+import type {NeonQueryFunction} from '@neondatabase/serverless';
+export type CalendarDatabase=NeonQueryFunction<false,false>;
 export type CalendarGeneration={version:number;connectionId:string};
 
 export async function prepareCalendarConnection(db:CalendarDatabase,sub:string):Promise<CalendarGeneration>{
@@ -11,6 +11,14 @@ export async function prepareCalendarConnection(db:CalendarDatabase,sub:string):
 export async function storeCalendarGrant(db:CalendarDatabase,sub:string,encryptedToken:string,generation:CalendarGeneration,scopes:string){
  const [row]=await db`UPDATE google_calendar_connections SET refresh_token=${encryptedToken},granted_scopes=${scopes},updated_at=now()
   WHERE google_sub=${sub} AND version=${generation.version} AND connection_id=${generation.connectionId||null}::uuid AND NOT disconnecting RETURNING google_sub`;
+ if(!row)throw Error('Calendar connection changed. Please try again.');
+}
+export async function storeCalendarScopes(db:CalendarDatabase,sub:string,encryptedToken:string,generation:CalendarGeneration,scopes:string){
+ // Incremental authorization can extend a saved refresh token without replacing it.
+ // Only update the exact credential we checked, never a disconnected or replaced grant.
+ const [row]=await db`UPDATE google_calendar_connections SET granted_scopes=${scopes},updated_at=now()
+  WHERE google_sub=${sub} AND refresh_token=${encryptedToken} AND version=${generation.version}
+  AND connection_id=${generation.connectionId||null}::uuid AND NOT disconnecting RETURNING google_sub`;
  if(!row)throw Error('Calendar connection changed. Please try again.');
 }
 export async function disconnectCalendarConnection(db:CalendarDatabase,sub:string,revoke:(encryptedToken:string,signal:AbortSignal)=>Promise<void>){

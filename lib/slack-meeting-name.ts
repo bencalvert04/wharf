@@ -1,3 +1,4 @@
+import {slackBotUserId} from './slack-context.ts';
 import {slack} from './slack-client.ts';
 
 export function attendeeMeetingName(users:any[]){
@@ -12,7 +13,7 @@ export function attendeeMeetingName(users:any[]){
 export async function slackMeetingName(channel:string,group:boolean){
  if(group){
   const members=await slack('conversations.members',{channel,limit:100});
-  const ids=members.members.filter((id:string)=>id!==process.env.SLACK_BOT_USER_ID);
+  const ids=members.members.filter((id:string)=>id!==slackBotUserId());
   const users=await Promise.all(ids.map(async(id:string)=>(await slack('users.info',{user:id})).user));
   return attendeeMeetingName(users);
  }

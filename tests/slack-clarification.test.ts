@@ -1,3 +1,4 @@
+import {withSlackWorkspace} from '../lib/slack-context.ts';
 import {slackIntent} from '../lib/slack-security.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,10 +15,10 @@ test('missing details are detected locally without a model or invented defaults'
 test('clarifications target only the requester in the original channel and offer private answers',async t=>{
  const calls:any[]=[];
  t.mock.method(globalThis,'fetch',async(url:any,init:any)=>{calls.push({url,body:JSON.parse(init.body)});return Response.json({ok:true})});
- await askPrivately('C123','U123','123.456','How long should the meeting be?',true);
+ await withSlackWorkspace({teamId:'T1',botToken:'test-token',botUserId:'U1'},()=>askPrivately('C123','U123','123.456','How long should the meeting be?',true));
  assert.match(calls[0].url,/chat.postEphemeral$/);assert.equal(calls[0].body.channel,'C123');assert.equal(calls[0].body.user,'U123');
  const buttons=calls[0].body.blocks[1].elements;assert.equal(new Set(buttons.map((b:any)=>b.action_id)).size,buttons.length,'Slack requires unique action IDs within a block');assert.equal(buttons[0].action_id,'wharf_duration_15');assert.equal(JSON.parse(buttons[0].value).thread,'123.456');assert.equal(buttons.at(-1).action_id,'wharf_answer');
- await openPrivateAnswer({team:{id:'T'},channel:{id:'C'},user:{id:'U'},trigger_id:'trigger',actions:[{value:'thread'}]});
+ await withSlackWorkspace({teamId:'T1',botToken:'test-token',botUserId:'U1'},()=>openPrivateAnswer({team:{id:'T'},channel:{id:'C'},user:{id:'U'},trigger_id:'trigger',actions:[{value:'thread'}]}));
  assert.match(calls[1].url,/views.open$/);assert.deepEqual(JSON.parse(calls[1].body.view.private_metadata),{team:'T',channel:'C',user:'U',thread:'thread'});
 });
 test('a meeting announcement without opt-in buttons has no invalid empty actions block',()=>{
@@ -41,6 +42,6 @@ test('time presets submit exact ranges directly and preserve the scheduling thre
  assert.match(timePresetAnswer(payload).answer,/On 2026-11-02, between 09:00 and 17:00/);
  assert.throws(()=>timePresetAnswer({actions:[{action_id:'wharf_preset_unknown',value:'{}'}]}),/Choose one/);
  const calls:any[]=[];t.mock.method(globalThis,'fetch',async(url:any,init:any)=>{calls.push(JSON.parse(init.body));return Response.json({ok:true})});
- await askPrivately('C123','U123','123.456','Between what start and end times should I look?');
+ await withSlackWorkspace({teamId:'T1',botToken:'test-token',botUserId:'U1'},()=>askPrivately('C123','U123','123.456','Between what start and end times should I look?'));
  assert.equal(calls[0].blocks.at(-1).elements.length,5);
 });

@@ -1,3 +1,4 @@
+import {inSlackWorkspace} from './slack-installations';
 import {sql} from './auth';
 import {slack} from './slack-client';
 import {bookingNoticeText} from './slack-booking-notice-text';
@@ -12,10 +13,10 @@ export async function announceSlackBooking(meetingId:string){
 async function sendNotice(id:string){
  const [notice]=await sql()`UPDATE slack_booking_notices n SET lease_until=now()+interval '90 seconds'
  FROM slack_meetings s WHERE n.slack_meeting_id=${id} AND s.id=n.slack_meeting_id AND n.sent_at IS NULL
- AND (n.lease_until IS NULL OR n.lease_until<now()) RETURNING n.text,s.channel_id`;
+ AND (n.lease_until IS NULL OR n.lease_until<now()) RETURNING n.text,s.channel_id,s.team_id`;
  if(!notice)return;
  try{
-  await slack('chat.postMessage',{channel:notice.channel_id,text:notice.text,client_msg_id:id,unfurl_links:false,unfurl_media:false});
+  await inSlackWorkspace(notice.team_id,()=>slack('chat.postMessage',{channel:notice.channel_id,text:notice.text,client_msg_id:id,unfurl_links:false,unfurl_media:false}));
   await sql()`UPDATE slack_booking_notices SET sent_at=now(),lease_until=NULL WHERE slack_meeting_id=${id}`;
  }catch(error){await sql()`UPDATE slack_booking_notices SET lease_until=NULL WHERE slack_meeting_id=${id}`;throw error}
 }
