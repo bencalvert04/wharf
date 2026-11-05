@@ -51,5 +51,5 @@ Google OAuth verification and workspace administrator policies independently con
 - An authenticated production help event completed successfully in one attempt, exercising the original workspace token lookup, job worker, interpreter and private Slack reply.
 - Enabled public distribution in Slack. Slack reports one active workspace; Marketplace review is not submitted.
 - Saved listing description and landing/privacy/support URLs in Slack. Listing screenshots, remaining review answers, a full demo and adoption are still required.
-- The live OAuth flow reaches the correct workspace consent screen. Final browser Allow is pending owner confirmation because it accepts terms; the callback has not yet been verified end to end against Slack.
+- Completed the live OAuth installation after owner approval. Verified an active, encrypted workspace token in the database. A subsequent help event used the stored installation successfully; delivering the identical event twice resulted in one completed job with one attempt and a scrubbed payload.
 - Google Cloud Console requested owner passkey verification. The existing Google verification instructions remain applicable; current approval status could not be verified in this session.
