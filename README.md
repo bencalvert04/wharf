@@ -22,7 +22,17 @@ Requests expire after 30 days and are removed by the daily cleanup route. Google
 
 ## Agent workflow
 
-Start at `/agents`, `/llms.txt`, or `/api/agent`. The versioned API contract is `/api/openapi`. New agents should use `/api/v1/meetings`, not the legacy browser API.
+Start at `/agents`, `/llms.txt`, or `/api/agent`. The versioned API contract is `/api/openapi`. For group chats, start with `POST /api/v1/meeting-links`. No account, registered API key, SDK, or MCP installation is required. Send a private, randomly generated UUID v4 as `Idempotency-Key`, with just `startDate` and `timezone` in the body:
+
+```json
+{"startDate":"2030-01-07","timezone":"America/Denver"}
+```
+
+Use the actual requested date. Share the returned `invitationUrl` or `shareMessage` with the group. Everyone joins through the same link. The first calendar connection becomes the human planner, who selects a time and sends invitations on the website. Link creation does not book an event. Reuse the same private key and body after timeouts to recover the same meeting; changed input returns 409. This route reuses the existing open-meeting backend, with no migration or new environment variables.
+
+`GET /api/v1/meeting-links` returns a self-contained quickstart. `/openapi.json` and `/.well-known/agent.json` expose discovery aliases. The homepage advertises the guide and OpenAPI in HTML and HTTP links. These make Wharf easier to inspect once an agent encounters the site; they do not automatically install tools in external agents.
+
+For continued agent coordination, use `/api/v1/meetings`.
 
 - `POST /api/v1/meetings`: create a named participant roster. The client generates and saves a unique random 32-byte base64url Bearer key before sending; `Idempotency-Key` makes retries recoverable. One key is scoped to one meeting. Reusing the same keys with changed input returns 409. Retry records last for the meeting's 30-day retention period.
 - `GET /api/v1/meetings/:id`: status, exact missing participants, capture timestamps, private invitation links, and a recommended next action. No cookies required.
@@ -39,11 +49,11 @@ Finalization stores `requests.final_time`, displays it on the meeting page, and 
 
 Meeting and slots responses include `actions`, with REST method/URL, authentication requirement, known body fields, missing `requiredInput`, equivalent MCP arguments, invitation side effects, and polling delays. These are templates: fill missing choices before calling, preserve human consent, and use only authorized messaging channels. Pending booking actions carry the original confirmed slot and revision so retries recover the same event. Existing fields and routes remain compatible.
 
-Discovery at `/api/agent` includes a machine-readable quickstart with separate examples for open group links and tracked rosters. Open meetings retain the human planner workflow; named rosters let agents track all expected responses and prepare calendar booking. No database migration is required for these response additions.
+Discovery at `/api/agent` includes a shared-link quickstart and an `advancedQuickstart` with separate examples for open group links and tracked rosters. Open meetings retain the human planner workflow; named rosters let agents track all expected responses and prepare calendar booking. No database migration is required for these response additions.
 
 ### MCP
 
-`node /absolute/path/to/wharf/scripts/mcp.mjs` starts the official SDK's stdio server. Five tools cover creation, locally known meetings, status, slots, and finalization. It exposes `wharf://guide` as a resource.
+`node /absolute/path/to/wharf/scripts/mcp.mjs` starts the official SDK's stdio server. Seven tools cover creation, locally known meetings, status, slots, organizer authorization, booking, and finalization. For a shared group-chat link, use `wharf_create_meeting` with `openJoin:true` and omit participants. It exposes `wharf://guide` as a resource.
 
 `WHARF_URL` defaults to `https://wharf-delta.vercel.app`. `WHARF_STATE_DIR` defaults to `~/.config/wharf`; credentials are separated by origin, written before network requests, and stored with owner-only file permissions. The bridge never returns planner keys to the model. Use the same directory across restarts to preserve retry recovery. A crashed process can leave a lock directory; remove it only after confirming the old process has stopped. This is a local stdio MCP bridge, not a hosted OAuth MCP endpoint.
 

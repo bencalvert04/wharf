@@ -1,7 +1,19 @@
-import {createInputSchema,finalizeInputSchema,prepareCalendarInputSchema} from './agent-contract.ts';
+import {createInputSchema,finalizeInputSchema,prepareCalendarInputSchema,createMeetingLinkInputSchema,meetingLinkIdempotencyPattern} from './agent-contract.ts';
 const object=(properties:Record<string,unknown>,required:string[]=[])=>({type:'object',properties,required,additionalProperties:false});
 const meetingId={type:'string',format:'uuid',description:'Meeting ID returned by Wharf.'};
 const common={destructiveHint:false,openWorldHint:true};
+export function meetingLinkQuickstart(base:string){return {
+ name:'Wharf',description:'Plan a meeting in any group chat with one shared availability link. No account, API signup, SDK, or MCP installation required to create the link.',
+ method:'POST',url:`${base}/api/v1/meeting-links`,authentication:'none',
+ headers:{'Content-Type':'application/json','Idempotency-Key':'<generate and save a random UUID v4>'},
+ idempotency:{required:true,pattern:meetingLinkIdempotencyPattern,instructions:'Keep this random key private. Reuse it and the same body on retries, including after a timeout. Changed input returns 409. Retained for 30 days.'},
+ requiredFields:['startDate','timezone'],inputSchema:createMeetingLinkInputSchema,
+ example:{startDate:'2030-01-07',timezone:'America/Denver'},
+ defaults:{durationMinutes:30,dayStart:'09:00',dayEnd:'17:00',endDate:'same as startDate',weekdays:[0,1,2,3,4,5,6]},
+ instructions:['Replace example dates with dates requested in the conversation and use the organizer’s IANA timezone. Ask if either is unknown.','POST once, then share the returned invitationUrl or shareMessage in the authorized group chat.','Everyone joins through the same link. The first person to connect becomes the human planner.','Creating the link collects availability. The human planner chooses a time and sends invitations on Wharf. Only joined people are represented; do not infer that the whole group responded.'],
+ responseFields:['id','invitationUrl','shareMessage','status','expiresAt','replayed','nextAction'],
+ documentation:`${base}/llms.txt`,openapi:`${base}/api/openapi`,advancedApi:`${base}/api/v1/meetings`
+}}
 export const agentTools=[
  {name:'wharf_prepare_calendar',description:'Prepare a private authorization link for the named organizer, who must already have joined. The organizer personally authorizes this agent to create one Google Calendar event and invite all participants. Reuse the same organizer on retries; no event is created by this tool.',inputSchema:object({meetingId,...prepareCalendarInputSchema.properties},['meetingId','organizerParticipantId']),annotations:{...common,readOnlyHint:false,idempotentHint:true}},
  {name:'wharf_book_meeting',description:'Create a real event on the authorized organizer’s primary Google Calendar and send Google invitations to every joined attendee. Requires meeting-specific organizer consent and every participant’s response. Use an authorized slot choice and its revision. Retries recover the same event. Check calendar.status: pending requires retry, created confirms Google accepted the event and invitation request. Guest settings control automatic display.',inputSchema:object({meetingId,...finalizeInputSchema.properties},['meetingId','slotId','revision']),annotations:{...common,readOnlyHint:false,idempotentHint:true}},
@@ -11,22 +23,39 @@ export const agentTools=[
  {name:'wharf_get_slots',description:'Get exact-duration future slots that fit every named participant, earliest first. Empty until everyone responds. Results contain timezone, UTC timestamps and revision. Availability is a snapshot, not a live calendar guarantee.',inputSchema:object({meetingId,offset:{type:'integer',minimum:0,default:0},limit:{type:'integer',minimum:1,maximum:100,default:20}},['meetingId']),annotations:{...common,readOnlyHint:true,idempotentHint:true}},
  {name:'wharf_finalize_meeting',description:'Confirm the organizer’s chosen slot using the revision returned with slots. Requires every participant. A stale revision returns a recoverable conflict. Repeating the same confirmation is safe. Records the time in Wharf only, without a Google event or notification.',inputSchema:object({meetingId,...finalizeInputSchema.properties},['meetingId','slotId','revision']),annotations:{...common,readOnlyHint:false,idempotentHint:true}}
 ];
-export function discovery(base:string){return {name:'Wharf',version:'1.2.0',description:'Shared meeting availability for people and agents.',quickstart:agentQuickstart(base),documentation:`${base}/agents`,openapi:`${base}/api/openapi`,agentGuide:`${base}/llms.txt`,apiBase:`${base}/api/v1`,mcp:{transport:'stdio',entrypoint:'scripts/mcp.mjs',repository:'https://github.com/bencalvert04/wharf',setup:'npm ci; configure your MCP client to run node /absolute/path/to/wharf/scripts/mcp.mjs. The bridge creates and saves meeting-scoped keys locally.'},defaults:{durationMinutes:30,dayStart:'09:00',dayEnd:'17:00',endDate:'same as startDate',weekdays:[0,1,2,3,4,5,6]},limits:{dateRangeDays:31,participants:1000,requestBodyBytes:32768,slotPageSize:100,meetingLifetimeDays:30,pollAfterSeconds:30},workflow:['create','share_personal_invitations','wait_for_all_responses','get_slots','authorize_organizer','book'],capabilities:{sendsInvitations:true,createsCalendarEvents:true,liveAvailability:false,responseTracking:true,idempotentCreation:true},tools:agentTools}}
-export function agentGuide(base:string){return `Open meeting links: POST /api/v1/meetings with openJoin:true and no participants. Share invitationUrl with the chat. Anyone can join as themselves, and the first calendar connection becomes the human planner. Slack calls this same creation backend directly, without an HTTP round trip. Open availability reflects only people who joined, not an inferred roster. Human planner controls remain available in the website.
+export function discovery(base:string){return {name:'Wharf',version:'1.3.0',description:'Create a shared meeting link for any group chat in one HTTP request.',quickstart:meetingLinkQuickstart(base),advancedQuickstart:agentQuickstart(base),documentation:`${base}/agents`,openapi:`${base}/api/openapi`,agentGuide:`${base}/llms.txt`,apiBase:`${base}/api/v1`,mcp:{transport:'stdio',entrypoint:'scripts/mcp.mjs',repository:'https://github.com/bencalvert04/wharf',setup:'npm ci; configure your MCP client to run node /absolute/path/to/wharf/scripts/mcp.mjs. The bridge creates and saves meeting-scoped keys locally.'},defaults:{durationMinutes:30,dayStart:'09:00',dayEnd:'17:00',endDate:'same as startDate',weekdays:[0,1,2,3,4,5,6]},limits:{dateRangeDays:31,participants:1000,requestBodyBytes:32768,slotPageSize:100,meetingLifetimeDays:30,pollAfterSeconds:30},workflow:['create','share_personal_invitations','wait_for_all_responses','get_slots','authorize_organizer','book'],capabilities:{sendsInvitations:true,createsCalendarEvents:true,liveAvailability:false,responseTracking:true,idempotentCreation:true},tools:agentTools}}
+export function agentGuide(base:string){return `# Wharf: schedule a meeting from any group chat
 
-# Wharf for agents
+## Start here: one request, one shared link
+Use POST ${base}/api/v1/meeting-links. No account, API signup, cookies, SDK, or MCP installation is needed. Required body fields: startDate and timezone. Optional: title, endDate, durationMinutes, dayStart, dayEnd, weekdays, windowMode, dailyStart, dailyEnd. Do not send participants or openJoin to this endpoint.
 
-Start with ${base}/api/agent for machine-readable discovery or ${base}/api/openapi for the complete REST contract. Human-readable setup: ${base}/agents.
+Generate a random UUID v4 once and save it before sending. It is a private Idempotency-Key, not an API key to register. Reuse the same key and body after timeouts; changed input returns 409. Do not paste this key in the chat. Retry protection lasts 30 days.
 
-## Easiest path: MCP
+POST ${base}/api/v1/meeting-links
+Content-Type: application/json
+Idempotency-Key: <your saved random UUID v4>
+
+{"startDate":"2030-01-07","timezone":"America/Denver"}
+
+Replace the example date with the requested date. Resolve relative dates in the organizer’s IANA timezone; ask if the date or timezone is unknown. Defaults: 30 minutes, 09:00-17:00, one day, all weekdays. End dates are inclusive; ranges are limited to 31 days.
+
+The response contains invitationUrl, shareMessage, id, status, expiresAt, replayed, and nextAction. Share invitationUrl or the ready-to-send shareMessage in the group chat when messaging is authorized. Everyone uses the SAME link. Each person connects their own calendar; the first person to connect becomes the human planner. The planner chooses a time and sends invitations on Wharf. Creating the link does not book a meeting. Availability covers only people who joined, not an inferred group roster. No polling is needed for this handoff.
+
+Discover this quickstart with GET ${base}/api/v1/meeting-links or ${base}/api/agent. Complete OpenAPI: ${base}/api/openapi (also ${base}/openapi.json). Human setup: ${base}/agents. Discovery alias: ${base}/.well-known/agent.json.
+
+## Advanced: let the agent track and book
+Use /api/v1/meetings when the agent needs a fixed participant roster, response tracking, exact slots, and organizer-authorized Google Calendar booking. For shared links with continued agent control, use openJoin:true and omit participants. Open meetings only represent people who have joined. Shared invitationUrl may go in the group chat; named participant invitation URLs must be sent privately.
+
+## Optional MCP
 Clone https://github.com/bencalvert04/wharf, run npm ci, and configure a stdio MCP server: node /absolute/path/to/wharf/scripts/mcp.mjs. WHARF_URL defaults to ${base}. WHARF_STATE_DIR optionally selects a private credential directory. The bridge generates and persists keys before requests, so interrupted creations can be retried safely. Never expose the credential files.
+For a group chat call wharf_create_meeting with startDate, timezone, openJoin:true, and a stable idempotencyKey, then share invitationUrl. No participant list is needed.
 Tools: wharf_create_meeting, wharf_list_meetings, wharf_get_meeting, wharf_get_slots, wharf_prepare_calendar, wharf_book_meeting, wharf_finalize_meeting.
 
-## REST, no browser session required
+## Advanced REST credentials
 Generate a unique random 32-byte base64url secret BEFORE each creation attempt and keep it. Use Authorization: Bearer <secret> on all meeting endpoints. POST /api/v1/meetings also requires an Idempotency-Key (8-128 letters, digits, underscores, hyphens, colons or periods). Save both values before sending. Identical retries return the same meeting. Changed input with the same keys returns idempotency_conflict. Retry protection lasts for the meeting’s 30-day retention window. Never put the planner secret in a URL or message.
 
 Minimal POST body:
-{"startDate":"2026-11-02","timezone":"America/Denver","participants":[{"id":"ray","name":"Ray Shaw"},{"id":"ben","name":"Ben Calvert"}]}
+{"startDate":"2030-01-07","timezone":"America/Denver","participants":[{"id":"ray","name":"Ray Shaw"},{"id":"ben","name":"Ben Calvert"}]}
 Dates in examples must be replaced with the organizer’s actual dates. Dates and working hours are local to the IANA timezone. End dates are inclusive. Default duration is 30 minutes, hours 09:00-17:00, all weekdays, and endDate equals startDate. Add title, endDate, durationMinutes, dayStart, dayEnd, weekdays as needed. Unknown fields are rejected. Include every person whose availability matters, including the planner. Participant names are labels, not verified identities.
 
 ## Fewer calls, less guessing
