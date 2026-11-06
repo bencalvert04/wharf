@@ -1,3 +1,4 @@
+import {conversationUrl} from '@/lib/conversation-url';
 import {bindCalendarAccount,runCalendarIntent} from '@/lib/calendar-intent';
 import {captureGoogleSwitch,isStandaloneProviderAccount} from '@/lib/provider-switch-guard';
 import {plannerAccess} from '@/lib/planner-access';
@@ -34,7 +35,7 @@ export async function GET(req:Request){
   if(flow.slack_attendance_id){
    const [link]=await sql()`SELECT s.team_id,s.channel_id FROM slack_attendance_links l JOIN slack_meetings s ON s.id=l.slack_meeting_id WHERE l.id=${flow.slack_attendance_id} AND l.session_id=${s.id} AND l.expires_at>now() AND l.completed_at IS NULL`;
    if(!link)return redirect('expired');
-   slackReturn=`https://app.slack.com/client/${encodeURIComponent(link.team_id)}/${encodeURIComponent(link.channel_id)}`;
+   slackReturn=conversationUrl(link.team_id,link.channel_id);
   }
   agentAuthorization=flow.purpose==='agent_events';
   id=flow.meeting_id||flow.return_meeting_id||'';

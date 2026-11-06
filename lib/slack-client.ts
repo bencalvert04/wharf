@@ -1,5 +1,6 @@
-import {slackBotToken} from './slack-context.ts';
+import {slackBotToken,currentSlackWorkspace} from './slack-context.ts';
 export async function slack(method:string,body:Record<string,unknown>,attempt=0):Promise<any>{
+ if(currentSlackWorkspace()?.platform==='discord'){const {discordTransport}=await import('./discord-client');return discordTransport(method,body)}
  // users.info ignores JSON POST arguments in Slack. Send its user ID as form data.
  const form=['users.info','conversations.members','conversations.info'].includes(method);
  const encoded=form?new URLSearchParams(Object.entries(body).map(([key,value])=>[key,String(value)])):JSON.stringify(body);

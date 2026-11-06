@@ -77,6 +77,12 @@ export default function Privacy(){
    <p>For follow-up questions, Wharf separately stores up to 12 recent entries from the same requester’s thread, including their messages, Wharf’s clarification prompts, and proposed meeting details. It uses this context for up to one day after the last update; daily cleanup removes expired context. Relevant requester messages go to the configured interpreter, but background conversation history is not saved in this clarification record. Slack workflow records expire after 30 days, and successful job payloads are removed after processing.</p>
   </section>
 
+  <section id="discord"><h2>Discord and AI services</h2>
+   <p>Wharf processes the scheduling requests you submit through /wharf, your selected attendees, Discord server and channel IDs, user IDs, display names, and the scheduling time zone. It does not read Discord channel history or enumerate all server members. The requester and explicitly selected human attendees form the meeting roster.</p>
+   <p>The same scheduling interpreter described above processes your request and clarification replies. Calendar availability and credentials are not sent to the interpreter. Discord receives meeting announcements and suggested shared times. Calendar connection and organizer authorization links are sent through private interaction replies or direct messages.</p>
+   <p>Interaction credentials are encrypted while work is processed and removed from successful and failed job payloads. Button records expire after 30 days, and clarification context expires after one day. Daily cleanup removes expired records. Remove Wharf from your Discord server to stop new commands there; this does not disconnect individual calendars or cancel events already created. Contact support to request deletion.</p>
+  </section>
+
   <section id="retention"><h2>Your choices and retention</h2>
    <h3>Remove availability or disconnect a calendar</h3>
    <p>Use “Remove my availability” on a meeting to remove your snapshot. This does not disconnect your calendar. Signing out disconnects your calendar.</p>

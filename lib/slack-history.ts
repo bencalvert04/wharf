@@ -1,4 +1,4 @@
-import {slackBotToken} from './slack-context.ts';
+import {slackBotToken,currentSlackWorkspace} from './slack-context.ts';
 type Message={ts:string;text?:string;user?:string;bot_id?:string;subtype?:string};
 export function formatSlackHistory(messages:Message[],before:string){
  return messages.filter(m=>Number(m.ts)<Number(before)&&Number(m.ts)>=Number(before)-7*86400&&m.text&&!m.bot_id&&!m.subtype)
@@ -7,6 +7,7 @@ export function formatSlackHistory(messages:Message[],before:string){
 }
 // Bounded parallel reads, no retries or pagination on the meeting creation path.
 export async function slackHistory(channel:string,before:string,thread?:string){
+ if(currentSlackWorkspace()?.platform==='discord')return '';
  try{
   const signal=AbortSignal.timeout(1500);
   const read=async(method:string,extra:Record<string,string>={})=>{

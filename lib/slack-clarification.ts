@@ -1,3 +1,4 @@
+import {currentDiscordInteraction} from './discord-context.ts';
 import {slack,slackBlocks,slackButton} from './slack-client.ts';
 export function hasMeetingDuration(text:string){
  return /\b(?:\d+(?:\.\d+)?|a|an|one|two|three|four|fifteen|thirty|forty[- ]five|sixty|ninety)\s*(?:-\s*)?(?:minutes?|mins?|hours?|hrs?)\b|\b(?:quarter|half)[ -](?:an? )?hour\b/i.test(text);
@@ -19,7 +20,7 @@ export function timeRangeBlocks(thread:string,question:string){
  const needsDay=question==='What day and time range should I use?';
  return [
   {type:'section',text:{type:'mrkdwn',text:needsDay?'Choose a day and a time range.':'Choose a time range.'}},
-  {type:'context',elements:[{type:'mrkdwn',text:`Times are in ${process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver'}.`}]},
+  {type:'context',elements:[{type:'mrkdwn',text:`Times are in ${currentDiscordInteraction()?.timezone||process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver'}.`}]},
   {type:'actions',block_id:'wharf_time_range',elements:[
    ...(needsDay?[{type:'datepicker',action_id:'wharf_range_day',placeholder:{type:'plain_text',text:'Choose day'}}]:[]),
    ...Object.entries(timePresets).map(([preset,{label}])=>slackButton(label,`wharf_preset_${preset}`,JSON.stringify({thread,needsDay}))),
@@ -33,7 +34,7 @@ export function timePresetAnswer(payload:any){
  if(!preset)throw Error('Choose one of the time range buttons.');
  const day=payload.state?.values?.wharf_time_range?.wharf_range_day?.selected_date;
  if(meta.needsDay&&!/^\d{4}-\d{2}-\d{2}$/.test(day||''))throw Error('Choose a day, then press a time range button.');
- return {thread:meta.thread,answer:`${meta.needsDay?`On ${day}, `:''}between ${preset.start} and ${preset.end} (${process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver'}).`};
+ return {thread:meta.thread,answer:`${meta.needsDay?`On ${day}, `:''}between ${preset.start} and ${preset.end} (${currentDiscordInteraction()?.timezone||process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver'}).`};
 }
 // Keep existing dropdown messages functional after the preset rollout.
 export function timeRangeAnswer(payload:any){
@@ -43,7 +44,7 @@ export function timeRangeAnswer(payload:any){
  if(!/^(?:[01]\d|2[0-3]):(?:00|15|30|45)$/.test(start||'')||!/^(?:(?:[01]\d|2[0-3]):(?:00|15|30|45)|24:00)$/.test(end||''))throw Error('Choose both a start and end time, then press Continue.');
  if(start>=end)throw Error('Choose an end time later than the start time.');
  if(meta.needsDay&&!/^\d{4}-\d{2}-\d{2}$/.test(day||''))throw Error('Choose a day, then press Continue.');
- return {thread:meta.thread,answer:`${meta.needsDay?`On ${day}, `:''}between ${start} and ${end} (${process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver'}).${end==='24:00'?' The end is midnight at the end of that day.':''}`};
+ return {thread:meta.thread,answer:`${meta.needsDay?`On ${day}, `:''}between ${start} and ${end} (${currentDiscordInteraction()?.timezone||process.env.SLACK_DEFAULT_TIMEZONE||'America/Denver'}).${end==='24:00'?' The end is midnight at the end of that day.':''}`};
 }
 export async function askPrivately(channel:string,user:string,thread:string,question:string,duration=false){
  if(!duration&&['Between what start and end times should I look?','What day and time range should I use?'].includes(question)){await slack('chat.postEphemeral',{channel,user,text:question,blocks:timeRangeBlocks(thread,question)});return}

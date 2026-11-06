@@ -1,5 +1,5 @@
 import {inSlackWorkspace,slackInstallation} from './slack-installations';
-import {withSlackWorkspace} from './slack-context';
+import {withSlackWorkspace,currentSlackWorkspace} from './slack-context';
 import {slackBotUserId} from './slack-context';
 import {dismissSlackPrompt} from './slack-dismiss';
 import {loadSlackProposal,insertSlackMeeting} from './slack-proposal';
@@ -142,7 +142,7 @@ async function invitations(r:any){
  const d=r.draft,url=`${appUrl()}/?meeting=${encodeURIComponent(r.meeting_id)}`;
  const text=`I’m on it. Planning a ${d.durationMinutes}-minute meeting ${slackEscape(slackMeetingWhen(d,true))}. ${d.openJoin?'Click to attend so I can find a time that works for everyone.':'I’ll check everyone’s calendars to find a time that works.'}${d.openJoin?`\n\n<${url}|Open calendar on Wharf>`:''}`;
  // Post to the main channel so everyone can find the same invitation.
- const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,d.openJoin?[refresh(r.id)]:[]));
+ const posted=await slackMessage(r.channel_id,text,undefined,slackBlocks(text,d.openJoin||currentSlackWorkspace()?.platform==='discord'?[refresh(r.id)]:[]));
  await sql()`UPDATE slack_meetings SET invitation_ts=${posted.ts} WHERE id=${r.id}`;
  // Membership is only for notification, after the usable link is already visible.
  if(d.openJoin&&group){try{
@@ -269,6 +269,7 @@ export async function resumeSlackBooking(meetingId:string){
 }
 
 export async function runSlackJob(id:string){
+ if(id.startsWith('discord:')){const {runDiscordJob}=await import('./discord-workflow');return runDiscordJob(id)}
  const started=Date.now();
  const [job]=await sql()`UPDATE slack_jobs SET status='running',lease_until=now()+interval '3 minutes',attempts=attempts+1 WHERE id=${id} AND status<>'done' AND (lease_until IS NULL OR lease_until<now()) AND attempts<3 RETURNING *`;
  if(!job)return;
