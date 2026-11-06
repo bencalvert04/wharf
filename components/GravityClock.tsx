@@ -26,13 +26,22 @@ function angleAt(ms:number){
 
 export default function GravityClock({className}:{className?:string}){
  const root=useRef<SVGSVGElement>(null),hand=useRef<SVGGElement>(null),ghosts=useRef<(SVGGElement|null)[]>([]);
+ const ticks=useRef<(SVGLineElement|null)[]>([]);
  useEffect(()=>{
   const svg=root.current;if(!svg)return;
   const motion=window.matchMedia('(prefers-reduced-motion: reduce)');
   let frame=0,visible=true,origin=0,paused=0;
   const draw=(ms:number)=>{
-   hand.current?.setAttribute('transform',`rotate(${angleAt(ms)} 100 100)`);
+   const angle=angleAt(ms);
+   hand.current?.setAttribute('transform',`rotate(${angle} 100 100)`);
    GHOSTS.forEach((lag,i)=>ghosts.current[i]?.setAttribute('transform',`rotate(${angleAt(ms-lag)} 100 100)`));
+   ticks.current.forEach((tick,i)=>{
+    if(!tick)return;
+    const distance=Math.abs(((angle-i*30+540)%360)-180);
+    const intensity=motion.matches?0:Math.exp(-distance*distance/(2*19*19));
+    tick.style.strokeWidth=String((i%3===0?1.75:1.25)+intensity*2);
+    tick.style.strokeOpacity=String(motion.matches?1:.6+.4*intensity);
+   });
   };
   const tick=(now:number)=>{draw(now-origin);frame=requestAnimationFrame(tick)};
   const stop=()=>{if(frame){cancelAnimationFrame(frame);frame=0;paused=performance.now()}};
@@ -47,7 +56,7 @@ export default function GravityClock({className}:{className?:string}){
  },[]);
  return <svg ref={root} className={'gravity-clock'+(className?' '+className:'')} viewBox="0 0 200 200" role="img" aria-label="Clock">
   <circle className="clock-face" cx="100" cy="100" r="96" pathLength="1"/>
-  {Array.from({length:12},(_,i)=><line key={i} className={'clock-tick'+(i%3===0?' major':'')} pathLength="1" style={{animationDelay:`${180+i*28}ms`}} x1="100" y1={i%3===0?14:16} x2="100" y2="24" transform={`rotate(${i*30} 100 100)`}/>)}
+  {Array.from({length:12},(_,i)=><line key={i} ref={el=>{ticks.current[i]=el}} className={'clock-tick'+(i%3===0?' major':'')} pathLength="1" style={{animationDelay:`${180+i*28}ms`}} x1="100" y1={i%3===0?14:16} x2="100" y2="24" transform={`rotate(${i*30} 100 100)`}/>)}
   {GHOSTS.map((_,i)=><g key={i} ref={el=>{ghosts.current[i]=el}} className="clock-ghost" style={{opacity:.16-i*.03}}><line x1="100" y1="100" x2="100" y2="30"/></g>)}
   <g ref={hand} className="clock-hand"><line x1="100" y1="114" x2="100" y2="30" pathLength="1"/></g>
   <circle className="clock-pivot" cx="100" cy="100" r="4"/>
