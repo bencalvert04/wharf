@@ -83,7 +83,7 @@ export default function InteractiveGrid(){
   }
   function appearance(){
    ink=getComputedStyle(canvas!).color;
-   opacity=app?.classList.contains('light') ? 0.105 : 0.15;
+   opacity=app?.classList.contains('light') ? 0.16 : 0.20;
    paint();
   }
   function resize(){
