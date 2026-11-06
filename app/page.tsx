@@ -17,6 +17,7 @@ import DeleteMeetingButton from '@/components/DeleteMeetingButton';
 import PendingMeetings from '@/components/PendingMeetings';
 import GravityClock from '@/components/GravityClock';
 import InteractiveGrid from '@/components/InteractiveGrid';
+import HeroEntrance from '@/components/HeroEntrance';
 import {ArrowDown, ArrowUp, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Check, Copy, X, Sun, Moon, Monitor, Clock3, Globe2, CalendarDays, Hash} from 'lucide-react';
 import {type Constraints,type Attendee,type Window,dates,shared,allowed,alternatives,hasFutureSharedSlot,localParts,validate} from '@/lib/availability';
 const initial:Constraints={title:'',start:'2026-10-26',end:'2026-10-30',duration:30,zone:'America/Denver',from:'09:00',to:'17:00',days:[0,1,2,3,4,5,6]};
@@ -191,7 +192,7 @@ export default function Home(){
  <header><div className="header-left"><button className="brand" onClick={goHome} aria-label="Wharf home"><span className="brandmark" aria-hidden="true">⚓️</span>Wharf</button><nav><button className={view==='create'||view==='results'?'active':''} onClick={reset}>Scheduler</button><button className={view==='pending'?'active':''} aria-current={view==='pending'?'page':undefined} onClick={showPending}>Pending meetings</button></nav></div><nav aria-label="Utilities"><PlatformMenu/><button aria-current={view==='docs'?'page':undefined} onClick={showDocs}>API <ArrowUpRight size={12}/></button><span className="nav-divider"/><button type="button" className="icon-button" aria-label={`Appearance: ${theme}. Switch to ${theme==='light'?'dark':theme==='dark'?'system':'light'} mode`} onClick={()=>changeTheme(theme==='light'?'dark':theme==='dark'?'system':'light')}>{theme==='light'?<Sun size={16}/>:theme==='dark'?<Moon size={16}/>:<Monitor size={16}/>}</button><AccountButton navigationKey={`${view}:${meeting}`}/></nav></header>
  <main className={view==='home'||view==='create'?'framed':undefined}>{!opening&&<div key={view} className="view">
  {view==='pending'&&<PendingMeetings onCreate={reset}/>}
- {view==='home'&&<section className="hero" aria-labelledby="hero-title"><InteractiveGrid/><GravityClock/><h1 id="hero-title">Find a time that works for everyone</h1><p>Wharf compares each person’s calendar availability and shows when you can all meet.</p><div className="hero-actions"><button type="button" className="primary pill" onClick={reset}>Create a meeting</button><button type="button" className="outline pill" onClick={showDemo}>View example</button></div></section>}
+ {view==='home'&&<HeroEntrance><InteractiveGrid/><GravityClock/><h1 id="hero-title">Find a time that works for everyone</h1><p>Wharf compares each person’s calendar availability and shows when you can all meet.</p><div className="hero-actions"><button type="button" className="primary pill" onClick={reset}>Create a meeting</button><button type="button" className="outline pill" onClick={showDemo}>View example</button></div></HeroEntrance>}
  {view==='create'&&<>
  <div className="setup-grid"><section className="setup" aria-labelledby="new-meeting-title">
  <h2 id="new-meeting-title" className="cell-title">New meeting</h2>

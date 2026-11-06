@@ -46,10 +46,10 @@ export default function GravityClock({className}:{className?:string}){
   return()=>{stop();observer.disconnect();motion.removeEventListener('change',sync)};
  },[]);
  return <svg ref={root} className={'gravity-clock'+(className?' '+className:'')} viewBox="0 0 200 200" role="img" aria-label="Clock">
-  <circle className="clock-face" cx="100" cy="100" r="96"/>
-  {Array.from({length:12},(_,i)=><line key={i} className={'clock-tick'+(i%3===0?' major':'')} x1="100" y1={i%3===0?14:16} x2="100" y2="24" transform={`rotate(${i*30} 100 100)`}/>)}
+  <circle className="clock-face" cx="100" cy="100" r="96" pathLength="1"/>
+  {Array.from({length:12},(_,i)=><line key={i} className={'clock-tick'+(i%3===0?' major':'')} pathLength="1" style={{animationDelay:`${180+i*28}ms`}} x1="100" y1={i%3===0?14:16} x2="100" y2="24" transform={`rotate(${i*30} 100 100)`}/>)}
   {GHOSTS.map((_,i)=><g key={i} ref={el=>{ghosts.current[i]=el}} className="clock-ghost" style={{opacity:.16-i*.03}}><line x1="100" y1="100" x2="100" y2="30"/></g>)}
-  <g ref={hand} className="clock-hand"><line x1="100" y1="114" x2="100" y2="30"/></g>
+  <g ref={hand} className="clock-hand"><line x1="100" y1="114" x2="100" y2="30" pathLength="1"/></g>
   <circle className="clock-pivot" cx="100" cy="100" r="4"/>
  </svg>;
 }
