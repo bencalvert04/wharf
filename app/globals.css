@@ -206,8 +206,8 @@ main.framed:has(.hero),.framed .view:has(.hero){display:flex;flex-direction:colu
 .meeting-confirmation a.outline:hover{background:#222;border-color:#222;color:#fff}
 .app:not(.light) .meeting-confirmation a.outline{background:#fff;border-color:#fff;color:#000}
 .app:not(.light) .meeting-confirmation a.outline:hover{background:#e5e5e5;border-color:#e5e5e5;color:#000}
-.fallback{padding:16px;border:1px solid var(--border);border-radius:12px;margin-bottom:16px;font-size:13px;color:var(--muted);line-height:1.6}
-.fallback p{margin:0 0 12px}
+.availability-note{margin:0 0 12px;font-size:13px;color:var(--muted);line-height:1.6}
+.result-toolbar:has(.tabs){flex-wrap:wrap;gap:8px;justify-content:space-between}
 .tabs{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--soft);border:1px solid var(--border)}
 .tabs button{border:0;background:transparent;padding:6px 12px;border-radius:5px;font-size:13px;font-weight:500;color:var(--muted)}
 .tabs button.chosen{background:var(--bg);color:var(--text);box-shadow:0 0 0 1px var(--border),0 1px 2px #0000000f}
@@ -480,7 +480,7 @@ header{view-transition-name:site-header}
 /* Manual attendee availability */
 .attendee-join-options{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .attendee-panel .attendee-join-options{display:grid;grid-template-columns:1fr;gap:8px}
-.manual-availability{width:min(860px,calc(100vw - 32px));max-width:860px;max-height:calc(100dvh - 32px);overflow:auto;padding:28px;color:var(--text);border:1px solid var(--border);overscroll-behavior:contain}
+.manual-availability{position:fixed;inset:0;margin:auto;width:min(860px,calc(100vw - 32px));max-width:860px;max-height:calc(100dvh - 32px);overflow:auto;padding:28px;color:var(--text);border:1px solid var(--border);overscroll-behavior:contain}
 .manual-availability::backdrop{background:#0006;backdrop-filter:blur(3px)}
 .manual-heading{padding-right:24px}
 .manual-eyebrow{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--muted)}
@@ -539,3 +539,16 @@ header{view-transition-name:site-header}
  .manual-submit .primary{justify-content:center}
 }
 @media(prefers-reduced-motion:reduce){.manual-cell{transition:none}}
+/* Alternative bands show valid start times on the existing calendar grid. */
+.window.partial-window{background:color-mix(in srgb,var(--accent) var(--attendance-shade),var(--bg));color:var(--text);min-height:0;border:0;box-shadow:none;border-radius:0;transition:background-color 120ms ease}
+.window.partial-window.best-match{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)}
+
+.partial-window .alternative-start-marker{position:absolute;inset-inline:0;pointer-events:none;border-radius:0;box-shadow:inset 0 0 0 2px #082d70}
+@media(prefers-reduced-motion:reduce){.window.partial-window{transition:none}}
+
+.alternative-hover-card{position:fixed;z-index:50;pointer-events:none;display:grid;gap:4px;width:min(248px,calc(100vw - 16px));max-height:calc(50dvh - 8px);overflow:hidden;padding:10px 12px;border:1px solid #344057;border-radius:8px;background:#172033;color:#fff;box-shadow:0 6px 20px #0003;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.alternative-hover-card strong{font-size:13px}
+
+
+.attendee-slot-status{margin-left:auto;white-space:nowrap;font-size:11px;color:var(--accent-text)}
+.attendee-slot-status[data-unavailable="true"]{color:var(--muted)}

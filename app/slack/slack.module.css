@@ -2,7 +2,7 @@
 :global(.agent-shell) main.page{max-width:1080px;padding:0 24px 96px}
 
 /* Hero */
-.hero{--hero-mask:radial-gradient(ellipse 900px 640px at 50% 323px,#000 40%,transparent 100%);position:relative;display:flex;flex-direction:column;align-items:center;padding:88px 0 72px;isolation:isolate}
+.hero{--hero-mask:radial-gradient(ellipse 900px 640px at 50% 323px,#000 40%,transparent 100%);position:relative;display:flex;flex-direction:column;align-items:center;padding:56px 0 24px;isolation:isolate}
 .hero::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:56px 56px;background-position:center -1px;mask-image:var(--hero-mask);-webkit-mask-image:var(--hero-mask)}
 .heroCopy{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:720px}
 .heroCopy h1{font-size:clamp(40px,6.2vw,72px);line-height:1.02;letter-spacing:-.055em;margin:28px 0 22px;max-width:14ch}
@@ -19,7 +19,7 @@
 @media(max-width:620px){.hero{--hero-mask:radial-gradient(ellipse 95% 520px at 50% 300px,#000 35%,transparent 100%)}}
 
 /* Interactive Slack desktop window */
-.demo{width:100%;max-width:980px;margin-top:64px}
+.demo{width:100%;max-width:980px;margin-top:32px}
 .slack{--aubergine:#3f0e40;--aubergine-dark:#350d36;--slack-text:#1d1c1d;--slack-muted:#616061;--slack-link:#1264a3;--slack-line:#1d1c1d21;
  background:#fff;color:var(--slack-text);border-radius:14px;overflow:hidden;font-size:15px;line-height:1.46668;letter-spacing:0;text-align:left;
  box-shadow:0 0 0 1px #0000001f,0 8px 16px #0000000d,0 32px 64px #00000026}
@@ -103,7 +103,8 @@
 .resetButton:hover{color:var(--text);background:var(--soft)}
 
 /* Sections */
-.section{padding:80px 0 0}
+.section{padding:64px 0 0}
+.hero + .section{padding-top:40px}
 .sectionHead{margin-bottom:32px}
 .eyebrow{display:block;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:10px}
 .sectionHead h2,.closing h2{font-size:clamp(26px,3vw,32px);font-weight:600;letter-spacing:-.04em;line-height:1.15;margin:0}
@@ -137,7 +138,7 @@
 .footnote{margin-top:20px!important;font-size:13px!important;color:var(--faint)!important;max-width:44em}
 
 /* Closing */
-.closing{position:relative;margin-top:96px;padding:56px 32px;text-align:center;border:1px solid var(--border);border-radius:20px;background:var(--subtle);overflow:hidden;isolation:isolate}
+.closing{position:relative;margin-top:72px;padding:56px 32px;text-align:center;border:1px solid var(--border);border-radius:20px;background:var(--subtle);overflow:hidden;isolation:isolate}
 .closing::before{content:"";position:absolute;inset:0;z-index:-1;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse 60% 90% at 50% 50%,#000 20%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 60% 90% at 50% 50%,#000 20%,transparent 100%)}
 .closing p{color:var(--muted);font-size:15px;margin:12px 0 0}
 .closing .actions{justify-content:center;margin-top:28px}
@@ -185,7 +186,7 @@ button.sideItem.activeChannel{background:#1164a3;color:#fff;font-weight:700}
 .footerLinks{display:flex;gap:20px}
 
 @media(max-width:900px){
- .hero{padding:64px 0 56px}
+ .hero{padding:48px 0 24px}
  .workspace{grid-template-columns:200px minmax(0,1fr)}
  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
  .steps li:nth-child(2){border-right:0}
@@ -194,19 +195,20 @@ button.sideItem.activeChannel{background:#1164a3;color:#fff;font-weight:700}
 }
 @media(max-width:620px){
  :global(.agent-shell) main.page{padding:0 16px 56px}
- .hero{padding:40px 0 56px}
+ .hero{padding:28px 0 20px}
  .heroCopy h1{font-size:clamp(36px,11vw,48px)}
  .lede{font-size:16px}
  .actions{flex-direction:column;align-items:stretch}
- .section{padding-top:56px}
+ .section{padding-top:48px}
+ .hero + .section{padding-top:28px}
  .steps{grid-template-columns:1fr}
  .steps li{border-right:0;border-bottom:1px solid var(--border)}
  .steps li:last-child{border-bottom:0}
  .stepTop{margin-bottom:20px}
  .specs>div{grid-template-columns:1fr;gap:4px}
- .closing{margin-top:64px;padding:40px 20px}
+ .closing{margin-top:56px;padding:40px 20px}
  .notice a{white-space:normal}
- .demo{margin-top:40px}
+ .demo{margin-top:24px}
  .slack{font-size:14px}
  .workspace{grid-template-columns:minmax(0,1fr);height:520px}
  .sidebar,.lights{display:none}
@@ -217,3 +219,36 @@ button.sideItem.activeChannel{background:#1164a3;color:#fff;font-weight:700}
  .composerBox input{font-size:16px}
  .tryRow>span{display:none}
 }
+
+/* Entrance layers: the Slack window uncovers the headline as it settles. */
+.heroCopy{position:relative;z-index:1}
+.slack{position:relative;z-index:2;transform-origin:50% 0}
+.tryRow,.demoNote{position:relative;z-index:0}
+@media(scripting:enabled) and (prefers-reduced-motion:no-preference){
+ .page[data-entrance="pending"] .heroCopy,.page[data-entrance="pending"] .demo,
+ .page[data-entrance="pending"]>.section,.page[data-entrance="pending"]>.closing{visibility:hidden}
+}
+@media(max-width:620px){
+ .pageHeader{flex-wrap:wrap;gap:12px;padding-top:16px;padding-bottom:16px}
+ .pageHeader :global(.header-left){width:100%;justify-content:space-between}
+ .pageHeader nav{display:flex}
+ .pageHeader>nav{width:100%;justify-content:flex-end}
+}
+
+.pageHeader{position:sticky;top:0;z-index:20}
+@media(max-width:620px){
+ :global(.agent-shell) .pageHeader{display:flex;height:auto;flex-direction:column;align-items:stretch;gap:8px;padding:12px 16px}
+ :global(.agent-shell) .pageHeader :global(.header-left){display:flex;width:100%;gap:12px;justify-content:space-between}
+ :global(.agent-shell) .pageHeader :global(.header-left)>nav{display:flex;gap:12px;margin:0;padding:0;border:0}
+ :global(.agent-shell) .pageHeader :global(.header-left)>nav a{font-size:12px;white-space:nowrap}
+ :global(.agent-shell) .pageHeader>nav{display:flex;width:100%;gap:12px;justify-content:flex-end}
+ :global(.agent-shell) .pageHeader>nav a{font-size:12px}
+}
+
+/* Keep the headline and its actions together without the former lede. */
+.heroCopy h1{margin-bottom:10px}
+.heroCopy > .actions{margin-top:20px}
+
+/* Match the headline-to-actions and approval-note-to-demo gaps. */
+.heroCopy > .fine{margin-top:16px;line-height:16px}
+.hero > .demo{margin-top:25px}
