@@ -253,6 +253,7 @@ function Avatar({user}:{user:UserId|'wharf'|'slackbot'}){
 }
 
 export default function SlackDemo({fontClass='',platform='Slack'}:{fontClass?:string;platform?:'Slack'|'Discord'}){
+ const initialWorkspace=()=>{const value=seed();if(platform==='Discord')for(const channel of Object.values(value))channel.member=true;return value};
  const [workspace,setWorkspace]=useState<Workspace|null>(null);
  const [active,setActive]=useState<ChannelId>('design-sync');
  const [linked,setLinked]=useState(false);
@@ -266,7 +267,7 @@ export default function SlackDemo({fontClass='',platform='Slack'}:{fontClass?:st
  const jump=useRef(true);
 
  // Dates and time zones come from the visitor's browser, so build history after mount.
- useEffect(()=>{setWorkspace(seed());return()=>timers.current.forEach(clearTimeout)},[]);
+ useEffect(()=>{setWorkspace(initialWorkspace());return()=>timers.current.forEach(clearTimeout)},[]);
  useEffect(()=>{
   const el=scroller.current;if(!el)return;
   if(jump.current){jump.current=false;el.scrollTop=el.scrollHeight;return}
@@ -360,7 +361,7 @@ export default function SlackDemo({fontClass='',platform='Slack'}:{fontClass?:st
 
  function reset(){
   timers.current.forEach(clearTimeout);timers.current=[];
-  jump.current=true;setTyping(null);setBusy(false);setTip(false);setDraft('');setLinked(false);setActive('design-sync');setWorkspace(seed());
+  jump.current=true;setTyping(null);setBusy(false);setTip(false);setDraft('');setLinked(false);setActive('design-sync');setWorkspace(initialWorkspace());
  }
 
  const submit=(event:FormEvent)=>{event.preventDefault();send(platform==='Discord'?draft.replace(/^\/wharf(?: request:)?\s*/i,'@Wharf '):draft)};
@@ -460,7 +461,7 @@ export default function SlackDemo({fontClass='',platform='Slack'}:{fontClass?:st
        <img src="/slack/wharf-avatar.png" alt="" width={72} height={72}/>
        <p className={styles.appIntroName}>Wharf <span className={styles.appBadge}>APP</span></p>
        <p>Find a shared meeting time and send calendar invitations.</p>
-       <p className={styles.context}>Wharf works in {platform==='Discord'?'server channels':'public channels and group DMs'}. Add it to a conversation and mention <span className={styles.mention}>@Wharf</span> with a day, time window, and duration.</p>
+       <p className={styles.context}>Wharf works in {platform==='Discord'?'server channels':'public channels and group DMs'}. Add it to a conversation and mention <span className={styles.mention}>{platform==='Discord'?'/wharf':'@Wharf'}</span> with a day, time window, and duration.</p>
        <div className={styles.blockActions}><a href={`/api/${platform.toLowerCase()}/install`} className={styles.btnPrimary}>Add Wharf to your {platform}</a></div>
       </div>:channel&&<>
        <div className={styles.channelIntro}><p className={styles.channelIntroTitle}><Hash size={20}/>{active}</p><p>This is the very beginning of the <b>#{active}</b> channel. {meta?.topic}.</p></div>
