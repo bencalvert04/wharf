@@ -2,6 +2,8 @@ import type {Metadata} from 'next';
 import Link from 'next/link';
 import {Lato} from 'next/font/google';
 import {ArrowRight, ArrowUpRight, AtSign, CalendarCheck, CalendarPlus, Check, CircleAlert, EyeOff, Lock, MessageSquareText, ShieldCheck, Sparkles, UserCheck} from 'lucide-react';
+import SlackEntrance from '@/components/SlackEntrance';
+import SlackPageHeader from '@/components/SlackPageHeader';
 import SlackDemo from '@/components/SlackDemo';
 import InteractiveGrid from '@/components/InteractiveGrid';
 import styles from './slack.module.css';
@@ -37,19 +39,15 @@ export default async function SlackPage({searchParams}:{searchParams:Promise<{in
  const status=install?messages[install]:undefined;
  const cta=<a href="/api/slack/install" className="primary pill">Add to Slack <ArrowRight size={16}/></a>;
 
- return <div className="app light agent-shell">
-  <header>
-   <Link href="/" className="brand" style={{color:'inherit',textDecoration:'none'}}><span className="brandmark" aria-hidden="true">⚓️</span>Wharf</Link>
-   <nav aria-label="Wharf for Slack"><Link href="/support">Support</Link><Link href="/privacy#slack">Privacy</Link></nav>
-  </header>
+ return <div className="app light agent-shell" data-slack-shell>
+  <SlackPageHeader/>
 
-  <main className={styles.page}>
+  <SlackEntrance>
    <section className={styles.hero}>
     <InteractiveGrid/>
-    <div className={styles.heroCopy}>
+    <div className={styles.heroCopy} data-hero-copy>
      <span className="small-tag"><Sparkles size={12}/> Wharf for Slack · Free pilot</span>
-     <h1>Find a time together.</h1>
-     <p className={styles.lede}>Ask Wharf to arrange a meeting in your Slack conversation. It gathers calendar availability, suggests a shared time, and sends Google Calendar invitations when the organizer confirms.</p>
+     <h1>Wharf lives where your team is already working</h1>
      {status&&<p role="status" className={`${styles.status} ${status.tone==='success'?styles.success:styles.error}`}>{status.tone==='success'?<Check size={16}/>:<CircleAlert size={16}/>}<span>{status.text}</span></p>}
      <div className={styles.actions}>{cta}<Link href="/support" className="outline pill">Setup guide</Link></div>
      <p className={styles.fine}>Your workspace may require an administrator to approve installation.</p>
@@ -91,7 +89,7 @@ export default async function SlackPage({searchParams}:{searchParams:Promise<{in
     <p>Setup help, troubleshooting, and answers to common questions.</p>
     <div className={styles.actions}>{cta}<Link href="/support" className="outline pill">Get support</Link></div>
    </section>
-  </main>
+  </SlackEntrance>
 
   <footer><span>Wharf for Slack</span><span className={styles.footerLinks}><Link href="/support">Support</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></span></footer>
  </div>;
