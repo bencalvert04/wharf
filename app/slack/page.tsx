@@ -1,7 +1,7 @@
 import type {Metadata} from 'next';
 import Link from 'next/link';
 import {Lato} from 'next/font/google';
-import {ArrowRight, ArrowUpRight, AtSign, CalendarCheck, CalendarPlus, Check, CircleAlert, EyeOff, Lock, MessageSquareText, ShieldCheck, Sparkles, UserCheck} from 'lucide-react';
+import {ArrowRight, ArrowUpRight, AtSign, CalendarCheck, CalendarPlus, Check, CircleAlert, EyeOff, Lock, MessageSquareText, ShieldCheck, UserCheck} from 'lucide-react';
 import SlackEntrance from '@/components/SlackEntrance';
 import SlackPageHeader from '@/components/SlackPageHeader';
 import SlackDemo from '@/components/SlackDemo';
@@ -46,7 +46,6 @@ export default async function SlackPage({searchParams}:{searchParams:Promise<{in
    <section className={styles.hero}>
     <InteractiveGrid/>
     <div className={styles.heroCopy} data-hero-copy>
-     <span className="small-tag"><Sparkles size={12}/> Wharf for Slack · Free pilot</span>
      <h1>Wharf lives where your team is already working.</h1>
      {status&&<p role="status" className={`${styles.status} ${status.tone==='success'?styles.success:styles.error}`}>{status.tone==='success'?<Check size={16}/>:<CircleAlert size={16}/>}<span>{status.text}</span></p>}
      <div className={styles.actions}>{cta}<Link href="/support" className="outline pill">Setup guide</Link></div>
