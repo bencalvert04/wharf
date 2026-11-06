@@ -1,3 +1,4 @@
+import {conversationUrl} from '../lib/conversation-url.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {loadWithMocks} from './module-fixture.ts';
@@ -10,7 +11,7 @@ async function complete({refresh=true,saved=false,permission=true,meeting=true,p
  const {GET}=loadWithMocks<{GET:(request:Request)=>Promise<Response>}>(new URL('../app/api/auth/google/callback/route.ts',import.meta.url),{
   '@/lib/calendar-intent':{runCalendarIntent:(_intent:unknown,work:()=>Promise<unknown>)=>work(),bindCalendarAccount:async()=>{}},
   '@/lib/provider-switch-guard':{isStandaloneProviderAccount:()=>false,captureGoogleSwitch:async()=>({check:async()=>{},remove:async()=>{removed++}})},
-  '@/lib/planner-access':{},'next/server':{},'@/lib/slack-workflow':{},'@/lib/slack-attendance':{},'@/lib/agent-calendar-authorization':{},'@/lib/google-event-payload':{},
+  '@/lib/planner-access':{},'next/server':{},'@/lib/slack-workflow':{},'@/lib/conversation-url':{conversationUrl},'@/lib/slack-attendance':{},'@/lib/agent-calendar-authorization':{},'@/lib/google-event-payload':{},
   '@/lib/auth':{session:async()=>({id:'session',google_sub:null}),hash:()=> 'hashed',appUrl:()=> 'https://wharf.example',meeting:async()=>({id:'meeting',constraints:'{}'}),sql:()=>async(strings:TemplateStringsArray)=>strings.join('').includes('DELETE FROM oauth_states')?[flow]:[{id:'session'}]},
   '@/lib/calendar-invitation':{validEmail:()=>true},
   '@/lib/google':{google:()=>({getToken:async()=>({tokens:{id_token:'id',access_token:'access',...(refresh?{refresh_token:'refresh'}:{}),scope:permission?scope+(eventPermission?' https://www.googleapis.com/auth/calendar.events.owned':''):'openid'}}),verifyIdToken:async()=>({getPayload:()=>({sub:'google-user',email_verified:true,email:'user@example.test',name:'User',nonce:'nonce'})}),setCredentials:()=>{}})},

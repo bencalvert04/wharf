@@ -1,3 +1,4 @@
+import {conversationUrl} from '../lib/conversation-url.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
@@ -33,7 +34,7 @@ test('combined Google callback cannot remove an external connection after a newe
    '@/lib/calendar-intent':{runCalendarIntent,bindCalendarAccount},
    '@/lib/provider-switch-guard':{captureGoogleSwitch,isStandaloneProviderAccount},
    '@/lib/auth':{session:async()=>({id:'one',google_sub:'account'}),sql:()=>guardCalendarDatabase(routeDb),hash:(x:string)=>x,appUrl:()=> 'https://wharf.example',meeting:async()=>({id:'meeting',constraints:'{}'})},
-   '@/lib/planner-access':{},'next/server':{},'@/lib/slack-workflow':{},'@/lib/slack-attendance':{},'@/lib/agent-calendar-authorization':{},'@/lib/google-event-payload':{},
+   '@/lib/planner-access':{},'next/server':{},'@/lib/slack-workflow':{},'@/lib/conversation-url':{conversationUrl},'@/lib/slack-attendance':{},'@/lib/agent-calendar-authorization':{},'@/lib/google-event-payload':{},
    '@/lib/calendar-invitation':{validEmail:()=>true},'@/lib/calendar-access':{grantHasFreeBusy:()=>true},'@/lib/google-flow':{},
    '@/lib/google':{google:()=>({getToken:async()=>({tokens:{id_token:'id',access_token:'access',refresh_token:'refresh',scope:'freebusy'}}),verifyIdToken:async()=>({getPayload:()=>({sub:'account',email_verified:true,email:'person@example.test',nonce:'nonce'})}),setCredentials:()=>{}})},
    '@/lib/calendar-connection':{saveCalendarGrant:async()=>{},saveCalendarSnapshot:async()=>{
@@ -126,7 +127,7 @@ for(const provider of ['google','microsoft'])test(`${provider} callback rejects 
   };
   const mocks=provider==='google'?{
    ...common,'@/lib/provider-switch-guard':{isStandaloneProviderAccount:()=>false,captureGoogleSwitch:async()=>({check:async()=>{},remove:async()=>{}})},
-   '@/lib/planner-access':{},'next/server':{},'@/lib/slack-workflow':{},'@/lib/slack-attendance':{},'@/lib/agent-calendar-authorization':{},'@/lib/google-event-payload':{},'@/lib/google':{google:()=>({getToken:async()=>{transport++;throw Error('Unexpected provider call')}})},'@/lib/google-flow':{},'@/lib/calendar-connection':{},'@/lib/calendar-access':{},
+   '@/lib/planner-access':{},'next/server':{},'@/lib/slack-workflow':{},'@/lib/conversation-url':{conversationUrl},'@/lib/slack-attendance':{},'@/lib/agent-calendar-authorization':{},'@/lib/google-event-payload':{},'@/lib/google':{google:()=>({getToken:async()=>{transport++;throw Error('Unexpected provider call')}})},'@/lib/google-flow':{},'@/lib/calendar-connection':{},'@/lib/calendar-access':{},
   }:{...common,'@/lib/microsoft-calendar':{microsoftTokens:async()=>{transport++;throw Error('Unexpected provider call')}},'@/lib/provider-connections':{},'@/lib/provider-flow':{}};
   const route=loadWithMocks<{GET:(r:Request)=>Promise<Response>}>(new URL(`../app/api/auth/${provider}/callback/route.ts`,import.meta.url),mocks);
   const response=await route.GET(new Request(`https://wharf.example/api/auth/${provider}/callback?state=state&code=code`));

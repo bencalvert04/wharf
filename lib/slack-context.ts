@@ -1,5 +1,5 @@
 import {AsyncLocalStorage} from 'node:async_hooks';
-export type SlackWorkspace={teamId:string;botToken:string;botUserId:string;legacy?:boolean};
+export type SlackWorkspace={teamId:string;botToken:string;botUserId:string;legacy?:boolean;platform?:'discord'};
 const workspace=new AsyncLocalStorage<SlackWorkspace>();
 export function withSlackWorkspace<T>(installation:SlackWorkspace,work:()=>T):T{return workspace.run(installation,work)}
 export function currentSlackWorkspace(){return workspace.getStore()}

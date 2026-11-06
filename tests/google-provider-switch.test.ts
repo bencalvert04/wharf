@@ -1,3 +1,4 @@
+import {conversationUrl} from '../lib/conversation-url.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
@@ -55,7 +56,7 @@ for(const interleaving of ['availability','tokens','unchanged','google-account-s
   }};
   const routeDb=((strings:TemplateStringsArray,...values:unknown[])=>strings.join('').includes('DELETE FROM oauth_states')?Promise.resolve([{calendar_intent:{},purpose:'connect',meeting_id:'meeting',expected_sub:interleaving==='google-account-switch'?null:'google-user',nonce:'nonce',verifier:'verifier',connection_version:1,connection_id:oldId}]):(db as Function)(strings,...values)) as CalendarDatabase;
   const {GET}=loadWithMocks<{GET:(r:Request)=>Promise<Response>}>(new URL('../app/api/auth/google/callback/route.ts',import.meta.url),{
-   '@/lib/calendar-intent':intentMock,'@/lib/provider-switch-guard':{captureGoogleSwitch,isStandaloneProviderAccount},'@/lib/planner-access':{},'next/server':{},'@/lib/slack-workflow':{},'@/lib/slack-attendance':{},'@/lib/agent-calendar-authorization':{},'@/lib/google-event-payload':{},
+   '@/lib/calendar-intent':intentMock,'@/lib/provider-switch-guard':{captureGoogleSwitch,isStandaloneProviderAccount},'@/lib/planner-access':{},'next/server':{},'@/lib/slack-workflow':{},'@/lib/conversation-url':{conversationUrl},'@/lib/slack-attendance':{},'@/lib/agent-calendar-authorization':{},'@/lib/google-event-payload':{},
    '@/lib/auth':{session:async()=>({id:'session',google_sub:'google-user'}),sql:()=>routeDb,hash:(x:string)=>x,meeting:async()=>({id:'meeting',constraints:'{}'}),appUrl:()=> 'https://wharf.example'},
    '@/lib/calendar-invitation':{validEmail:()=>true},'@/lib/google':{google:()=>client},'@/lib/google-flow':{},'@/lib/calendar-connection':{prepareCalendarConsent:async()=>({version:1,connectionId:oldId}),saveCalendarGrant:async()=>{},saveCalendarSnapshot:calendar.saveCalendarSnapshot,joinWithSavedCalendar:async(row:unknown,sub:string,name:string,sessionId:string,inviteeId:unknown,googleOnly:boolean,check:()=>Promise<void>)=>{await check();snapshots++;return true}},'@/lib/calendar-access':{grantHasFreeBusy:()=>true},
   });

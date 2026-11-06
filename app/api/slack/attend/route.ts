@@ -1,3 +1,4 @@
+import {conversationUrl} from '@/lib/conversation-url';
 import {beginCalendarIntent,runCalendarIntent} from '@/lib/calendar-intent';
 import {claimAttendanceLink} from '@/lib/slack-attendance-store';
 import {sql,hash,session} from '@/lib/auth';
@@ -11,7 +12,7 @@ export async function GET(req:Request){
  const s=(await session(true))!;
  // A private, short-lived link binds only to the first browser session that opens it.
  const link=await claimAttendanceLink(sql(),hash(secret),s.id);
- if(!link)return new Response('This attendance link expired or was used. Click to attend again in Slack.',{status:410});
+ if(!link)return new Response('This attendance link expired or was used. Use the calendar button in your conversation again.',{status:410});
  const [r]=await sql()`SELECT * FROM slack_meetings WHERE id=${link.slack_meeting_id}`;
  try{
   const intent=await beginCalendarIntent(sql(),s.id,s.google_sub||null);
@@ -19,9 +20,9 @@ export async function GET(req:Request){
   const {row,inviteeId}=await attendanceMeeting(r,link.user_id);
   if(s.google_sub&&await joinWithSavedCalendar({id:row.id,constraints:row.constraints},s.google_sub,s.name||'Guest',s.id,inviteeId)){
    await completeSlackAttendance(link.id,s.id,s.google_sub);
-   return Response.redirect(`https://app.slack.com/client/${encodeURIComponent(r.team_id)}/${encodeURIComponent(r.channel_id)}`,303);
+   return Response.redirect(conversationUrl(r.team_id,r.channel_id),303);
   }
   return Response.redirect(await beginGoogleFlow(s.id,row.id,null,s.google_sub||null,inviteeId,'join',link.id),303);
   });
- }catch{return new Response('Could not join this meeting. Return to Slack and click to attend again.',{status:409})}
+ }catch{return new Response('Could not join this meeting. Return to your conversation and use the calendar button again.',{status:409})}
 }

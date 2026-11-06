@@ -132,3 +132,7 @@ console.log('Apple sign-in schema is ready.');
 
 const {slackInstallationsSchema}=await import('../db/slack-installations-schema.mjs');
 for(const statement of slackInstallationsSchema)await sql.query(statement);
+
+const {discordSchema}=await import('../db/discord-schema.mjs');
+for(const statement of discordSchema)await sql.query(statement);
+console.log('Discord transport schema is ready.');

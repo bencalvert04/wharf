@@ -2,6 +2,7 @@ import {sql} from './auth';
 import {openToken,sealToken} from './token-vault';
 import {withSlackWorkspace,type SlackWorkspace} from './slack-context';
 export async function slackInstallation(teamId:string):Promise<SlackWorkspace|null>{
+ if(/^discord:\d{17,20}$/.test(teamId)&&process.env.DISCORD_BOT_TOKEN&&process.env.DISCORD_APPLICATION_ID)return {teamId,botToken:process.env.DISCORD_BOT_TOKEN,botUserId:process.env.DISCORD_APPLICATION_ID,platform:'discord'};
  if(!/^T[A-Z0-9]+$/.test(teamId))return null;
  const [row]=await sql()`SELECT * FROM slack_installations WHERE team_id=${teamId}`;
  // A revoked installation is a tombstone: never fall back to the legacy token.

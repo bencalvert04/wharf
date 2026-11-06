@@ -6,7 +6,7 @@ export async function completeAttendanceLink(db:AttendanceDatabase,id:string,ses
  ) INSERT INTO slack_google_accounts(team_id,user_id,session_id,google_sub)
  SELECT team_id,user_id,${sessionId},${sub} FROM completed
  ON CONFLICT(team_id,user_id) DO UPDATE SET session_id=EXCLUDED.session_id,google_sub=EXCLUDED.google_sub RETURNING team_id,user_id`;
- if(!link)throw Error('Attendance link expired. Click to attend again in Slack.');
+ if(!link)throw Error('Attendance link expired. Use the calendar button in your conversation again.');
 }
 export async function claimAttendanceLink(db:AttendanceDatabase,id:string,sessionId:string){
  const [link]=await db`UPDATE slack_attendance_links SET session_id=${sessionId} WHERE id=${id}

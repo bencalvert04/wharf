@@ -240,8 +240,9 @@ function seed():Workspace{
  };
 }
 
-function rich(text:string):ReactNode{
- return text.split(/(@Wharf|@Sam Rivera|@Maya Chen)/i).map((part,i)=>/^@(wharf|sam rivera|maya chen)$/i.test(part)?<span key={i} className={styles.mention}>{part}</span>:part);
+function rich(text:string,platform='Slack'):ReactNode{
+ if(platform==='Discord')text=text.replace(/@Wharf/gi,'/wharf');
+ return text.split(/(@Wharf|\/wharf|@Sam Rivera|@Maya Chen)/i).map((part,i)=>/^(?:@(?:wharf|sam rivera|maya chen)|\/wharf)$/i.test(part)?<span key={i} className={styles.mention}>{part}</span>:part);
 }
 const now=()=>new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 
@@ -251,7 +252,8 @@ function Avatar({user}:{user:UserId|'wharf'|'slackbot'}){
  return <span className={styles.avatar} style={{background:USERS[user].color}}>{USERS[user].name[0]}</span>;
 }
 
-export default function SlackDemo({fontClass}:{fontClass:string}){
+export default function SlackDemo({fontClass='',platform='Slack'}:{fontClass?:string;platform?:'Slack'|'Discord'}){
+ const initialWorkspace=()=>{const value=seed();if(platform==='Discord')for(const channel of Object.values(value))channel.member=true;return value};
  const [workspace,setWorkspace]=useState<Workspace|null>(null);
  const [active,setActive]=useState<ChannelId>('design-sync');
  const [linked,setLinked]=useState(false);
@@ -265,7 +267,7 @@ export default function SlackDemo({fontClass}:{fontClass:string}){
  const jump=useRef(true);
 
  // Dates and time zones come from the visitor's browser, so build history after mount.
- useEffect(()=>{setWorkspace(seed());return()=>timers.current.forEach(clearTimeout)},[]);
+ useEffect(()=>{setWorkspace(initialWorkspace());return()=>timers.current.forEach(clearTimeout)},[]);
  useEffect(()=>{
   const el=scroller.current;if(!el)return;
   if(jump.current){jump.current=false;el.scrollTop=el.scrollHeight;return}
@@ -359,13 +361,13 @@ export default function SlackDemo({fontClass}:{fontClass:string}){
 
  function reset(){
   timers.current.forEach(clearTimeout);timers.current=[];
-  jump.current=true;setTyping(null);setBusy(false);setTip(false);setDraft('');setLinked(false);setActive('design-sync');setWorkspace(seed());
+  jump.current=true;setTyping(null);setBusy(false);setTip(false);setDraft('');setLinked(false);setActive('design-sync');setWorkspace(initialWorkspace());
  }
 
- const submit=(event:FormEvent)=>{event.preventDefault();send(draft)};
+ const submit=(event:FormEvent)=>{event.preventDefault();send(platform==='Discord'?draft.replace(/^\/wharf(?: request:)?\s*/i,'@Wharf '):draft)};
 
  function header(user:UserId|'wharf'|'slackbot',time:string,ephemeral=false){
-  const name=user==='wharf'?'Wharf':user==='slackbot'?'Slackbot':USERS[user].name;
+  const name=user==='wharf'?'Wharf':user==='slackbot'?(platform==='Discord'?'Discord':'Slackbot'):USERS[user].name;
   return <>
    {ephemeral&&<p className={styles.onlyYou}><Eye size={12}/> Only visible to you</p>}
    <p className={styles.name}>{name}{user==='wharf'&&<span className={styles.appBadge}>APP</span>}<time>{time}</time></p>
@@ -382,8 +384,8 @@ export default function SlackDemo({fontClass}:{fontClass:string}){
   if(m.kind==='system')return <div key={m.id} className={styles.msg}><Avatar user="wharf"/><div>{header('wharf',m.time)}<p className={styles.systemText}>{m.text}</p></div></div>;
   if(m.kind==='text'){
    const grouped=previous?.kind==='text'&&previous.user===m.user&&previous.time===m.time;
-   if(grouped)return <div key={m.id} className={`${styles.msg} ${styles.grouped}`}><time className={styles.gutterTime}>{m.time.replace(/ (AM|PM)$/,'')}</time><div className={styles.grow}><p>{rich(m.text)}</p>{reactionRow(channel,m)}</div></div>;
-   return <div key={m.id} className={styles.msg}><Avatar user={m.user}/><div className={styles.grow}>{header(m.user,m.time)}<p>{rich(m.text)}</p>{reactionRow(channel,m)}</div></div>;
+   if(grouped)return <div key={m.id} className={`${styles.msg} ${styles.grouped}`}><time className={styles.gutterTime}>{m.time.replace(/ (AM|PM)$/,'')}</time><div className={styles.grow}><p>{rich(m.text,platform)}</p>{reactionRow(channel,m)}</div></div>;
+   return <div key={m.id} className={styles.msg}><Avatar user={m.user}/><div className={styles.grow}>{header(m.user,m.time)}<p>{rich(m.text,platform)}</p>{reactionRow(channel,m)}</div></div>;
   }
   if(m.kind==='invite')return <div key={m.id} className={`${styles.msg} ${styles.ephemeral}`}><Avatar user="slackbot"/><div className={styles.grow}>
    {header('slackbot',m.time,true)}
@@ -430,19 +432,20 @@ export default function SlackDemo({fontClass}:{fontClass:string}){
  const sideButton=(id:ChannelId,label:ReactNode)=><button type="button" key={id} className={`${styles.sideItem} ${active===id?styles.activeChannel:''} ${workspace?.[id].unread&&active!==id?styles.unread:''}`} aria-current={active===id?'page':undefined} onClick={()=>open(id)}>{label}</button>;
 
  return <div className={styles.demo}>
-  <div className={`${styles.slack} ${fontClass}`} role="region" aria-label="Interactive Wharf for Slack demo">
+  <div className={`${styles.slack} ${platform==='Discord'?styles.discord:''} ${fontClass}`} role="region" aria-label={`Interactive Wharf for ${platform} demo`}>
    <div className={styles.titlebar} aria-hidden="true">
     <span className={styles.lights}><i/><i/><i/></span>
     <span className={styles.search}><Search size={12}/>Search Northwind</span>
    </div>
    <div className={styles.workspace}>
+    {platform==='Discord'&&<aside className={styles.serverRail} aria-label="Demo server"><span>⚓</span><span className={styles.selectedServer}>N</span><span>+</span></aside>}
     <nav className={styles.sidebar} aria-label="Demo channels">
      <p className={styles.team}>Northwind <ChevronDown size={13}/></p>
-     <p className={`${styles.sideItem} ${styles.sideStatic}`}><MessagesSquare size={15}/>Threads</p>
-     <p className={`${styles.sideItem} ${styles.sideStatic}`}><AtSign size={15}/>Mentions &amp; reactions</p>
-     <p className={styles.sideHeading}><ChevronDown size={12}/>Channels</p>
+     <p className={`${styles.sideItem} ${styles.sideStatic}`}><MessagesSquare size={15}/>{platform==='Discord'?'Browse channels':'Threads'}</p>
+     <p className={`${styles.sideItem} ${styles.sideStatic}`}><AtSign size={15}/>{platform==='Discord'?'Events':'Mentions & reactions'}</p>
+     <p className={styles.sideHeading}><ChevronDown size={12}/>{platform==='Discord'?'TEXT CHANNELS':'Channels'}</p>
      {CHANNELS.map(c=>sideButton(c.id,<><Hash size={15}/>{c.id}</>))}
-     <p className={styles.sideHeading}><ChevronDown size={12}/>Apps</p>
+     <p className={styles.sideHeading}><ChevronDown size={12}/>{platform==='Discord'?'APPS':'Apps'}</p>
      {sideButton('wharf',<><img className={styles.appIcon} src="/slack/wharf-avatar.png" alt="" width={18} height={18}/>Wharf</>)}
     </nav>
     <div className={styles.channel}>
@@ -458,8 +461,8 @@ export default function SlackDemo({fontClass}:{fontClass:string}){
        <img src="/slack/wharf-avatar.png" alt="" width={72} height={72}/>
        <p className={styles.appIntroName}>Wharf <span className={styles.appBadge}>APP</span></p>
        <p>Find a shared meeting time and send calendar invitations.</p>
-       <p className={styles.context}>Wharf works in public channels and group DMs. Add it to a conversation and mention <span className={styles.mention}>@Wharf</span> with a day, time window, and duration.</p>
-       <div className={styles.blockActions}><a href="/api/slack/install" className={styles.btnPrimary}>Add Wharf to your Slack</a></div>
+       <p className={styles.context}>Wharf works in {platform==='Discord'?'server channels':'public channels and group DMs'}. Add it to a conversation and mention <span className={styles.mention}>{platform==='Discord'?'/wharf':'@Wharf'}</span> with a day, time window, and duration.</p>
+       <div className={styles.blockActions}><a href={`/api/${platform.toLowerCase()}/install`} className={styles.btnPrimary}>Add Wharf to your {platform}</a></div>
       </div>:channel&&<>
        <div className={styles.channelIntro}><p className={styles.channelIntroTitle}><Hash size={20}/>{active}</p><p>This is the very beginning of the <b>#{active}</b> channel. {meta?.topic}.</p></div>
        {channel.messages.map((m,i)=><Fragment key={m.id}>{render(active,m,channel.messages[i-1])}</Fragment>)}
@@ -470,11 +473,11 @@ export default function SlackDemo({fontClass}:{fontClass:string}){
        {isApp?<p className={styles.disabledNote}>Sending messages to this app has been turned off.</p>:<input value={draft} onChange={e=>setDraft(e.target.value)} placeholder={`Message #${active}`} aria-label={`Message #${active}`}/>}
        <div className={styles.composerTools}>
         <Plus size={15} aria-hidden="true"/><span aria-hidden="true">Aa</span><Smile size={15} aria-hidden="true"/>
-        <button type="button" className={styles.toolButton} aria-label="Mention Wharf" disabled={isApp} onClick={()=>setDraft(d=>/@wharf/i.test(d)?d:`@Wharf ${d}`)}><AtSign size={15}/></button>
+        <button type="button" className={styles.toolButton} aria-label={platform==='Discord'?'Use /wharf command':'Mention Wharf'} disabled={isApp} onClick={()=>setDraft(d=>platform==='Discord'?(/^\/wharf/i.test(d)?d:`/wharf ${d}`):(/@wharf/i.test(d)?d:`@Wharf ${d}`))}><AtSign size={15}/></button>
         <button type="submit" className={styles.send} aria-label="Send message" disabled={isApp||!draft.trim()||busy}><SendHorizontal size={15}/></button>
        </div>
       </div>
-      <p className={styles.typing} aria-live="polite">{typing===active?<><span className={styles.typingDots}><i/><i/><i/></span><b>Wharf</b> is typing…</>:tip&&!isApp?<span>Wharf only replies when you mention it. Start your message with <b>@Wharf</b>.</span>:'\u00a0'}</p>
+      <p className={styles.typing} aria-live="polite">{typing===active?<><span className={styles.typingDots}><i/><i/><i/></span><b>Wharf</b> is typing…</>:tip&&!isApp?<span>{platform==='Discord'?'Use the command to ask Wharf. Start your message with ':'Wharf only replies when you mention it. Start your message with '}<b>{platform==='Discord'?'/wharf':'@Wharf'}</b>.</span>:'\u00a0'}</p>
      </form>
     </div>
    </div>
