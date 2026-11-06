@@ -1,10 +1,13 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {CalendarDays,ChevronDown,ChevronLeft,ChevronRight} from 'lucide-react';
+import {meetingDateShortcuts} from '@/lib/date-shortcuts';
 const parse=(value:string)=>new Date(value+'T12:00:00Z');
 const iso=(value:Date)=>value.toISOString().slice(0,10);
 const label=(value:string)=>parse(value).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
-export default function DatePicker({start,end,onChange}:{start:string;end:string;onChange:(start:string,end:string)=>void}){
+export default function DatePicker({start,end,onChange,shortcutZone}:{start:string;end:string;onChange:(start:string,end:string)=>void;shortcutZone?:string}){
+ const [shortcuts,setShortcuts]=useState<ReturnType<typeof meetingDateShortcuts>|null>(null);
+ useEffect(()=>{if(!shortcutZone)return;const refresh=()=>setShortcuts(meetingDateShortcuts(shortcutZone));refresh();window.addEventListener('focus',refresh);const timer=setInterval(refresh,60000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[shortcutZone]);
  const [open,setOpen]=useState(false),[month,setMonth]=useState(start.slice(0,7)),[draft,setDraft]=useState<string|null>(null),[hover,setHover]=useState<string|null>(null);
  const root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null);
  useEffect(()=>{if(!open)return;const outside=(event:PointerEvent)=>{if(!root.current?.contains(event.target as Node)){if(draft)onChange(draft,draft);setDraft(null);setOpen(false)}};document.addEventListener('pointerdown',outside);return()=>document.removeEventListener('pointerdown',outside)},[open,draft,onChange]);
@@ -14,7 +17,13 @@ export default function DatePicker({start,end,onChange}:{start:string;end:string
  function shift(amount:number){setMonth(iso(new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth()+amount,1))).slice(0,7));setHover(null)}
  function close(){setDraft(null);setOpen(false);trigger.current?.focus()}
  function select(day:string){if(!draft){setDraft(day);setHover(null);return}onChange(day<draft?day:draft,day<draft?draft:day);close()}
+ function quickDate(kind:'tomorrow'|'week'){const fresh=meetingDateShortcuts(shortcutZone!);setShortcuts(fresh);onChange(kind==='tomorrow'?fresh.tomorrow:fresh.nextWeekStart,kind==='tomorrow'?fresh.tomorrow:fresh.nextWeekEnd);setDraft(null);setHover(null);setOpen(false)}
  return <div className={'date-picker'+(singleDay?' is-single':'')} ref={root} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();close()}}}>
+ {shortcutZone&&<div className="date-shortcuts" role="group" aria-label="Quick date choices">
+ <button type="button" aria-pressed={!!shortcuts&&start===shortcuts.tomorrow&&end===shortcuts.tomorrow} onClick={()=>quickDate('tomorrow')}>Tomorrow</button>
+ <button type="button" title="Next Monday through Friday" aria-pressed={!!shortcuts&&start===shortcuts.nextWeekStart&&end===shortcuts.nextWeekEnd} onClick={()=>quickDate('week')}>Next week</button>
+ <button type="button" aria-haspopup="dialog" aria-expanded={open} onClick={()=>{setMonth(start.slice(0,7));setDraft(null);setHover(null);setOpen(true)}}>Choose dates</button>
+ </div>}
  <button ref={trigger} id="meeting-dates" type="button" className="date-trigger" aria-haspopup="dialog" aria-expanded={open} aria-label={singleDay?`Date: ${label(start)}`:`Date range: ${label(start)} to ${label(end)}`} onClick={()=>{if(open){if(draft)onChange(draft,draft);close()}else{setMonth(start.slice(0,7));setDraft(null);setHover(null);setOpen(true)}}}><CalendarDays size={15}/><span>{label(start)}{!singleDay&&<> <span className="date-separator">→</span> {label(end)}</>}</span><ChevronDown size={14}/></button>
  {open&&<div className="date-popover" role="dialog" aria-label="Choose dates">
  <div className="date-month"><button type="button" className="icon-button" aria-label="Previous month" onClick={()=>shift(-1)}><ChevronLeft size={17}/></button><strong>{first.toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'})}</strong><button type="button" className="icon-button" aria-label="Next month" onClick={()=>shift(1)}><ChevronRight size={17}/></button></div>
