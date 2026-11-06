@@ -47,7 +47,7 @@ export default async function SlackPage({searchParams}:{searchParams:Promise<{in
     <InteractiveGrid/>
     <div className={styles.heroCopy} data-hero-copy>
      <span className="small-tag"><Sparkles size={12}/> Wharf for Slack · Free pilot</span>
-     <h1>Wharf lives where your team is already working</h1>
+     <h1>Wharf lives where your team is already working.</h1>
      {status&&<p role="status" className={`${styles.status} ${status.tone==='success'?styles.success:styles.error}`}>{status.tone==='success'?<Check size={16}/>:<CircleAlert size={16}/>}<span>{status.text}</span></p>}
      <div className={styles.actions}>{cta}<Link href="/support" className="outline pill">Setup guide</Link></div>
      <p className={styles.fine}>Your workspace may require an administrator to approve installation.</p>
