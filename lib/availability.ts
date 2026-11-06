@@ -1,7 +1,7 @@
 export type Constraints = { title:string; openJoin?:boolean; demo?:boolean; sampleCount?:number; start:string; end:string; duration:number; zone:string; from:string; to:string; days:number[]; windowStart?:string; windowEnd?:string };
 export type Interval = {start:number; end:number};
 export type Attendee = {name:string; busy:Interval[]};
-export type Window = Interval & {date:string; people:string[]};
+export type Window = Interval & {date:string; people:string[]; conflicts?:string[]};
 const formatters = new Map<string,Intl.DateTimeFormat>();
 export function localParts(t:number,zone:string) {
  if(!formatters.has(zone))formatters.set(zone,new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}));
@@ -23,10 +23,34 @@ export function shared(c:Constraints,people:Attendee[]):Window[] {
  for(const person of people)for(const busy of person.busy){ windows=windows.flatMap(w=>busy.end<=w.start||busy.start>=w.end?[w]:[{...w,end:Math.min(w.end,busy.start)},{...w,start:Math.max(w.start,busy.end)}].filter(x=>x.end>x.start)); }
  return windows.map(w=>{let start=Math.ceil(w.start/60000)*60000;while(start<w.end&&Number(localParts(start,c.zone).time.slice(3))%15!==0)start+=60000;return {...w,start,people:people.map(p=>p.name)}}).filter(w=>w.end-w.start>=15*60000);
 }
-export function alternatives(c:Constraints,people:Attendee[]):Window[]{
+export function alternatives(c:Constraints,people:Attendee[],now=Date.now()):Window[]{
  const result:Window[]=[];
- for(const w of allowed(c)){for(let t=w.start;t+c.duration*60000<=w.end;t+=60000){if(Number(localParts(t,c.zone).time.slice(3))%15)continue;const end=t+c.duration*60000;const free=people.filter(p=>!p.busy.some(b=>b.start<end&&b.end>t)).map(p=>p.name);if(!free.length)continue;const prev=result.at(-1);if(prev&&prev.date===w.date&&prev.people.join()===free.join()&&t<=prev.end)prev.end=end;else result.push({start:t,end,date:w.date,people:free});}}
+ const duration=c.duration*60000;
+ for(const range of allowed(c)){
+  let previous:Window|undefined;
+  let previousRoster='';
+  for(let start=Math.max(range.start,Math.floor(now/60000)*60000+60000);start+duration<=range.end;start+=60000){
+   if(Number(localParts(start,c.zone).time.slice(3))%15)continue;
+   const end=start+duration;
+   const free:string[]=[],conflicts:string[]=[];
+   const roster=people.map(person=>{
+    const busy=person.busy.some(block=>block.start<end&&block.end>start);
+    (busy?conflicts:free).push(person.name);
+    return busy?'1':'0';
+   }).join('');
+   if(!free.length)continue;
+   if(previous&&previousRoster===roster&&start===previous.end-duration+900000)previous.end=end;
+   else{
+    previous={start,end,date:range.date,people:free,conflicts};
+    previousRoster=roster;
+    result.push(previous);
+   }
+  }
+ }
  return result.sort((a,b)=>b.people.length-a.people.length||a.start-b.start);
+}
+export function hasFutureSharedSlot(windows:Window[],duration:number,now=Date.now()){
+ return windows.some(w=>w.start+Math.max(0,Math.floor((now-w.start)/900000)+1)*900000+duration*60000<=w.end);
 }
 export function validate(c:Constraints) {
  if(!c||typeof c.title!=='string'||c.title.length>100)throw Error('Give your meeting a title of up to 100 characters.');

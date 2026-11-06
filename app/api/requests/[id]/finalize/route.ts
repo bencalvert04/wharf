@@ -5,7 +5,7 @@ import {plannerAccess} from '@/lib/planner-access';
 import {bookSlackWebChoice} from '@/lib/slack-web-booking';
 import {AgentError} from '@/lib/agent-api';
 import {session,meeting,sql,sameOrigin,json} from '@/lib/auth';
-import {availabilityRevision,validFinalSlot,type Participant} from '@/lib/finalization';
+import {availabilityRevision,validFinalSlot,validAlternativeSlot,type Participant} from '@/lib/finalization';
 import {validEmail} from '@/lib/calendar-invitation';
 import {deliverInvitations} from '@/lib/invitations';
 import {eventConnection,googleMeetingEvent,commitGoogleFinalization,deliverGoogleEvent,CalendarPermissionRequired} from '@/lib/google-meeting-events';
@@ -21,7 +21,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   if(c.demo||(row.agent_request_id&&!c.openJoin&&!access.slack))return json({error:'Use a planner-created meeting to send calendar invitations.'},400);
   let input;try{input=await req.json()}catch{return json({error:'Invalid meeting time.'},400)}
   if(!input||typeof input!=='object')return json({error:'Invalid meeting time.'},400);
-  const {start,end,revision}=input;
+  const {start,end,revision,acceptConflicts}=input;
   if(access.slack&&row.agent_request_id){
    const people=await sql()`SELECT google_sub,name,email,busy FROM attendees WHERE meeting_id=${id} ORDER BY google_sub` as Participant[];
    if(!row.final_time&&revision!==availabilityRevision(people))return json({error:'Attendees changed. Refresh and select a time again.'},409);
@@ -37,7 +37,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    if(!s.google_sub||!people.some(p=>p.google_sub===s.google_sub)||!validEmail(s.email))return json({error:'Join with your calendar first to organize this meeting.'},409);
    if(people.some(p=>!validEmail(p.email)))return json({error:'An attendee needs to sign in again and rejoin to provide a verified invitation email.'},409);
    if(revision!==availabilityRevision(people))return json({error:'Attendees changed. Refresh and select a valid time again.'},409);
-   if(!validFinalSlot(c,people,start,end))return json({error:'Choose a future time that fits the meeting length and everyone’s availability.'},400);
+   if(!validFinalSlot(c,people,start,end)&&!(acceptConflicts===true&&validAlternativeSlot(c,people,start,end)))return json({error:'Choose a future time that fits the meeting length and everyone’s availability.'},400);
    const external=(await providerConnection(s.google_sub))?.credential||/^(microsoft|icloud|apple):/.test(s.google_sub);
    if(external){
     if(!invitationsConfigured())return json({error:'Calendar invitation email delivery needs to be configured before this meeting can be finalized.'},503);
