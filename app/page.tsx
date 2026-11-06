@@ -4,6 +4,9 @@ import {useState,useMemo,useEffect,useLayoutEffect} from 'react';
 import {flushSync} from 'react-dom';
 import {samplePeople,demoConstraints} from '@/lib/demo';
 import {beginInviteCopy,type InviteCopy} from '@/lib/invite-clipboard';
+import ManualAvailability from '@/components/ManualAvailability';
+import {manualWindows} from '@/lib/manual-availability';
+import AttendanceMethod from '@/components/AttendanceMethod';
 import AttendanceComplete from '@/components/AttendanceComplete';
 import CalendarPicker,{type CalendarChoice} from '@/components/CalendarPicker';
 import AccountButton from '@/components/AccountButton';
@@ -28,6 +31,11 @@ export default function Home(){
  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),10000);return()=>clearTimeout(timer)},[notice]);
  useEffect(()=>{if(!error)return;const timer=setTimeout(()=>setError(''),10000);return()=>clearTimeout(timer)},[error]);
  const [attendanceComplete,setAttendanceComplete]=useState(false);
+ const [manualOpen,setManualOpen]=useState(false);
+ const [attendanceMethodOpen,setAttendanceMethodOpen]=useState(false);
+ const [manualPreview,setManualPreview]=useState(false);
+ const manualPreviewData=useMemo(()=>{if(!manualPreview)return undefined;const constraints={...demoConstraints(),title:'Project planning'};return {constraints,windows:manualWindows(constraints,samplePeople(constraints).slice(0,2)),revision:0}},[manualPreview]);
+ useEffect(()=>{if(process.env.NODE_ENV==='development'&&new URLSearchParams(location.search).get('preview')==='manual-availability'){setManualPreview(true);setManualOpen(true)}},[]);
  useEffect(()=>{if(process.env.NODE_ENV==='development'&&new URLSearchParams(location.search).get('preview')==='attendance')setAttendanceComplete(true)},[]);
  const [backTarget,setBackTarget]=useState<'home'|'create'|'pending'>('pending');
  useEffect(()=>{const pop=()=>location.reload();window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop)},[]);
@@ -46,7 +54,20 @@ export default function Home(){
  function changeTheme(value:'system'|'light'|'dark'){setTheme(value);try{localStorage.setItem('wharf-theme',value)}catch{}}
  const [hoveredAlternative,setHoveredAlternative]=useState<Window|null>(null);
  const [selectedRevision,setSelectedRevision]=useState<string|null>(null);
- const [live,setLive]=useState<{attendees:{name:string;sample?:boolean}[];windows:Window[];bestWindows:Window[];joined:boolean;canRejoin?:boolean;canView:boolean;tracked?:boolean;canBookAlternative?:boolean;isPlanner:boolean;revision:string;finalTime:{start:number;end:number}|null;calendar?:{status:'created'|'pending';htmlLink:string|null;error:string|null}|null;delivery?:{total:number;pending:number;needsReview:number}}|null>(null);
+ const [live,setLive]=useState<{attendees:{name:string;sample?:boolean}[];windows:Window[];bestWindows:Window[];joined:boolean;canEnterManual?:boolean;canRejoin?:boolean;canView:boolean;tracked?:boolean;canBookAlternative?:boolean;isPlanner:boolean;revision:string;finalTime:{start:number;end:number}|null;calendar?:{status:'created'|'pending';htmlLink:string|null;error:string|null}|null;delivery?:{total:number;pending:number;needsReview:number}}|null>(null);
+ useEffect(() => {
+  if (process.env.NODE_ENV !== 'development' ||
+      new URLSearchParams(location.search).get('preview') !== 'manual-entry') return;
+  setManualPreview(true);
+  setDemo(false);
+  setView('results');
+  setC({...demoConstraints(), title: 'Project planning'});
+  setLive({
+   attendees: [], windows: [], bestWindows: [], joined: false,
+   canEnterManual: true, canView: false, isPlanner: false,
+   revision: 'preview', finalTime: null,
+  });
+ }, []);
  useEffect(()=>{
   if(!meeting||!live)return;
   const url=new URL(location.href);
@@ -83,7 +104,7 @@ export default function Home(){
   if(!document.startViewTransition||window.matchMedia('(prefers-reduced-motion: reduce)').matches){change();return}
   document.startViewTransition(()=>flushSync(change));
  }
- function resetState(){setAttendanceComplete(false);setCalendarPermission(false);setInvitationName('');setC(v=>({...v,demo:false,days:[0,1,2,3,4,5,6]}));setView('create');setDemo(false);setMeeting('');setLive(null);setError('');setSelected(null);setWeek(0);}
+ function resetState(){setAttendanceComplete(false);setManualOpen(false);setManualPreview(false);setCalendarPermission(false);setInvitationName('');setC(v=>({...v,demo:false,days:[0,1,2,3,4,5,6]}));setView('create');setDemo(false);setMeeting('');setLive(null);setError('');setSelected(null);setWeek(0);}
  function reset(){navigate(()=>{resetState();history.pushState({},'','/?view=new')})}
  function goHome(){navigate(()=>{resetState();setView('home');history.pushState({},'','/')})}
  function showPending(){navigate(()=>{setView('pending');setError('');setSelected(null);history.pushState({},'','/?view=pending')})}
@@ -109,7 +130,9 @@ export default function Home(){
    if(connect)await connectCalendar(d.id,provider);
   }catch(e){invitationCopy?.cancel();setError((e as Error).message);if(connect)throw e}finally{setLoading(false)}
  }
- async function attend(){
+ async function attend(useCalendar=false){
+  if(!useCalendar&&(live?.canEnterManual||manualPreview)){setAttendanceMethodOpen(true);return}
+  if(manualPreview){setModal(true);return}
   let invitationCopy:InviteCopy|undefined;
   setLoading(true);
   try{
@@ -124,7 +147,7 @@ export default function Home(){
   setLoading(true);setError('');
   try{const r=await fetch('/api/auth/calendar/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider,meetingId:id,invitationToken:invitationFor(id)})});const d=await r.json();if(!r.ok)throw Error(d.error);location.assign(d.joined?`/?meeting=${encodeURIComponent(id)}&calendar=joined`:d.url)}finally{setLoading(false)}
  }
- async function chooseCalendar(provider:CalendarChoice){if(meeting&&!demo)await connectCalendar(meeting,provider);else await create(true,undefined,provider)}
+ async function chooseCalendar(provider:CalendarChoice){if(manualPreview){setModal(false);setNotice('This preview lets you try entering times manually.');return}if(meeting&&!demo)await connectCalendar(meeting,provider);else await create(true,undefined,provider)}
 
  async function leave(){setLoading(true);try{const r=await fetch('/api/requests/'+meeting+'/leave',{method:'POST'});if(!r.ok)throw Error('Could not remove availability.');const d=await fetch('/api/requests/'+meeting).then(r=>r.json());setLive(d);setSelected(null)}catch(e){setError((e as Error).message)}finally{setLoading(false)}}
  async function enableCalendarInvitations(){
@@ -177,7 +200,7 @@ export default function Home(){
  <div className="field"><label>Meeting length</label><div className="segments">{[15,30,45,60].map(n=><button type="button" key={n} className={c.duration===n?'chosen':''} onClick={()=>update('duration',n)}>{n} min</button>)}<select aria-label="Other meeting length" className={[15,30,45,60].includes(c.duration)?'':'chosen'} value={[15,30,45,60].includes(c.duration)?'':c.duration} onChange={e=>update('duration',Number(e.target.value))}><option value="" disabled>More</option>{[90,120,180].map(n=><option key={n} value={n}>{n} min</option>)}</select></div></div>
  <div className="field"><label>Between these hours</label><div className="hours"><input aria-label="Earliest time" type="time" required value={c.from} onChange={e=>update('from',e.target.value)}/><span>and</span><input aria-label="Latest time" type="time" required value={c.to} onChange={e=>update('to',e.target.value)}/></div></div>
  <label className="field">Time zone<div className="select-wrap"><Globe2 size={15}/><select value={c.zone} onPointerDown={e=>{e.currentTarget.dataset.focusMode='pointer'}} onKeyDown={e=>{e.currentTarget.dataset.focusMode='keyboard'}} onBlur={e=>{delete e.currentTarget.dataset.focusMode}} onChange={e=>update('zone',e.target.value)}>{zones.map(z=><option key={z} value={z}>{zoneLabel(z)}</option>)}</select></div></label>
- <div className="form-bottom"><button type="button" className="google-button" disabled={loading} onClick={attend}><CalendarDays size={18}/> Link calendar & create <ArrowRight size={16}/></button><button type="submit" className="text-button" disabled={loading}>{loading?'Creating…':'Create a link without joining'} <ArrowUpRight size={13}/></button><p className="micro">Meeting details are fixed once the link is created.</p></div>
+ <div className="form-bottom"><button type="button" className="google-button" disabled={loading} onClick={()=>attend()}><CalendarDays size={18}/> Link calendar & create <ArrowRight size={16}/></button><button type="submit" className="text-button" disabled={loading}>{loading?'Creating…':'Create a link without joining'} <ArrowUpRight size={13}/></button><p className="micro">Meeting details are fixed once the link is created.</p></div>
  </form></section>
  <aside className="preview-aside"><div className="preview-card"><div className="preview-heading"><h2>Shared availability</h2><p>Wharf overlays everyone’s busy times and keeps the gaps that fit your meeting.</p></div><div className="mini-calendar"><div className="mini-labels"><span/><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span></div><div className="mini-body"><div className="mini-times"><span>9 AM</span><span>11 AM</span><span>1 PM</span><span>3 PM</span></div>{[0,1,2,3,4].map((day)=><div key={day} className="mini-column">{[0,1,2,3].map(n=><div className="mini-line" key={n}/>)}<div className="busy-block" style={{top:[12,44,3,25,52][day]+'%',height:[23,20,30,27,18][day]+'%'}}/><div className="free-block" style={{top:[50,12,52,65,16][day]+'%',height:'18%'}}/></div>)}</div><div className="mini-legend"><span><i/>Everyone free</span><span><i className="busy"/>Busy</span></div></div></div><div className="slack-note"><Hash size={15} aria-hidden="true"/><span>Wharf works in Slack, too.</span></div>
  </aside></div></>}
@@ -191,7 +214,7 @@ export default function Home(){
  {people.length>0&&!hasSharedTime&&<p className="availability-note">{showAlternatives
   ?best.length?'Deeper blue means more people can attend. Hover for details, or tap to select.':'No future start times fit any attendee.'
   :`No shared window fits ${c.duration} minutes. Try Best alternatives to see who can attend.`}</p>}
- <div className="calendar-scroll"><div className="calendar"><div className="cal-head"><span className="tz">Local</span>{shownDates.map(d=><div key={d}><span>{dateLabel(d,{weekday:'short'})}</span><strong>{dateLabel(d,{day:'numeric'})}</strong></div>)}</div><div className="cal-body"><div className="cal-times">{ticks.map(m=><span key={m} style={{top:(m-startMinute)/(endMinute-startMinute)*100+'%'}}>{calendarTickLabel(m)}</span>)}</div>{shownDates.map(d=><div className={'cal-day '+(!c.days.includes(new Date(d+'T12:00Z').getUTCDay())?'off':'')} key={d}>{ticks.map(m=><div className="hour-line" key={m} style={{top:(m-startMinute)/(endMinute-startMinute)*100+'%'}}/>)}{visibleWindows.filter(w=>w.date===d).map((w,i)=>{const from=startMinute,to=endMinute;const parts=localParts(w.start,c.zone).time;const start=Number(parts.slice(0,2))*60+Number(parts.slice(3));return <AvailabilityWindow key={`${w.start}-${w.end}-${w.people.join(',')}`} window={w} bestMatch={showAlternatives&&w.people.length===bestAttendance} duration={c.duration} zone={c.zone} selected={selected} onPreview={setHoveredAlternative} onSelect={slot=>{setSelected(slot);setSelectedRevision(live?.revision??null)}} style={{top:(start-from)/(to-from)*100+'%',height:(w.end-w.start-(w.conflicts?.length?(c.duration-15)*60000:0))/60000/(to-from)*100+'%'}}/>})}</div>)}{!people.length&&<div className="empty-cal"><CalendarDays size={25}/><button className="primary" onClick={attend}>{live?.canRejoin?'Rejoin meeting':"I’m attending"}</button></div>}</div></div></div><div className="calendar-footer">{showAlternatives&&best.length>0?<><span><i/> More attendees available with deeper shading</span></>:<span><i/> Available</span>}</div>
+ <div className="calendar-scroll"><div className="calendar"><div className="cal-head"><span className="tz">Local</span>{shownDates.map(d=><div key={d}><span>{dateLabel(d,{weekday:'short'})}</span><strong>{dateLabel(d,{day:'numeric'})}</strong></div>)}</div><div className="cal-body"><div className="cal-times">{ticks.map(m=><span key={m} style={{top:(m-startMinute)/(endMinute-startMinute)*100+'%'}}>{calendarTickLabel(m)}</span>)}</div>{shownDates.map(d=><div className={'cal-day '+(!c.days.includes(new Date(d+'T12:00Z').getUTCDay())?'off':'')} key={d}>{ticks.map(m=><div className="hour-line" key={m} style={{top:(m-startMinute)/(endMinute-startMinute)*100+'%'}}/>)}{visibleWindows.filter(w=>w.date===d).map((w,i)=>{const from=startMinute,to=endMinute;const parts=localParts(w.start,c.zone).time;const start=Number(parts.slice(0,2))*60+Number(parts.slice(3));return <AvailabilityWindow key={`${w.start}-${w.end}-${w.people.join(',')}`} window={w} bestMatch={showAlternatives&&w.people.length===bestAttendance} duration={c.duration} zone={c.zone} selected={selected} onPreview={setHoveredAlternative} onSelect={slot=>{setSelected(slot);setSelectedRevision(live?.revision??null)}} style={{top:(start-from)/(to-from)*100+'%',height:(w.end-w.start-(w.conflicts?.length?(c.duration-15)*60000:0))/60000/(to-from)*100+'%'}}/>})}</div>)}{!people.length&&<div className="empty-cal"><CalendarDays size={25}/><button className="primary" onClick={()=>attend()}>{live?.canRejoin?'Rejoin meeting':"I’m attending"}</button></div>}</div></div></div><div className="calendar-footer">{showAlternatives&&best.length>0?<><span><i/> More attendees available with deeper shading</span></>:<span><i/> Available</span>}</div>
 </section>
  <aside className={`attendee-panel${demo?' demo-panel':''}`}>{selected&&<div className="selection booking-selection" data-meeting-selection="true"><div><strong>{dateLabel(selected.date,{weekday:'long',month:'short',day:'numeric'})} · {timeLabel(selected.start,c.zone)} – {timeLabel(selected.end,c.zone)}</strong>{selected.conflicts?.length?<><p><b>{selected.people.length} of {selected.people.length+selected.conflicts!.length} available</b></p><p>{selected.people.join(', ')} can attend.</p><p className="slot-conflicts"><b>Conflicts with:</b> {selected.conflicts!.join(', ')}</p></>:<p>{selected.people.join(', ')} can attend.</p>}{!demo&&!c.demo&&live?.isPlanner&&!live.tracked&&!live.finalTime&&<><button className="primary full" disabled={loading||!live.joined||selected.end-selected.start!==c.duration*60000||selected.start<=Date.now()||(selectedAlternative?(!live.canBookAlternative||hasSharedTime):!fits.some(w=>selected.start>=w.start&&selected.end<=w.end))} onClick={finalize}>{loading?'Creating…':'Create meeting'}</button><p className="micro">{selectedAlternative&&!live.canBookAlternative?'This meeting requires a shared time to book.':live.joined?'Confirms the time and sends calendar invitations to everyone who joined.':"Choose I’m attending first to include your calendar and invitation."}</p></>}</div><button className="icon-button" aria-label="Close selected window" onClick={()=>setSelected(null)}><X size={16}/></button></div>}<div className="section-title"><span>Attendees</span><span>{String(people.length).padStart(2,'0')}</span></div>{people.map((person,index)=>{
   const available=inspectedAlternative?.people.includes(person.name);
@@ -202,7 +225,7 @@ export default function Home(){
    <div>{person.name}{person.sample&&<small>Sample calendar</small>}</div>
    {inspectedAlternative?<span className="attendee-slot-status" data-unavailable={unavailable&&!!status}>{status}</span>:<Check size={14}/>}
   </div>;
- })}{demo?<><div className="demo-controls"><label htmlFor="responses">Sample attendees <span>{count} / 4</span></label><input id="responses" type="range" min="1" max="4" step="1" aria-describedby="demo-slider-hint" value={count} onInput={e=>{setCount(Number(e.currentTarget.value));setAdjustedDemo(true);setSelected(null)}} onChange={e=>{setCount(Number(e.target.value));setAdjustedDemo(true);setSelected(null)}}/><div className="demo-slider-numbers" aria-hidden="true">{[1,2,3,4].map(n=><span key={n} className={count===n?'active':''}>{n}</span>)}</div><p id="demo-slider-hint" aria-live="polite" className={`demo-slider-hint${!adjustedDemo||count===4?' is-pulsing':''}${count===4?' try-own-schedule':''}`}><span className="demo-hint-copy demo-hint-slide" aria-hidden={count===4}><ArrowUp size={24} strokeWidth={2.5} aria-hidden="true"/>Slide to try more people</span><span className="demo-hint-copy demo-hint-own" aria-hidden={count!==4}><ArrowDown size={24} strokeWidth={2.5} aria-hidden="true"/>Now try with your own schedule</span></p></div><button className="primary full" disabled={loading} onClick={attend}>Try my calendar</button><p className="micro">Compare your availability with these sample calendars.</p><button className="outline full" onClick={reset}>Create meeting <ArrowRight size={14}/></button></>:live?.finalTime&&!live.tracked?<p className="micro">This meeting’s time is confirmed.</p>:live?.joined?<button disabled={loading} className="outline full" onClick={leave}>Remove my availability</button>:<button disabled={loading} className="outline full" onClick={attend}>{live?.canRejoin?'Rejoin meeting':"I’m attending"}</button>}
+ })}{demo?<><div className="demo-controls"><label htmlFor="responses">Sample attendees <span>{count} / 4</span></label><input id="responses" type="range" min="1" max="4" step="1" aria-describedby="demo-slider-hint" value={count} onInput={e=>{setCount(Number(e.currentTarget.value));setAdjustedDemo(true);setSelected(null)}} onChange={e=>{setCount(Number(e.target.value));setAdjustedDemo(true);setSelected(null)}}/><div className="demo-slider-numbers" aria-hidden="true">{[1,2,3,4].map(n=><span key={n} className={count===n?'active':''}>{n}</span>)}</div><p id="demo-slider-hint" aria-live="polite" className={`demo-slider-hint${!adjustedDemo||count===4?' is-pulsing':''}${count===4?' try-own-schedule':''}`}><span className="demo-hint-copy demo-hint-slide" aria-hidden={count===4}><ArrowUp size={24} strokeWidth={2.5} aria-hidden="true"/>Slide to try more people</span><span className="demo-hint-copy demo-hint-own" aria-hidden={count!==4}><ArrowDown size={24} strokeWidth={2.5} aria-hidden="true"/>Now try with your own schedule</span></p></div><button className="primary full" disabled={loading} onClick={()=>attend()}>Try my calendar</button><p className="micro">Compare your availability with these sample calendars.</p><button className="outline full" onClick={reset}>Create meeting <ArrowRight size={14}/></button></>:live?.finalTime&&!live.tracked?<p className="micro">This meeting’s time is confirmed.</p>:live?.joined?<button disabled={loading} className="outline full" onClick={leave}>Remove my availability</button>:<button disabled={loading} className="outline full" onClick={()=>attend()}>{live?.canRejoin?'Rejoin meeting':"I’m attending"}</button>}
  {!demo&&<p className="micro">Availability is saved when each person joins and does not update automatically.</p>}</aside></div></>}
  {view==='docs'&&<section className="docs"><h1>API for agents</h1><p>Create a meeting link for any group chat in one request. No signup or API key registration required.</p><div className="api-block"><a href="/api/openapi" target="_blank" rel="noreferrer" className="small-tag">OpenAPI spec ↗</a><p>POST /api/v1/meeting-links</p><pre>{`Content-Type: application/json
 Idempotency-Key: <your saved random UUID v4>
@@ -213,6 +236,12 @@ ${JSON.stringify({startDate:c.start,timezone:c.zone},null,2)}`}</pre></div><div 
  </main><footer><a href="/agents">For agents</a><a href="/privacy">Privacy</a></footer>
  {attendanceComplete&&<AttendanceComplete onClose={()=>setAttendanceComplete(false)}/>}
  {calendarPermission&&<div className="modal-backdrop" onClick={()=>!loading&&setCalendarPermission(false)}><section role="dialog" aria-modal="true" aria-labelledby="calendar-permission-title" className="modal" onClick={e=>e.stopPropagation()}><button className="modal-close icon-button" aria-label="Close calendar permission" disabled={loading} onClick={()=>setCalendarPermission(false)}><X size={18}/></button><Google/><h2 id="calendar-permission-title">Send Google Calendar invites</h2><p>Allow Wharf to create the meeting on your primary Google Calendar and invite everyone who joined.</p><p>Google asks for access to events on calendars you own. Wharf uses it to create and check meetings you confirm here. Guests keep control of their RSVP and invitation settings.</p>{error&&<p role="alert">{error}</p>}<button autoFocus className="primary full" disabled={loading} onClick={enableCalendarInvitations}>Allow Google Calendar invites <ArrowRight size={15}/></button></section></div>}
- {modal&&<CalendarPicker onClose={()=>setModal(false)} onConnect={chooseCalendar} invitationName={invitationName}/>}
+ {attendanceMethodOpen&&<AttendanceMethod
+  onClose={()=>setAttendanceMethodOpen(false)}
+  onCalendar={()=>{setAttendanceMethodOpen(false);void attend(true)}}
+  onManual={()=>{setAttendanceMethodOpen(false);setManualOpen(true)}}
+ />}
+ {manualOpen&&<ManualAvailability meetingId={meeting} preview={manualPreviewData} onClose={()=>setManualOpen(false)} onSaved={()=>{setManualOpen(false);if(manualPreview){setAttendanceComplete(true);return}const url=new URL(location.href);url.searchParams.set('calendar','joined');location.assign(url.toString())}}/>}
+ {modal&&<CalendarPicker onClose={()=>setModal(false)} onConnect={chooseCalendar} invitationName={invitationName} onManual={live?.canEnterManual?()=>{setModal(false);setManualOpen(true)}:undefined}/>}
  </div>
 }
