@@ -3,6 +3,7 @@ import {Fragment,useEffect,useRef,useState,type FormEvent,type ReactNode} from '
 import * as chrono from 'chrono-node';
 import {AtSign,ChevronDown,Eye,Hash,MessagesSquare,Plus,RotateCcw,Search,SendHorizontal,Smile} from 'lucide-react';
 import styles from '@/app/slack/slack.module.css';
+import DiscordShell from './DiscordShell';
 
 /*
  * A scripted, browser-only imitation of Wharf in Slack. Bot wording mirrors the
@@ -254,6 +255,7 @@ function Avatar({user}:{user:UserId|'wharf'|'slackbot'}){
 
 export default function SlackDemo({fontClass='',platform='Slack'}:{fontClass?:string;platform?:'Slack'|'Discord'}){
  const initialWorkspace=()=>{const value=seed();if(platform==='Discord')for(const channel of Object.values(value))channel.member=true;return value};
+ const [demoVersion,setDemoVersion]=useState(0);
  const [workspace,setWorkspace]=useState<Workspace|null>(null);
  const [active,setActive]=useState<ChannelId>('design-sync');
  const [linked,setLinked]=useState(false);
@@ -360,6 +362,7 @@ export default function SlackDemo({fontClass='',platform='Slack'}:{fontClass?:st
  }
 
  function reset(){
+  setDemoVersion(value=>value+1);
   timers.current.forEach(clearTimeout);timers.current=[];
   jump.current=true;setTyping(null);setBusy(false);setTip(false);setDraft('');setLinked(false);setActive('design-sync');setWorkspace(initialWorkspace());
  }
@@ -369,7 +372,7 @@ export default function SlackDemo({fontClass='',platform='Slack'}:{fontClass?:st
  function header(user:UserId|'wharf'|'slackbot',time:string,ephemeral=false){
   const name=user==='wharf'?'Wharf':user==='slackbot'?(platform==='Discord'?'Discord':'Slackbot'):USERS[user].name;
   return <>
-   {ephemeral&&<p className={styles.onlyYou}><Eye size={12}/> Only visible to you</p>}
+   {ephemeral&&platform!=='Discord'&&<p className={styles.onlyYou}><Eye size={12}/> Only visible to you</p>}
    <p className={styles.name}>{name}{user==='wharf'&&<span className={styles.appBadge}>APP</span>}<time>{time}</time></p>
   </>;
  }
@@ -431,6 +434,13 @@ export default function SlackDemo({fontClass='',platform='Slack'}:{fontClass?:st
  const isApp=active==='wharf';
  const sideButton=(id:ChannelId,label:ReactNode)=><button type="button" key={id} className={`${styles.sideItem} ${active===id?styles.activeChannel:''} ${workspace?.[id].unread&&active!==id?styles.unread:''}`} aria-current={active===id?'page':undefined} onClick={()=>open(id)}>{label}</button>;
 
+ if(['Discord'].includes(platform))return <div className={styles.demo}>
+  <DiscordShell key={demoVersion} active={active} channels={CHANNELS} open={id=>open(id as ChannelId)} draft={draft} setDraft={setDraft} submit={submit} busy={busy} typing={typing===active} scroller={scroller}>
+   {isApp?<div className={styles.appIntro}><img src="/slack/wharf-avatar.png" alt="" width={72} height={72}/><p className={styles.appIntroName}>Wharf <span className={styles.appBadge}>APP</span></p><p>This is the beginning of your conversation with Wharf.</p><p className={styles.context}>Wharf schedules meetings in your server’s text channels. Choose a channel and use /wharf to get started.</p><button type="button" className={styles.btnPrimary} onClick={()=>open('design-sync')}>Go to #design-sync</button></div>:channel&&channel.messages.map((m,i)=><Fragment key={m.id}>{render(active,m,channel.messages[i-1])}</Fragment>)}
+  </DiscordShell>
+  <div className={styles.tryRow}><span>Try it:</span>{SUGGESTIONS.map(s=><button key={s} type="button" className={styles.chip} disabled={busy} onClick={()=>{const target=active==='wharf'?'design-sync':active;if(target!==active)open(target);send(s,target)}}>{s.replace('@Wharf ','')}</button>)}<button type="button" className={styles.resetButton} onClick={reset}><RotateCcw size={13}/> Reset</button></div>
+  <p className={styles.demoNote}>Interactive preview. No messages are sent and no calendars are connected.</p>
+ </div>;
  return <div className={styles.demo}>
   <div className={`${styles.slack} ${platform==='Discord'?styles.discord:''} ${fontClass}`} role="region" aria-label={`Interactive Wharf for ${platform} demo`}>
    <div className={styles.titlebar} aria-hidden="true">
