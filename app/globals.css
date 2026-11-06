@@ -623,3 +623,55 @@ header{view-transition-name:site-header}
   transition-duration:100ms;
  }
 }
+
+/* Meeting setup with a quiet shared-availability illustration. */
+.date-shortcuts{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 9px}
+.date-shortcuts button{padding:6px 10px;font-size:11px;font-weight:400;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--muted)}
+.date-shortcuts button:hover{border-color:var(--highlight-border);color:var(--accent-text);background:var(--highlight)}
+.date-shortcuts button[aria-pressed="true"]{border-color:var(--highlight-border);color:var(--accent-text);background:var(--highlight)}
+.meeting-setup{grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%;margin:0 auto}
+.framed .meeting-setup .setup{padding:36px 40px 48px;border:0}
+.meeting-setup .cell-title{font-size:24px;margin-bottom:26px;letter-spacing:-.04em}
+.meeting-setup .field{margin-bottom:22px;font-size:12px}
+.meeting-setup .meeting-name-field{margin-bottom:28px;color:var(--muted)}
+.meeting-setup .meeting-name-field input{height:49px;padding:5px 0 9px;margin-top:4px;border-width:0 0 1px;border-radius:0;font-size:25px;font-weight:500;letter-spacing:-.035em;background:transparent;color:var(--text)}
+.meeting-setup .meeting-name-field input::placeholder{color:var(--faint);font-size:18px;font-weight:400;letter-spacing:-.02em}
+.meeting-setup .meeting-name-field input:focus::placeholder{color:transparent}
+ .duration-buttons{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:3px;border:1px solid var(--border);border-radius:8px;background:var(--soft);isolation:isolate}
+.duration-button-highlight{position:absolute;z-index:-1;left:3px;top:3px;bottom:3px;width:calc((100% - 6px)/5);border-radius:5px;background:#006bff;box-shadow:0 2px 6px #006bff20;transition:transform 260ms cubic-bezier(.22,1,.36,1)}
+.meeting-setup .duration-buttons button,.meeting-setup .duration-buttons select{width:100%;min-width:0;height:36px;padding:0 5px;border:0;border-radius:5px;background:transparent;font-size:12px;color:var(--muted);cursor:pointer}
+.meeting-setup .duration-buttons button[aria-pressed="true"],.meeting-setup .duration-buttons select.chosen{color:#fff}
+.meeting-setup .duration-buttons button:hover:not([aria-pressed="true"]){color:var(--text);background:var(--soft-hover)}
+.meeting-setup .duration-buttons select option{background:var(--bg);color:var(--text)}
+.meeting-setup .meeting-name-field input:focus-visible{box-shadow:0 1px 0 var(--accent);border-color:var(--accent)}
+.meeting-setup .hours input{height:42px;font-size:14px}
+.meeting-setup .hours{gap:10px}
+.meeting-setup .meeting-zone{margin-top:-13px;margin-bottom:0}
+.meeting-zone .select-wrap{border:0;padding-left:0;gap:7px;color:var(--muted)}
+.meeting-setup .meeting-zone select{height:32px;padding-left:0;font-size:12px;color:var(--muted)}
+.meeting-setup .form-bottom{margin-top:24px;padding-top:22px}
+.meeting-setup .google-button{background:#25282d;border-color:#25282d;color:#fff;box-shadow:0 4px 14px #25282d18;min-height:46px;border-radius:8px}
+.meeting-setup .google-button:hover:not(:disabled){background:#383d44;border-color:#383d44}
+.meeting-setup .form-bottom .text-button{font-size:12px}
+.meeting-setup .form-bottom .micro{font-size:11px;margin-top:4px;color:var(--faint)}
+@media(max-width:480px){.framed .meeting-setup .setup{padding:28px 20px 40px}.meeting-setup .meeting-name-field input{font-size:24px}}
+.framed .meeting-setup .preview-aside{padding:40px 32px 40px 16px;background:transparent}
+.availability-illustration{max-width:420px;margin:0 auto;border-color:var(--border);border-radius:14px;box-shadow:0 4px 24px #00000004;background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 2%,var(--bg)),var(--bg) 55%)}
+.availability-illustration .preview-heading{padding:26px 26px 22px}
+.availability-illustration-title{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.availability-illustration .preview-heading h2{font-size:18px;font-weight:500;letter-spacing:-.03em;margin:0}
+.availability-illustration-title>span{font-size:10px;color:var(--faint);padding:3px 7px;border:1px solid var(--border);border-radius:5px}
+.availability-illustration .preview-heading p{font-size:13px;line-height:1.6;margin-top:9px;max-width:34ch}
+.availability-illustration .mini-calendar{padding:0 26px}
+.availability-illustration .mini-labels{font-size:10px;padding-bottom:14px}
+.availability-illustration .mini-body{height:260px}
+.availability-illustration .mini-times{font-size:10px}
+.availability-illustration .mini-line{border-bottom-style:solid;border-color:color-mix(in srgb,var(--border) 60%,transparent)}
+.availability-illustration .busy-block{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--border) 5px 6px);border-color:var(--border);border-radius:3px}
+.availability-illustration .free-block{background:color-mix(in srgb,var(--accent) 11%,var(--bg));border-color:color-mix(in srgb,var(--accent) 23%,transparent);border-radius:3px;transition:background-color 200ms ease,box-shadow 200ms ease}
+.availability-illustration .free-block:hover{background:color-mix(in srgb,var(--accent) 18%,var(--bg));box-shadow:inset 2px 0 var(--accent),0 2px 8px #006bff12}
+.availability-illustration .mini-legend{padding:18px 0 22px;font-size:11px;gap:18px}
+@media(prefers-reduced-motion:no-preference){.meeting-setup .availability-illustration{animation:wharf-reveal 450ms cubic-bezier(.22,1,.36,1) both}}
+@media(max-width:1050px){.framed .meeting-setup .setup{padding:36px 32px 40px}.framed .meeting-setup .preview-aside{padding:40px 24px 40px 8px}.availability-illustration .preview-heading{padding:24px 22px 20px}.availability-illustration .mini-calendar{padding:0 22px}}
+@media(max-width:760px){.meeting-setup{grid-template-columns:minmax(0,1fr)}.framed .meeting-setup .setup{max-width:560px;width:100%;margin:0 auto}.framed .meeting-setup .preview-aside{padding:0 24px 36px}.availability-illustration{max-width:496px}}
+@media(max-width:480px){.framed .meeting-setup .setup{padding:28px 20px 32px}.framed .meeting-setup .preview-aside{padding:0 20px 32px}.availability-illustration .mini-body{height:220px}.availability-illustration .preview-heading{padding:22px 20px 18px}.availability-illustration .mini-calendar{padding:0 20px}}
