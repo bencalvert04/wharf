@@ -1,11 +1,11 @@
 'use client';
 import {useEffect,useRef} from 'react';
 
-const CELL=56;
+const CELL=32;
 const THRESHOLD=.002;
-type Cell={column:number;row:number;value:number};
+type Cell={value:number;offsetX:number;offsetY:number};
 
-/** Decorative hover shading aligned with the hero's existing CSS grid. */
+/** Dots gently spread and turn blue around the pointer, then settle back. */
 export default function InteractiveGrid(){
  const ref=useRef<HTMLCanvasElement>(null);
  useEffect(()=>{
@@ -18,17 +18,24 @@ export default function InteractiveGrid(){
   const motion=window.matchMedia('(prefers-reduced-motion: reduce)');
   const pointer=window.matchMedia('(hover: hover) and (pointer: fine)');
   const cells=new Map<string,Cell>();
-  let frame=0,last=0,width=0,height=0,originX=0,ink='',opacity=.085;
+  let frame=0,last=0,width=0,height=0,originX=0,ink='',baseInk='',opacity=.8;
   let bounds=surface.getBoundingClientRect();
   let clientX=0,clientY=0,hasPointer=false,active=false;
   let x=0,y=0,targetX=0,targetY=0;
   const enabled=()=>!motion.matches&&pointer.matches&&!document.hidden;
   function paint(){
    context!.clearRect(0,0,width,height);
-   context!.fillStyle=ink;
-   for(const cell of cells.values()){
-    context!.globalAlpha=cell.value*opacity;
-    context!.fillRect(originX+cell.column*CELL+1,cell.row*CELL,CELL-1,CELL-1);
+   for(let column=-1;column*CELL<width;column++)for(let row=0;row*CELL<height;row++){
+    const cell=cells.get(`${column}:${row}`);
+    const value=cell?.value||0;
+    const centerX=originX+column*CELL+CELL/2+(cell?.offsetX||0);
+    const centerY=row*CELL+CELL/2-1+(cell?.offsetY||0);
+    context!.beginPath();
+    context!.arc(centerX,centerY,1+value*.65,0,Math.PI*2);
+    context!.fillStyle=baseInk;
+    context!.globalAlpha=.28*(1-value);
+    context!.fill();
+    if(value){context!.fillStyle=ink;context!.globalAlpha=value*opacity;context!.fill()}
    }
    context!.globalAlpha=1;
   }
@@ -37,27 +44,31 @@ export default function InteractiveGrid(){
    const elapsed=Math.min(now-last||16,40);last=now;
    const follow=1-Math.exp(-elapsed/45);
    x+=(targetX-x)*follow;y+=(targetY-y)*follow;
-   const desired=new Map<string,number>();
+   const desired=new Map<string,{value:number;offsetX:number;offsetY:number}>();
    if(active&&enabled()){
     const column=Math.floor((x-originX)/CELL),row=Math.floor((y+1)/CELL);
-    // A stronger hovered square with softly fading neighboring squares.
-    for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++){
+    for(let dx=-5;dx<=5;dx++)for(let dy=-5;dy<=5;dy++){
      const c=column+dx,r=row+dy;
      const centerX=originX+c*CELL+CELL/2,centerY=r*CELL+CELL/2-1;
      const distance=Math.hypot(centerX-x,centerY-y);
-     if(distance>110)continue;
+     if(distance>140)continue;
      const key=`${c}:${r}`;
-     desired.set(key,c===column&&r===row?1:.52*Math.exp(-distance*distance/(2*58*58)));
-     if(!cells.has(key))cells.set(key,{column:c,row:r,value:0});
+     const spread=18*Math.pow(1-distance/140,2);
+     const angle=distance>.01?Math.atan2(centerY-y,centerX-x):(c+r)*2.4;
+     desired.set(key,{value:Math.exp(-distance*distance/(2*58*58)),offsetX:Math.cos(angle)*spread,offsetY:Math.sin(angle)*spread});
+     if(!cells.has(key))cells.set(key,{value:0,offsetX:0,offsetY:0});
     }
    }
    let unsettled=active&&(Math.abs(x-targetX)+Math.abs(y-targetY)>.1);
    for(const [key,cell] of cells){
-    const goal=desired.get(key)||0;
-    cell.value+=(goal-cell.value)*(1-Math.exp(-elapsed/(goal>cell.value?80:370)));
-    if(Math.abs(cell.value-goal)>THRESHOLD)unsettled=true;
-    else cell.value=goal;
-    if(!goal&&cell.value<THRESHOLD)cells.delete(key);
+    const goal=desired.get(key);
+    const value=goal?.value||0,offsetX=goal?.offsetX||0,offsetY=goal?.offsetY||0;
+    cell.value+=(value-cell.value)*(1-Math.exp(-elapsed/(value>cell.value?130:400)));
+    const settle=1-Math.exp(-elapsed/(goal?150:400));
+    cell.offsetX+=(offsetX-cell.offsetX)*settle;
+    cell.offsetY+=(offsetY-cell.offsetY)*settle;
+    if(Math.abs(cell.value-value)>THRESHOLD||Math.abs(cell.offsetX-offsetX)+Math.abs(cell.offsetY-offsetY)>.03)unsettled=true;
+    else {cell.value=value;cell.offsetX=offsetX;cell.offsetY=offsetY;if(!goal)cells.delete(key)}
    }
    paint();
    // No permanent animation loop when the cursor is still or off the page.
@@ -83,12 +94,13 @@ export default function InteractiveGrid(){
   }
   function appearance(){
    ink=getComputedStyle(canvas!).color;
-   opacity=app?.classList.contains('light') ? 0.16 : 0.20;
+   baseInk=getComputedStyle(canvas!).getPropertyValue('--muted').trim();
+   opacity=app?.classList.contains('light') ? 0.8 : 0.9;
    paint();
   }
   function resize(){
    bounds=surface.getBoundingClientRect();width=bounds.width;height=bounds.height;
-   // background-position:center -1px with a 56px image puts the first line here.
+   // Match the centered 32px CSS tiles; dots sit at each tile center.
    originX=((width-CELL)/2)%CELL;
    const ratio=Math.min(window.devicePixelRatio||1,2);
    canvas!.width=Math.round(width*ratio);canvas!.height=Math.round(height*ratio);
@@ -108,7 +120,9 @@ export default function InteractiveGrid(){
   motion.addEventListener('change',preference);pointer.addEventListener('change',preference);
   function outside(event:PointerEvent){if(!event.relatedTarget)leave()}
   resize();
+  surface.dataset.ready='true';
   return()=>{
+   delete surface.dataset.ready;
    cancelAnimationFrame(frame);resizeObserver.disconnect();themeObserver.disconnect();
    window.removeEventListener('pointermove',move);window.removeEventListener('pointerout',outside);
    window.removeEventListener('blur',leave);window.removeEventListener('scroll',scroll);
