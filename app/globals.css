@@ -65,10 +65,10 @@ main.framed:has(.hero),.framed .view:has(.hero){display:flex;flex-direction:colu
 .hero{position:relative;flex:1;min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 24px 88px;text-align:center;isolation:isolate}
 .hero::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:56px 56px;background-position:center -1px;mask-image:radial-gradient(ellipse 900px 640px at 50% 42%,#000 40%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 900px 640px at 50% 42%,#000 40%,transparent 100%)}
 /* Hover fills share the static grid's geometry and edge fade. */
-.hero-grid-hover{position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;color:var(--text);mask-image:radial-gradient(ellipse 900px 640px at 50% 42%,#000 40%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 900px 640px at 50% 42%,#000 40%,transparent 100%)}
+.hero-grid-hover{position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;color:var(--accent);mask-image:radial-gradient(ellipse 900px 640px at 50% 42%,#000 40%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 900px 640px at 50% 42%,#000 40%,transparent 100%)}
 .hero-grid-hover canvas{display:block;width:100%;height:100%;color:inherit}
 @media(prefers-reduced-motion:reduce),(hover:none),(pointer:coarse){.hero-grid-hover{display:none}}
-.hero h1{font-size:clamp(40px,6.2vw,72px);line-height:1.02;letter-spacing:-.055em;max-width:12ch;margin:40px auto 24px}
+.hero h1{font-size:clamp(40px,6.2vw,72px);line-height:1.02;letter-spacing:-.055em;max-width:12ch;margin:24px auto 24px}
 .hero p{font-size:clamp(16px,1.6vw,20px);line-height:1.55;color:var(--muted);max-width:34em;margin:0 auto;text-wrap:balance}
 .hero-actions{display:flex;justify-content:center;gap:12px;margin-top:40px}
 .framed,.framed .setup-grid{position:relative}
@@ -396,7 +396,7 @@ header{view-transition-name:site-header}
  main.framed{border:0}
  .hero{padding:32px 20px 40px}
  .hero::before{mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 95% 62% at 50% 36%,#000 35%,transparent 100%)}
- .hero h1{margin-top:32px;font-size:clamp(36px,11vw,48px)}
+ .hero h1{margin-top:24px;font-size:clamp(36px,11vw,48px)}
  .hero-actions{flex-direction:column;align-items:stretch;width:100%;max-width:320px;margin:32px auto 0}
  .gravity-clock{width:152px;height:152px}
  .hero{min-height:0}
@@ -552,3 +552,22 @@ header{view-transition-name:site-header}
 
 .attendee-slot-status{margin-left:auto;white-space:nowrap;font-size:11px;color:var(--accent-text)}
 .attendee-slot-status[data-unavailable="true"]{color:var(--muted)}
+
+/* Blue accents on the homepage */
+.hero-actions .primary {
+ background:#006bff;
+ border-color:#006bff;
+ color:#fff;
+ box-shadow:0 4px 14px #006bff24;
+ transition:background-color 160ms ease,box-shadow 160ms ease;
+}
+.hero-actions .primary:hover:not(:disabled) {
+ background:#0056d6;
+ border-color:#0056d6;
+ box-shadow:0 6px 18px #006bff30;
+}
+.hero .clock-tick,
+.hero .clock-tick.major {stroke:var(--accent)}
+@media(prefers-reduced-motion:reduce) {
+ .hero-actions .primary {transition:none}
+}
