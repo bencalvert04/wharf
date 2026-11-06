@@ -675,3 +675,7 @@ header{view-transition-name:site-header}
 @media(max-width:1050px){.framed .meeting-setup .setup{padding:36px 32px 40px}.framed .meeting-setup .preview-aside{padding:40px 24px 40px 8px}.availability-illustration .preview-heading{padding:24px 22px 20px}.availability-illustration .mini-calendar{padding:0 22px}}
 @media(max-width:760px){.meeting-setup{grid-template-columns:minmax(0,1fr)}.framed .meeting-setup .setup{max-width:560px;width:100%;margin:0 auto}.framed .meeting-setup .preview-aside{padding:0 24px 36px}.availability-illustration{max-width:496px}}
 @media(max-width:480px){.framed .meeting-setup .setup{padding:28px 20px 32px}.framed .meeting-setup .preview-aside{padding:0 20px 32px}.availability-illustration .mini-body{height:220px}.availability-illustration .preview-heading{padding:22px 20px 18px}.availability-illustration .mini-calendar{padding:0 20px}}
+
+.calendar-picker .calendar-permission-explanation{margin-top:-10px}
+.calendar-picker .calendar-permission-explanation p{font-size:13px;line-height:1.6;color:var(--muted);margin:0 0 10px}
+.calendar-picker .calendar-permission-explanation .calendar-organizer-explanation{padding-top:12px;margin-top:14px;border-top:1px solid var(--border)}

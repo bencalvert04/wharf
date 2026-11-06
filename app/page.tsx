@@ -245,6 +245,6 @@ ${JSON.stringify({startDate:c.start,timezone:c.zone},null,2)}`}</pre></div><div 
   onManual={()=>{setAttendanceMethodOpen(false);setManualOpen(true)}}
  />}
  {manualOpen&&<ManualAvailability meetingId={meeting} preview={manualPreviewData} onClose={()=>setManualOpen(false)} onSaved={()=>{setManualOpen(false);if(manualPreview){setAttendanceComplete(true);return}const url=new URL(location.href);url.searchParams.set('calendar','joined');location.assign(url.toString())}}/>}
- {modal&&<CalendarPicker onClose={()=>setModal(false)} onConnect={chooseCalendar} invitationName={invitationName} onManual={live?.canEnterManual?()=>{setModal(false);setManualOpen(true)}:undefined}/>}
+ {modal&&<CalendarPicker organizer={!demo&&!manualPreview&&(view==='create'||!!live?.isPlanner)} onClose={()=>setModal(false)} onConnect={chooseCalendar} invitationName={invitationName} onManual={live?.canEnterManual?()=>{setModal(false);setManualOpen(true)}:undefined}/>}
  </div>
 }
