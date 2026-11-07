@@ -4,6 +4,8 @@ Connected attendees do not need to keep Wharf open. Existing calendar grants are
 
 A shared Neon lease prevents overlapping refreshes across tabs/instances. Ordinary refreshes are coalesced for two minutes unless the meeting revision changes (for example, someone joins). The organizer's Refresh action can bypass that interval with a ten-second endpoint cooldown. Finalization always requests a fresh check; an in-flight check blocks finalization until it finishes. All snapshots are committed together only if the meeting revision, refresh lease, and captured calendar-account intent generations are still valid. Provider reads happen outside database transactions. Failure preserves the previous snapshots and blocks a new booking.
 
+Calendar reads share a 40-second deadline, including Google token exchange, Microsoft authentication/pagination, and iCloud discovery/reads. Individual provider requests retain a 15-second timeout. Expiry aborts outstanding requests, stops subsequent batches, releases the lease with a useful error, and prevents late results from saving. This reserves time within the 60-second refresh/finalization routes for cleanup and booking.
+
 Manual availability is never fetched or overwritten. Attendee or availability changes cause finalization to stop for review rather than silently select another time. The previous selection remains displayed and is marked stale until a new selection. Existing finalized invitation jobs retain their retry behavior without checking calendars again. A final check cannot eliminate a concurrent change made directly in a calendar just after the check.
 
 ## Before deployment

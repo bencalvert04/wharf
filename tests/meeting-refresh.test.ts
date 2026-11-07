@@ -1,3 +1,4 @@
+import {withCalendarDeadline,CalendarDeadlineError} from '../lib/calendar-deadline.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
@@ -64,7 +65,7 @@ for(const failed of [false,true])test(`provider ${failed?'failure preserves snap
  const {database,db}=await fixture();let reads=0;
  try{
  const {refreshMeetingAvailability}=loadWithMocks<any>(new URL('../lib/meeting-refresh.ts',import.meta.url),{
-  'node:crypto':{randomUUID},'./auth':{sql:()=>db,meeting:async()=>({constraints:'{}'})},
+  './calendar-deadline':{withCalendarDeadline,CalendarDeadlineError},'node:crypto':{randomUUID},'./auth':{sql:()=>db,meeting:async()=>({constraints:'{}'})},
   './availability':{allowed:()=>[{start:0,end:100}]},
   './calendar-connection':{calendarConnection:async()=>({refresh_token:'encrypted'})},
   './provider-connections':{providerConnection:async()=>null},
@@ -86,7 +87,7 @@ test('disconnecting a calendar during a provider read rejects the entire fetched
   await database.exec("ALTER TABLE sessions ADD COLUMN google_sub text; ALTER TABLE sessions ADD COLUMN expires_at timestamptz; CREATE TABLE oauth_states(id text); CREATE TABLE calendar_provider_states(id text); INSERT INTO sessions(id,google_sub,expires_at) VALUES('session','google',now()+interval '1 day')");
   for(const statement of calendarIntentSchema)await database.exec(statement);
   const {refreshMeetingAvailability}=loadWithMocks<any>(new URL('../lib/meeting-refresh.ts',import.meta.url),{
-   'node:crypto':{randomUUID},'./auth':{sql:()=>guardCalendarDatabase(db),meeting:async()=>({constraints:'{}'})},
+   './calendar-deadline':{withCalendarDeadline,CalendarDeadlineError},'node:crypto':{randomUUID},'./auth':{sql:()=>guardCalendarDatabase(db),meeting:async()=>({constraints:'{}'})},
    './availability':{allowed:()=>[{start:0,end:100}]},
    './calendar-connection':{calendarConnection:async()=>({refresh_token:'encrypted'})},
    './provider-connections':{providerConnection:async()=>null},
@@ -99,4 +100,30 @@ test('disconnecting a calendar during a provider read rejects the entire fetched
   assert.deepEqual((await database.query("SELECT busy FROM attendees WHERE google_sub='google'")).rows,[{busy:[]}]);
   assert.equal((await database.query<any>('SELECT last_checked_at FROM meeting_availability_refresh')).rows[0].last_checked_at,null);
  }finally{await database.close()}
+});
+
+for(const count of [1,11])test(`deadline releases lease and prevents late snapshots with ${count} connected attendees`,async()=>{
+ const {database,db}=await fixture();let reads=0;let release!:()=>void;
+ const stalled=new Promise<void>(resolve=>{release=resolve});
+ try{
+  for(let i=1;i<count;i++)await database.query('INSERT INTO attendees(meeting_id,google_sub,name,busy) VALUES($1,$2,$3,$4)', ['meeting','google'+i,'Guest '+i,'[]']);
+  const {refreshMeetingAvailability}=loadWithMocks<any>(new URL('../lib/meeting-refresh.ts',import.meta.url),{
+   './calendar-deadline':{CalendarDeadlineError,withCalendarDeadline:(work:any)=>withCalendarDeadline(work,80)},
+   'node:crypto':{randomUUID},'./auth':{sql:()=>db,meeting:async()=>({constraints:'{}'})},
+   './availability':{allowed:()=>[{start:0,end:100}]},
+   './calendar-connection':{calendarConnection:async()=>({refresh_token:'encrypted'})},
+   './provider-connections':{providerConnection:async()=>null},
+   './google':{google:()=>({setCredentials:()=>{},request:async()=>{reads++;if(count===1||reads>5)await stalled;return {data:{}}}}),parseBusy:()=>[{start:10,end:20}]},
+   './token-vault':{openToken:()=> 'mock'},
+   './calendar-intent':{captureAccountIntent:async()=>({expiresAt:'2099-01-01',accounts:[]}),runCalendarIntent:(_i:unknown,work:()=>unknown)=>work()},
+   './meeting-refresh-store':{claimMeetingRefresh,saveMeetingRefresh,failMeetingRefresh},
+  });
+  await assert.rejects(refreshMeetingAvailability('meeting',true),/timed out/);
+  const [status]=(await database.query<any>('SELECT * FROM meeting_availability_refresh')).rows;
+  assert.equal(status.lease_id,null);assert.equal(status.last_checked_at,null);assert.match(status.last_error,/timed out/);
+  release();await new Promise(resolve=>setTimeout(resolve,20));
+  assert.equal(reads,count===1?1:10); // No third batch after expiry, even if the transport ignores abort.
+  assert.equal((await database.query("SELECT * FROM attendees WHERE google_sub NOT LIKE 'manual:%' AND busy!='[]'::jsonb")).rows.length,0);
+  assert.ok(await claimMeetingRefresh(db,'meeting','retry',true));
+ }finally{release();await database.close()}
 });
