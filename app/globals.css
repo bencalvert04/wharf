@@ -679,3 +679,7 @@ header{view-transition-name:site-header}
 .calendar-picker .calendar-permission-explanation{margin-top:-10px}
 .calendar-picker .calendar-permission-explanation p{font-size:13px;line-height:1.6;color:var(--muted);margin:0 0 10px}
 .calendar-picker .calendar-permission-explanation .calendar-organizer-explanation{padding-top:12px;margin-top:14px;border-top:1px solid var(--border)}
+
+.availability-refresh-status{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:10px 32px;font-size:12px;color:var(--muted)}
+.availability-refresh-status .text-button{font-size:12px}
+.availability-refresh-status p{flex-basis:100%;margin:0;color:var(--text)}

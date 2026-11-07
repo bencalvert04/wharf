@@ -1,8 +1,11 @@
+import {scheduleMeetingRefresh} from '@/lib/schedule-meeting-refresh';
 import {json, meeting, sameOrigin, session, sql} from '@/lib/auth';
 import {validEmail} from '@/lib/calendar-invitation';
 import {manualAttendeeId} from '@/lib/manual-attendee';
 import {manualBusy, manualWindows} from '@/lib/manual-availability';
 import {plannerAccess} from '@/lib/planner-access';
+
+export const maxDuration=60;
 
 type Context = {params: Promise<{id: string}>};
 
@@ -64,6 +67,7 @@ export async function POST(req: Request, context: Context) {
     INSERT INTO attendees(meeting_id,google_sub,name,email,busy)
     SELECT id,${guest},${name},${email},${JSON.stringify(busy)}::jsonb FROM changed
     RETURNING meeting_id`;
+    if(saved)scheduleMeetingRefresh(id);
     return saved ? json({ok: true}) : json({error: changed, refresh: true}, 409);
   } catch {
     return json({error: 'Could not save your availability. Please try again.'}, 503);

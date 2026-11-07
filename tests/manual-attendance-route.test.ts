@@ -53,6 +53,7 @@ async function fixture() {
     new URL('../lib/manual-attendee.ts', import.meta.url), {'./auth': auth});
   const route = loadWithMocks<{GET: Handler; POST: Handler}>(
     new URL('../app/api/requests/[id]/manual/route.ts', import.meta.url), {
+      '@/lib/schedule-meeting-refresh': {scheduleMeetingRefresh:()=>{}},
       '@/lib/auth': auth, '@/lib/calendar-invitation': {validEmail},
       '@/lib/manual-attendee': {manualAttendeeId},
       '@/lib/manual-availability': {manualBusy, manualWindows},
@@ -66,6 +67,7 @@ async function fixture() {
     });
   const {withdrawSnapshot} = loadWithMocks<{withdrawSnapshot: Function}>(
     new URL('../lib/meeting-participation.ts', import.meta.url), {
+      './schedule-meeting-refresh': {scheduleMeetingRefresh:()=>{}},
       './auth': auth, './pending-meeting-store': {},
     });
   const context = {params: Promise.resolve({id: 'meeting'})};

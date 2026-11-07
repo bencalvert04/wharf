@@ -1,3 +1,4 @@
+import {refreshMeetingAvailability,AvailabilityRefreshError} from '@/lib/meeting-refresh';
 import {providerConnection} from '@/lib/provider-connections';
 import {commitFinalization} from '@/lib/commit-finalization';
 import {invitationsConfigured} from '@/lib/invitations';
@@ -22,6 +23,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   let input;try{input=await req.json()}catch{return json({error:'Invalid meeting time.'},400)}
   if(!input||typeof input!=='object')return json({error:'Invalid meeting time.'},400);
   const {start,end,revision,acceptConflicts}=input;
+  if(!row.final_time)await refreshMeetingAvailability(id,true);
   if(access.slack&&row.agent_request_id){
    const people=await sql()`SELECT google_sub,name,email,busy FROM attendees WHERE meeting_id=${id} ORDER BY google_sub` as Participant[];
    if(!row.final_time&&revision!==availabilityRevision(people))return json({error:'Attendees changed. Refresh and select a time again.'},409);
@@ -36,7 +38,10 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    const people=await sql()`SELECT google_sub,name,email,busy FROM attendees WHERE meeting_id=${id} ORDER BY google_sub` as Participant[];
    if(!s.google_sub||!people.some(p=>p.google_sub===s.google_sub)||!validEmail(s.email))return json({error:'Join with your calendar first to organize this meeting.'},409);
    if(people.some(p=>!validEmail(p.email)))return json({error:'An attendee needs to sign in again and rejoin to provide a verified invitation email.'},409);
-   if(revision!==availabilityRevision(people))return json({error:'Attendees changed. Refresh and select a valid time again.'},409);
+   if(revision!==availabilityRevision(people)){
+    const conflicts=people.filter(p=>p.busy.some(b=>b.start<end&&b.end>start)).map(p=>p.name);
+    return json({code:'AVAILABILITY_CHANGED',error:conflicts.length?`Availability changed. ${conflicts.join(', ')} ${conflicts.length===1?'is':'are'} now busy at the selected time. Review the updated options before confirming.`:'Availability changed. Review the updated options and confirm your time again.'},409);
+   }
    if(!validFinalSlot(c,people,start,end)&&!(acceptConflicts===true&&validAlternativeSlot(c,people,start,end)))return json({error:'Choose a future time that fits the meeting length and everyone’s availability.'},400);
    const external=(await providerConnection(s.google_sub))?.credential||/^(microsoft|icloud|apple):/.test(s.google_sub);
    if(external){
@@ -50,6 +55,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   const calendar=await deliverGoogleEvent(id);
   return json({finalTime:{start,end},calendar},calendar.status==='created'?200:202);
  }catch(error){
+  if(error instanceof AvailabilityRefreshError)return json({code:'AVAILABILITY_REFRESH_FAILED',error:error.message},409);
   if(error instanceof AgentError)return json({error:error.message},error.status);
   if(error instanceof CalendarPermissionRequired)return json({error:error.message,code:'GOOGLE_CALENDAR_PERMISSION_REQUIRED'},409);
   return json({error:'Could not confirm meeting creation. Reload the meeting to check its status before retrying.'},503);
