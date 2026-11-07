@@ -136,3 +136,8 @@ for(const statement of slackInstallationsSchema)await sql.query(statement);
 const {discordSchema}=await import('../db/discord-schema.mjs');
 for(const statement of discordSchema)await sql.query(statement);
 console.log('Discord transport schema is ready.');
+
+// Durable aggregate product metrics begin at installation; no historical backfill.
+const {marketingSchema}=await import('../db/marketing-schema.mjs');
+for(const statement of marketingSchema)await sql.query(statement);
+console.log('Marketing measurement schema is ready.');

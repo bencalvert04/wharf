@@ -1,4 +1,5 @@
 'use client';
+import {trackMarketing} from '@/lib/marketing/client';
 import PlatformMenu from '@/components/PlatformMenu';
 import {calendarDisplayRange,calendarTickLabel} from '@/lib/calendar-display';
 import {useState,useMemo,useEffect,useLayoutEffect} from 'react';
@@ -56,6 +57,11 @@ export default function Home(){
  useEffect(()=>{if(!selected)return;const clear=(event:PointerEvent)=>{if(!(event.target instanceof Element)||!event.target.closest('[data-meeting-slot], [data-meeting-selection]'))setSelected(null)};const escape=(event:KeyboardEvent)=>{if(event.key==='Escape')setSelected(null)};document.addEventListener('pointerdown',clear);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('pointerdown',clear);document.removeEventListener('keydown',escape)}},[selected]);
  useEffect(()=>{const media=window.matchMedia('(prefers-color-scheme: dark)');const sync=()=>setSystemDark(media.matches);sync();media.addEventListener('change',sync);try{const saved=localStorage.getItem('wharf-theme');if(saved==='system'||saved==='light'||saved==='dark')setTheme(saved)}catch{}return()=>media.removeEventListener('change',sync)},[]);
  function changeTheme(value:'system'|'light'|'dark'){setTheme(value);try{localStorage.setItem('wharf-theme',value)}catch{}}
+ useEffect(()=>{if(!demo&&!c.demo&&!manualPreview)trackMarketing('page_view',view)},[view,demo,c.demo,manualPreview]);
+ useEffect(()=>{if(!demo&&!c.demo&&!manualPreview&&error)trackMarketing('action_error',view)},[error]);
+ useEffect(()=>{if(!demo&&!c.demo&&!manualPreview&&modal)trackMarketing('calendar_picker_opened',view)},[modal]);
+ useEffect(()=>{if(!demo&&!c.demo&&!manualPreview&&manualOpen)trackMarketing('manual_opened',view)},[manualOpen]);
+ useEffect(()=>{if(!demo&&!c.demo&&!manualPreview&&attendanceComplete)trackMarketing('attendance_completed',view)},[attendanceComplete]);
  const [hoveredAlternative,setHoveredAlternative]=useState<Window|null>(null);
  const [selectedRevision,setSelectedRevision]=useState<string|null>(null);
  const [live,setLive]=useState<{attendees:{name:string;sample?:boolean}[];windows:Window[];bestWindows:Window[];joined:boolean;canEnterManual?:boolean;canRejoin?:boolean;canView:boolean;tracked?:boolean;canBookAlternative?:boolean;isPlanner:boolean;revision:string;finalTime:{start:number;end:number}|null;calendar?:{status:'created'|'pending';htmlLink:string|null;error:string|null}|null;delivery?:{total:number;pending:number;needsReview:number}}|null>(null);
@@ -116,12 +122,14 @@ export default function Home(){
  function goBack(){if(backTarget==='pending')navigate(()=>{setDemo(false);setMeeting('');setLive(null);setSelected(null);setError('');setView('pending');history.replaceState({},'','/?view=pending')});else if(backTarget==='home')goHome();else reset();}
  function showDemo(){const from=view==='home'?'home':'create';navigate(()=>{setC(demoConstraints(c.zone));setLive(null);setMeeting('');setMode('best');setBackTarget(from);history.pushState({},'','/?view=demo');setDemo(true);setView('results');setCount(1);setAdjustedDemo(false);setWeek(0);setSelected(null);setError('')})}
  async function create(connect=false,pendingCopy?:InviteCopy,provider:CalendarChoice|'saved'='saved'){
+  if(!demo&&!c.demo)trackMarketing('create_started',view);
   let invitationCopy=pendingCopy;
   try{
    validate(c);if(connect&&!invitationCopy)invitationCopy=beginInviteCopy();
    setLoading(true);setError('');setCopied(false);
    const r=await fetch('/api/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...c,demo:demo&&connect,sampleCount:count,...(demo&&connect?{title:'lucid demo'}:{})})});
    const d:any=await r.json();if(!r.ok)throw Error(d.error||'Could not save this meeting.');
+   if(!demo&&!c.demo)trackMarketing('meeting_created','create');
    setC(v=>({...v,demo:demo&&connect,...(demo&&connect?{title:'lucid demo'}:{})}));setBackTarget('create');
    try{sessionStorage.setItem('wharf-back:'+d.id,'create')}catch{}
    setMeeting(d.id);setDemo(false);setView('results');setWeek(0);setLive(null);history.pushState({},'',`/?meeting=${d.id}`);
@@ -135,6 +143,7 @@ export default function Home(){
   }catch(e){invitationCopy?.cancel();setError((e as Error).message);if(connect)throw e}finally{setLoading(false)}
  }
  async function attend(useCalendar=false){
+  if(!demo&&!c.demo&&!manualPreview)trackMarketing('attend_started',view);
   if(!useCalendar&&(live?.canEnterManual||manualPreview)){setAttendanceMethodOpen(true);return}
   if(manualPreview){setModal(true);return}
   let invitationCopy:InviteCopy|undefined;
@@ -167,6 +176,7 @@ export default function Home(){
  }
  async function finalize(){
   if(!selected||!live)return;
+  if(!demo&&!c.demo)trackMarketing('finalize_started',view);
   if(selectedAlternative){
    if(selectedRevision!==live.revision){setSelected(null);setError('Availability changed. Select a time again.');return}
    const conflicts=selected.conflicts!.join(', ');
@@ -185,10 +195,11 @@ export default function Home(){
    }
    const refreshed=await fetch('/api/requests/'+meeting).then(r=>r.json());if(!refreshed.error)setLive(refreshed);
    if(!r.ok)throw Error(d.error||'Could not create meeting.');
+   trackMarketing('meeting_finalized',view);
    setSelected(null);setNotice(d.calendar?(d.calendar.status==='created'?'Created in Google Calendar. Invitations sent to your guests.':'Time saved. Google Calendar creation is pending; retry from the meeting page.'):d.delivery.needsReview?'Meeting created. Some invitations need delivery review.':d.delivery.pending?'Meeting created. Some invitations are still pending.':'Meeting created. Invitations sent.');
   }catch(e){setError((e as Error).message)}finally{setLoading(false)}
  }
- async function copy(){try{await navigator.clipboard.writeText(`${location.origin}/?meeting=${meeting}`);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{setNotice('Copy the invitation URL from your address bar.')}}
+ async function copy(){try{await navigator.clipboard.writeText(`${location.origin}/?meeting=${meeting}`);setCopied(true);if(!demo&&!c.demo)trackMarketing('invite_copied',view);setTimeout(()=>setCopied(false),1800)}catch{setNotice('Copy the invitation URL from your address bar.')}}
  const {startMinute,endMinute,ticks}=calendarDisplayRange(c,shownDates);
  return <div className={dark?'app':'app light'}>
  <header><div className="header-left"><button className="brand" onClick={goHome} aria-label="Wharf home"><span className="brandmark" aria-hidden="true">⚓️</span>Wharf</button><nav><button className={view==='create'||view==='results'?'active':''} onClick={reset}>Scheduler</button><button className={view==='pending'?'active':''} aria-current={view==='pending'?'page':undefined} onClick={showPending}>Pending meetings</button></nav></div><nav aria-label="Utilities"><PlatformMenu/><button aria-current={view==='docs'?'page':undefined} onClick={showDocs}>API <ArrowUpRight size={12}/></button><span className="nav-divider"/><button type="button" className="icon-button" aria-label={`Appearance: ${theme}. Switch to ${theme==='light'?'dark':theme==='dark'?'system':'light'} mode`} onClick={()=>changeTheme(theme==='light'?'dark':theme==='dark'?'system':'light')}>{theme==='light'?<Sun size={16}/>:theme==='dark'?<Moon size={16}/>:<Monitor size={16}/>}</button><AccountButton navigationKey={`${view}:${meeting}`}/></nav></header>
