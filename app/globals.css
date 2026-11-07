@@ -679,3 +679,72 @@ header{view-transition-name:site-header}
 .calendar-picker .calendar-permission-explanation{margin-top:-10px}
 .calendar-picker .calendar-permission-explanation p{font-size:13px;line-height:1.6;color:var(--muted);margin:0 0 10px}
 .calendar-picker .calendar-permission-explanation .calendar-organizer-explanation{padding-top:12px;margin-top:14px;border-top:1px solid var(--border)}
+
+/* Phone layout: keep navigation and the account action within the viewport. */
+.header-tools,.header-tools-panel{display:flex;align-items:center}
+.mobile-tools-toggle{display:none}
+@media(max-width:620px){
+ .site-header{grid-template-columns:auto minmax(0,1fr);gap:0 4px;padding:6px 12px 0}
+ .site-header .brand{gap:6px;font-size:16px}
+ .site-header>nav{min-width:0;gap:0}
+ .site-header .header-left>nav{margin:0 -12px;padding:0 12px}
+ .site-header .account{margin-left:2px;min-width:0}
+ .site-header .account-login{font-size:12px;padding:0 9px;min-height:40px;white-space:nowrap}
+ .site-header .account-placeholder{width:100px}
+ .site-header .account-panel,.site-header .account-error{max-width:calc(100vw - 24px);right:0;overflow-wrap:anywhere}
+ .header-tools{position:relative}
+ .mobile-tools-toggle{display:inline-flex}
+ .header-tools-panel{display:none;position:fixed;right:12px;top:58px;width:220px;padding:8px;background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);align-items:stretch;flex-direction:column;z-index:40}
+ .header-tools-panel.is-open{display:flex}
+ .header-tools-panel>button,.header-tools-panel>div>button{width:100%;min-height:44px;justify-content:space-between}
+ .hero{padding:28px 20px 36px}
+ .hero h1{font-size:clamp(34px,10vw,44px);margin:22px auto 18px}
+ .hero p{font-size:16px;max-width:28ch}
+ .hero-actions{margin-top:26px;gap:10px}
+ .hero-actions button{min-height:48px}
+ .framed .meeting-setup .setup{padding:28px 20px 24px}
+ .meeting-setup .cell-title{margin-bottom:24px}
+ .meeting-setup .field{margin-bottom:20px}
+ .meeting-setup .date-shortcuts{gap:8px;flex-wrap:wrap}
+ .meeting-setup .date-shortcuts button{min-height:40px;font-size:12px;padding:0 12px}
+ .meeting-setup .duration-buttons button,.meeting-setup .duration-buttons select{min-height:44px}
+ .meeting-setup .duration-buttons select{font-size:16px;padding:0 3px}
+ .meeting-setup .hours input{height:46px;font-size:16px;min-width:0;width:100%;padding:0 8px}
+ .meeting-setup .meeting-zone{margin-top:0}
+ .meeting-setup .meeting-zone select{font-size:16px;min-height:44px;min-width:0;max-width:100%}
+ .meeting-setup .form-bottom{margin-top:20px;padding-top:20px}
+ .meeting-setup .form-bottom .text-button{min-height:44px;font-size:13px}
+ .meeting-setup .form-bottom .micro{font-size:12px;line-height:1.5}
+ .framed .meeting-setup .preview-aside{padding:12px 20px 32px}
+ .meeting-setup .availability-illustration .mini-body{height:160px}
+ .result-intro{align-items:flex-start}
+ .result-intro h1{overflow-wrap:anywhere}
+ .meta{flex-wrap:wrap;row-gap:8px}
+ .result-toolbar{flex-wrap:wrap}
+ .result-toolbar .tabs{max-width:100%;flex-wrap:wrap}
+ .result-toolbar button{min-height:44px}
+ .attendee-panel,.availability,.booking-selection{min-width:0}
+ .person>div{min-width:0;overflow-wrap:anywhere}
+ .booking-selection strong,.booking-selection p{overflow-wrap:anywhere}
+ .calendar-picker.modal{max-height:calc(100dvh - 32px);padding:28px 22px 20px}
+ .pending-card{padding:18px}
+ .pending-card h2{overflow-wrap:anywhere}
+ footer{padding:24px 20px calc(24px + env(safe-area-inset-bottom));gap:16px;flex-wrap:wrap}
+}
+@media(max-width:360px){
+ .site-header .brandmark{width:20px;font-size:20px}
+ .site-header .brand{font-size:15px;gap:4px}
+ .site-header .account-login{font-size:11px;padding:0 7px}
+ .site-header .icon-button{min-width:40px;padding:4px}
+ .framed .meeting-setup .setup{padding-left:16px;padding-right:16px}
+ .meeting-setup .date-shortcuts{gap:5px}
+ .meeting-setup .date-shortcuts button{padding:0 8px}
+ .meeting-setup .hours{gap:6px}
+}
+@media(max-width:620px){
+ .calendar-provider-option{padding:12px 10px;gap:8px;border-radius:12px;font-size:13px}
+ .calendar-provider-option[data-coming-soon]{display:grid;grid-template-columns:20px minmax(0,1fr);text-align:left;column-gap:10px;row-gap:2px}
+ .calendar-provider-option[data-coming-soon]>svg{grid-row:1/3}
+ .calendar-provider-option[data-coming-soon] .provider-coming-soon{grid-column:2;justify-self:start}
+}
+@media(max-width:620px){.demo-panel{grid-row:auto}.demo-panel .person{grid-column:1/-1}.demo-panel .person>div{display:flex;gap:8px;flex-wrap:wrap}}
