@@ -24,6 +24,7 @@ async function fixture(ambiguous=false){
  let sends=0;
  const send=async()=>{sends++;if(ambiguous)throw Error('Accepted, but SMTP response lost');return 'smtp-id'};
  const {POST}=loadWithMocks<{POST:Function}>(new URL('../app/api/requests/[id]/finalize/route.ts',import.meta.url),{
+  '@/lib/meeting-refresh':{refreshMeetingAvailability:async()=>{},AvailabilityRefreshError:class extends Error{}},
   '@/lib/provider-connections':{providerConnection:async()=>({credential:'synthetic'})},
   '@/lib/commit-finalization':{commitFinalization:(id:string,_c:unknown,participants:any[],start:number,end:number)=>freezeEmailMeeting(db,id,participants,start,end,participants.map(p=>({email:p.email,payload:{to:p.email}})))},
   '@/lib/invitations':{invitationsConfigured:()=>true,deliverInvitations:(id:string)=>deliverInvitationJobs(db,send,id)},

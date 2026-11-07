@@ -21,6 +21,7 @@ export const pendingMeetingSchema=[
  `CREATE OR REPLACE FUNCTION remember_meeting_participation() RETURNS trigger AS $$
  DECLARE mid text; sub text; display_name text; invitation_id text;
  BEGIN
+  IF current_setting('wharf.availability_refresh',true)='on' THEN RETURN NULL; END IF;
   IF TG_OP='DELETE' THEN mid:=OLD.meeting_id;sub:=OLD.google_sub;display_name:=OLD.name;
   ELSE mid:=NEW.meeting_id;sub:=NEW.google_sub;display_name:=NEW.name; END IF;
   IF NOT EXISTS(SELECT 1 FROM requests WHERE id=mid) THEN RETURN NULL; END IF;
@@ -45,6 +46,7 @@ export const pendingMeetingSchema=[
  `CREATE TRIGGER remember_meeting_invitee AFTER INSERT OR UPDATE OF google_sub ON request_invitees FOR EACH ROW EXECUTE FUNCTION remember_meeting_invitee()`,
  `CREATE OR REPLACE FUNCTION record_meeting_change() RETURNS trigger AS $$
  BEGIN
+  IF current_setting('wharf.availability_refresh',true)='on' THEN RETURN NEW; END IF;
   IF NEW.constraints IS DISTINCT FROM OLD.constraints OR NEW.final_time IS DISTINCT FROM OLD.final_time OR NEW.revision IS DISTINCT FROM OLD.revision THEN NEW.last_activity_at:=now(); END IF;
   RETURN NEW;
  END; $$ LANGUAGE plpgsql`,

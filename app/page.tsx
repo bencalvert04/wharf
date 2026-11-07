@@ -56,9 +56,11 @@ export default function Home(){
  useEffect(()=>{if(!selected)return;const clear=(event:PointerEvent)=>{if(!(event.target instanceof Element)||!event.target.closest('[data-meeting-slot], [data-meeting-selection]'))setSelected(null)};const escape=(event:KeyboardEvent)=>{if(event.key==='Escape')setSelected(null)};document.addEventListener('pointerdown',clear);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('pointerdown',clear);document.removeEventListener('keydown',escape)}},[selected]);
  useEffect(()=>{const media=window.matchMedia('(prefers-color-scheme: dark)');const sync=()=>setSystemDark(media.matches);sync();media.addEventListener('change',sync);try{const saved=localStorage.getItem('wharf-theme');if(saved==='system'||saved==='light'||saved==='dark')setTheme(saved)}catch{}return()=>media.removeEventListener('change',sync)},[]);
  function changeTheme(value:'system'|'light'|'dark'){setTheme(value);try{localStorage.setItem('wharf-theme',value)}catch{}}
+ const [checkingAvailability,setCheckingAvailability]=useState(false);
+ const [refreshError,setRefreshError]=useState('');
  const [hoveredAlternative,setHoveredAlternative]=useState<Window|null>(null);
  const [selectedRevision,setSelectedRevision]=useState<string|null>(null);
- const [live,setLive]=useState<{attendees:{name:string;sample?:boolean}[];windows:Window[];bestWindows:Window[];joined:boolean;canEnterManual?:boolean;canRejoin?:boolean;canView:boolean;tracked?:boolean;canBookAlternative?:boolean;isPlanner:boolean;revision:string;finalTime:{start:number;end:number}|null;calendar?:{status:'created'|'pending';htmlLink:string|null;error:string|null}|null;delivery?:{total:number;pending:number;needsReview:number}}|null>(null);
+ const [live,setLive]=useState<{availabilityRefresh?:{checkedAt:string|null;error:string|null;refreshing:boolean}|null;attendees:{name:string;sample?:boolean}[];windows:Window[];bestWindows:Window[];joined:boolean;canEnterManual?:boolean;canRejoin?:boolean;canView:boolean;tracked?:boolean;canBookAlternative?:boolean;isPlanner:boolean;revision:string;finalTime:{start:number;end:number}|null;calendar?:{status:'created'|'pending';htmlLink:string|null;error:string|null}|null;delivery?:{total:number;pending:number;needsReview:number}}|null>(null);
  useEffect(() => {
   if (process.env.NODE_ENV !== 'development' ||
       new URLSearchParams(location.search).get('preview') !== 'manual-entry') return;
@@ -81,6 +83,36 @@ export default function Home(){
   url.searchParams.delete('calendar');history.replaceState({},'',url.pathname+url.search+url.hash);
  },[meeting,live,demo,c.demo]);
  useEffect(()=>{if(!meeting||demo)return;let active=true;const refresh=()=>fetch('/api/requests/'+meeting).then(r=>r.json()).then(d=>{if(active&&!d.error)setLive(d)}).catch(()=>{});refresh();const timer=setInterval(refresh,15000);window.addEventListener('focus',refresh);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',refresh)}},[meeting,demo]);
+ async function refreshAvailability(){
+  if(!meeting||demo||c.demo||live?.finalTime)return;
+  setCheckingAvailability(true);setRefreshError('');
+  try{
+   const response=await fetch('/api/requests/'+encodeURIComponent(meeting)+'/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true})});
+   const status=await response.json();
+   if(!response.ok)throw Error(status.error||'Could not check calendars. Last known availability is shown.');
+   const updated=await fetch('/api/requests/'+encodeURIComponent(meeting)).then(r=>r.json());
+   if(!updated.error)setLive(updated);
+  }catch(error){setRefreshError((error as Error).message)}finally{setCheckingAvailability(false)}
+ }
+ useEffect(()=>{
+  if(!meeting||demo||c.demo||!live?.isPlanner||live.finalTime)return;
+  let active=true,inFlight=false;
+  const check=async()=>{
+   if(document.visibilityState!=='visible'||inFlight)return;
+   inFlight=true;
+   if(active)setCheckingAvailability(true);
+   try{
+    const response=await fetch('/api/requests/'+encodeURIComponent(meeting)+'/refresh',{method:'POST'});
+    const status=await response.json();
+    if(!response.ok)throw Error(status.error||'Could not check calendars. Last known availability is shown.');
+    const updated=await fetch('/api/requests/'+encodeURIComponent(meeting)).then(r=>r.json());
+    if(active){setRefreshError('');if(!updated.error)setLive(updated)}
+   }catch(error){if(active)setRefreshError((error as Error).message)}finally{inFlight=false;if(active)setCheckingAvailability(false)}
+  };
+  void check();const timer=setInterval(check,120000);
+  document.addEventListener('visibilitychange',check);
+  return()=>{active=false;clearInterval(timer);document.removeEventListener('visibilitychange',check)};
+ },[meeting,demo,c.demo,live?.isPlanner,!!live?.finalTime]);
  useEffect(()=>{const result=new URLSearchParams(location.search).get('signin');if(result)setNotice(({apple:'Signed in with Apple. Your iCloud calendar has not been connected.',cancelled:'Apple sign-in was cancelled.',expired:'Apple sign-in expired. Please try again.',unavailable:'Sign in with Apple is not available yet.',failed:'Could not complete Apple sign-in. Please try again.'} as Record<string,string>)[result]||'');},[]);
  useEffect(()=>{const result=new URLSearchParams(location.search).get('calendar');if(result)setNotice(({eventready:'Google Calendar invitations enabled. Select a time and create the meeting, or retry a pending invitation.',eventpermission:'Allow calendar event access to send Google Calendar invitations.',signedin:'You’re signed in.',accountswitch:'To use Google, sign out first and sign in with Google as a separate Wharf account. Existing meeting memberships stay with your current account.',connected:'Calendar connected.',joined:'Your availability has been added.',cancelled:'Calendar connection was cancelled.',permission:'Allow ongoing free/busy access to connect your calendar.',expired:'This sign-in expired. Please try again.',failed:'Could not read your calendar. Please try again and allow free/busy access.'} as Record<string,string>)[result]||'');},[]);
  useEffect(()=>{
@@ -135,15 +167,14 @@ export default function Home(){
   }catch(e){invitationCopy?.cancel();setError((e as Error).message);if(connect)throw e}finally{setLoading(false)}
  }
  async function attend(useCalendar=false){
-  if(!useCalendar&&(live?.canEnterManual||manualPreview)){setAttendanceMethodOpen(true);return}
-  if(manualPreview){setModal(true);return}
+  if(manualPreview){if(useCalendar)setModal(true);else setAttendanceMethodOpen(true);return}
   let invitationCopy:InviteCopy|undefined;
   setLoading(true);
   try{
    if(!meeting||demo){validate(c);invitationCopy=beginInviteCopy()}
    const r=await fetch('/api/auth/account');const d=await r.json();if(!r.ok)throw Error(d.error);
    if(d.user?.calendarConnected){if(meeting&&!demo)await connectCalendar();else await create(true,invitationCopy)}
-   else{invitationCopy?.cancel();setModal(true)}
+   else{invitationCopy?.cancel();if(!useCalendar&&live?.canEnterManual)setAttendanceMethodOpen(true);else setModal(true)}
   }catch(e){invitationCopy?.cancel();setError((e as Error).message);setModal(true)}finally{setLoading(false)}
  }
  function invitationFor(id:string){const query=new URLSearchParams(location.search).get("invite");try{return query||sessionStorage.getItem("wharf-invite:"+id)}catch{return query}}
@@ -168,7 +199,7 @@ export default function Home(){
  async function finalize(){
   if(!selected||!live)return;
   if(selectedAlternative){
-   if(selectedRevision!==live.revision){setSelected(null);setError('Availability changed. Select a time again.');return}
+   if(selectedRevision!==live.revision){setError('Availability changed. Your previous selection is shown below; select an updated time to continue.');return}
    const conflicts=selected.conflicts!.join(', ');
    if(!window.confirm(`This time conflicts with ${conflicts}. Schedule anyway? Everyone who joined will still get an invitation.`))return;
   }
@@ -209,6 +240,11 @@ export default function Home(){
  <aside className="preview-aside"><SharedAvailabilityPreview refined/></aside></div></>}
  {view==='results'&&<><div className="back-row"><button className="text-button" onClick={goBack}><ChevronLeft size={13}/> {backTarget==='pending'?'Pending meetings':backTarget==='home'?'Home':'New meeting'}</button>{(demo||c.demo)&&<span className="small-tag">{demo?'Sample calendars':live?.joined?'Your calendar + sample calendars':'Sample calendars'}</span>}</div><section className="result-intro"><div><h1>{demo?'lucid demo':c.title||'Untitled meeting'}</h1><div className="meta"><span><Clock3 size={14}/>{c.duration} minutes</span><span><CalendarDays size={14}/>{dateLabel(c.start)}{c.start!==c.end&&<> – {dateLabel(c.end)}</>}</span><span><Globe2 size={14}/>{zoneLabel(c.zone)}</span></div></div><div className="meeting-header-actions">{!demo&&!c.demo&&!live?.tracked&&<button className="primary" onClick={copy}>{copied?<Check size={15}/>:<Copy size={15}/>} {copied?'Copied':'Copy invite link'}</button>}{!demo&&live?.isPlanner&&<DeleteMeetingButton id={meeting} title={c.title} onDeleted={()=>{resetState();showPending();setNotice('Meeting deleted.')}}/>}</div></section>
  {live?.finalTime&&!demo&&<div className="selection meeting-confirmation" role="status"><div><strong>{live.tracked?'Time confirmed':'Meeting created'}</strong><p>{new Intl.DateTimeFormat('en-US',{timeZone:c.zone,dateStyle:'full'}).format(live.finalTime.start)} · {timeLabel(live.finalTime.start,c.zone)} – {timeLabel(live.finalTime.end,c.zone)}</p><p>{live.calendar?(live.calendar.status==='created'?'Created in Google Calendar. Guests receive an invitation; their settings determine when it appears.':'Google Calendar creation is pending. Retry to finish sending invitations.'):live.tracked?'Confirmed in Wharf. No calendar invitation has been sent.':live.delivery?.needsReview?'Some invitations need delivery review.':live.delivery?.pending?'Some invitations are still pending.':live.delivery?.total?'Calendar invitations have been sent to all attendees.':'This time is confirmed in Wharf.'}</p>{live.calendar?.htmlLink&&<p><a className="outline" href={live.calendar.htmlLink} target="_blank" rel="noreferrer">Open in Google Calendar <ArrowUpRight size={14}/></a></p>}{live.calendar?.status==='pending'&&live.isPlanner&&<><p>{live.calendar.error}</p><button className="primary" disabled={loading} onClick={sendRemaining}>{loading?'Checking…':'Retry Google Calendar invitations'}</button></>}{live.isPlanner&&live.delivery&&live.delivery.pending>live.delivery.needsReview&&<button className="primary" disabled={loading} onClick={sendRemaining}>{loading?'Sending…':'Send remaining invitations'}</button>}</div></div>}
+ {!demo&&!c.demo&&live?.canView&&!live.finalTime&&<div className="availability-refresh-status" data-meeting-selection="true" role="status">
+  <span>{checkingAvailability||live.availabilityRefresh?.refreshing?'Checking calendars…':live.availabilityRefresh?.checkedAt?'Calendars checked at '+new Date(live.availabilityRefresh.checkedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Showing saved availability'}</span>
+  {live.isPlanner&&<button type="button" className="text-button" disabled={checkingAvailability||loading||live.availabilityRefresh?.refreshing} onClick={()=>void refreshAvailability()}>Refresh</button>}
+  {(refreshError||live.availabilityRefresh?.error)&&<p>{refreshError||live.availabilityRefresh?.error}</p>}
+ </div>}
  <div className="result-grid"><section className="availability" aria-label="Shared availability">{(!people.length||!hasSharedTime||allDates.length>daysPerPage)&&<div className="result-toolbar">
  {people.length>0&&!hasSharedTime&&<div className="tabs" role="group" aria-label="Calendar view">
   <button type="button" className={!showAlternatives?'chosen':''} aria-pressed={!showAlternatives} onClick={()=>{setMode('everyone');setSelected(null)}}>Everyone available</button>
@@ -219,7 +255,7 @@ export default function Home(){
   :`No shared window fits ${c.duration} minutes. Try Best alternatives to see who can attend.`}</p>}
  <div className="calendar-scroll"><div className="calendar"><div className="cal-head"><span className="tz">Local</span>{shownDates.map(d=><div key={d}><span>{dateLabel(d,{weekday:'short'})}</span><strong>{dateLabel(d,{day:'numeric'})}</strong></div>)}</div><div className="cal-body"><div className="cal-times">{ticks.map(m=><span key={m} style={{top:(m-startMinute)/(endMinute-startMinute)*100+'%'}}>{calendarTickLabel(m)}</span>)}</div>{shownDates.map(d=><div className={'cal-day '+(!c.days.includes(new Date(d+'T12:00Z').getUTCDay())?'off':'')} key={d}>{ticks.map(m=><div className="hour-line" key={m} style={{top:(m-startMinute)/(endMinute-startMinute)*100+'%'}}/>)}{visibleWindows.filter(w=>w.date===d).map((w,i)=>{const from=startMinute,to=endMinute;const parts=localParts(w.start,c.zone).time;const start=Number(parts.slice(0,2))*60+Number(parts.slice(3));return <AvailabilityWindow key={`${w.start}-${w.end}-${w.people.join(',')}`} window={w} bestMatch={showAlternatives&&w.people.length===bestAttendance} duration={c.duration} zone={c.zone} selected={selected} onPreview={setHoveredAlternative} onSelect={slot=>{setSelected(slot);setSelectedRevision(live?.revision??null)}} style={{top:(start-from)/(to-from)*100+'%',height:(w.end-w.start-(w.conflicts?.length?(c.duration-15)*60000:0))/60000/(to-from)*100+'%'}}/>})}</div>)}{!people.length&&<div className="empty-cal"><CalendarDays size={25}/><button className="primary" onClick={()=>attend()}>{live?.canRejoin?'Rejoin meeting':"I’m attending"}</button></div>}</div></div></div><div className="calendar-footer">{showAlternatives&&best.length>0?<><span><i/> More attendees available with deeper shading</span></>:<span><i/> Available</span>}</div>
 </section>
- <aside className={`attendee-panel${demo?' demo-panel':''}`}>{selected&&<div className="selection booking-selection" data-meeting-selection="true"><div><strong>{dateLabel(selected.date,{weekday:'long',month:'short',day:'numeric'})} · {timeLabel(selected.start,c.zone)} – {timeLabel(selected.end,c.zone)}</strong>{selected.conflicts?.length?<><p><b>{selected.people.length} of {selected.people.length+selected.conflicts!.length} available</b></p><p>{selected.people.join(', ')} can attend.</p><p className="slot-conflicts"><b>Conflicts with:</b> {selected.conflicts!.join(', ')}</p></>:<p>{selected.people.join(', ')} can attend.</p>}{!demo&&!c.demo&&live?.isPlanner&&!live.tracked&&!live.finalTime&&<><button className="primary full" disabled={loading||!live.joined||selected.end-selected.start!==c.duration*60000||selected.start<=Date.now()||(selectedAlternative?(!live.canBookAlternative||hasSharedTime):!fits.some(w=>selected.start>=w.start&&selected.end<=w.end))} onClick={finalize}>{loading?'Creating…':'Create meeting'}</button><p className="micro">{selectedAlternative&&!live.canBookAlternative?'This meeting requires a shared time to book.':live.joined?'Confirms the time and sends calendar invitations to everyone who joined.':"Choose I’m attending first to include your calendar and invitation."}</p></>}</div><button className="icon-button" aria-label="Close selected window" onClick={()=>setSelected(null)}><X size={16}/></button></div>}<div className="section-title"><span>Attendees</span><span>{String(people.length).padStart(2,'0')}</span></div>{people.map((person,index)=>{
+ <aside className={`attendee-panel${demo?' demo-panel':''}`}>{selected&&<div className="selection booking-selection" data-meeting-selection="true"><div><strong>{dateLabel(selected.date,{weekday:'long',month:'short',day:'numeric'})} · {timeLabel(selected.start,c.zone)} – {timeLabel(selected.end,c.zone)}</strong>{selectedRevision!==live?.revision&&!demo&&<p role="status">Availability changed. This was your previous selection; choose an updated time below.</p>}{selected.conflicts?.length?<><p><b>{selected.people.length} of {selected.people.length+selected.conflicts!.length} available</b></p><p>{selected.people.join(', ')} can attend.</p><p className="slot-conflicts"><b>Conflicts with:</b> {selected.conflicts!.join(', ')}</p></>:<p>{selected.people.join(', ')} can attend.</p>}{!demo&&!c.demo&&live?.isPlanner&&!live.tracked&&!live.finalTime&&<><button className="primary full" disabled={loading||selectedRevision!==live.revision||!live.joined||selected.end-selected.start!==c.duration*60000||selected.start<=Date.now()||(selectedAlternative?(!live.canBookAlternative||hasSharedTime):!fits.some(w=>selected.start>=w.start&&selected.end<=w.end))} onClick={finalize}>{loading?'Creating…':'Create meeting'}</button><p className="micro">{selectedAlternative&&!live.canBookAlternative?'This meeting requires a shared time to book.':live.joined?'Confirms the time and sends calendar invitations to everyone who joined.':"Choose I’m attending first to include your calendar and invitation."}</p></>}</div><button className="icon-button" aria-label="Close selected window" onClick={()=>setSelected(null)}><X size={16}/></button></div>}<div className="section-title"><span>Attendees</span><span>{String(people.length).padStart(2,'0')}</span></div>{people.map((person,index)=>{
   const available=inspectedAlternative?.people.includes(person.name);
   const unavailable=inspectedAlternative?.conflicts?.includes(person.name);
   const status=available===unavailable?null:unavailable?'Can’t attend':'Available';

@@ -10,6 +10,7 @@ import {joinWithSavedCalendar,calendarConnection} from '@/lib/calendar-connectio
 import {resolveInvitation} from '@/lib/meeting-participation';
 import {tokenVaultConfigured} from '@/lib/token-vault';
 
+export const maxDuration=120;
 export async function POST(req:Request){
  if(!sameOrigin(req))return json({error:'Invalid origin.'},403);
  if(!configured())return json({error:'Google Calendar setup is not complete yet.'},503);
