@@ -30,19 +30,26 @@ export async function refreshMeetingAvailability(id:string,force=false){
     // Batches bound provider concurrency without holding database locks during I/O.
     for(let i=0;i<connected.length;i+=5){
      snapshots.push(...await Promise.all(connected.slice(i,i+5).map(async person=>{
+      let stage='connection';
       try{
        signal.throwIfAborted();
        let busy;
-       if((await providerConnection(person.google_sub))?.credential)busy=await readProviderAvailability(person.google_sub,c,signal);
+       if((await providerConnection(person.google_sub))?.credential){stage='provider-read';busy=await readProviderAvailability(person.google_sub,c,signal);}
        else{
         const connection=await calendarConnection(person.google_sub);
         if(!connection?.refresh_token||connection.disconnecting)throw Error('No usable grant');
+        stage='token-decryption';
         const client=google(signal);client.setCredentials({refresh_token:openToken(connection.refresh_token,person.google_sub)});
+        stage='google-read';
         const result=await client.request({url:'https://www.googleapis.com/calendar/v3/freeBusy',method:'POST',timeout:15000,data:{timeMin:new Date(bounds[0].start).toISOString(),timeMax:new Date(bounds.at(-1)!.end).toISOString(),items:[{id:'primary'}]}});
         busy=parseBusy(result.data,c);
        }
        return {sub:person.google_sub,busy:[...busy].sort((a,b)=>a.start-b.start||a.end-b.end)};
-      }catch{throw new AvailabilityRefreshError(`Could not check ${person.name}’s calendar. Last known availability is shown. They may need to reconnect.`);}
+      }catch(error){
+       const code=(error as {response?:{data?:{error?:unknown}}})?.response?.data?.error;
+       const reason=signal.aborted?'aborted':['invalid_grant','invalid_client','access_denied'].includes(String(code))?String(code):'other';
+       console.warn('Calendar availability read failed',{stage,reason});
+       throw new AvailabilityRefreshError(`Could not check ${person.name}’s calendar. Last known availability is shown. They may need to reconnect.`);}
      })));
     }
     signal.throwIfAborted();
