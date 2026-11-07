@@ -10,7 +10,7 @@ Manual availability is never fetched or overwritten. Attendee or availability ch
 
 ## Before deployment
 
-Run the normal additive database migration against the intended environment. This includes `db/availability-refresh-schema.mjs` and the updated functions from `db/pending-meeting-schema.mjs`. **No production migration has been run for this work.** The refresh transaction sets a transaction-local flag so passive snapshot updates do not extend Pending inactivity, change participation history, or undo personal dismissals. Ordinary attendance mutations retain those behaviors.
+Run the normal additive database migration against the intended environment. This includes `db/availability-refresh-schema.mjs` and the updated functions from `db/pending-meeting-schema.mjs`. The refresh transaction sets a transaction-local flag so passive snapshot updates do not extend Pending inactivity, change participation history, or undo personal dismissals. Ordinary attendance mutations retain those behaviors.
 
 Test with real Google accounts in staging: join, add a conflicting calendar event after joining, refresh, then try finalization with a previously selected slot. Verify missing/revoked access blocks booking with a useful message, and manual availability stays unchanged. Database/provider tests use isolated embedded PostgreSQL and fake provider transports; they do not prove live credentials are correctly configured.
 
@@ -20,3 +20,9 @@ Test with real Google accounts in staging: join, add a conflicting calendar even
 - Provider integration: success, failure, and stale calendar-account intents.
 - HTTP routes: authorization, fresh final check, conflict naming, failure blocking, finalized retry.
 - Full existing test suite and production build.
+
+## Release verification, November 7, 2026
+
+The deadline fix passed all 297 automated tests and a normal-dependency production build. The separate staging database was migrated before deployment. Hosted tests using a real Microsoft grant refreshed an intentionally stale free snapshot, detected existing busy time, returned `AVAILABILITY_CHANGED` before booking, and preserved manual input. A synthetic unavailable grant returned `AVAILABILITY_REFRESH_FAILED` and released its lease. A finalized retry bypassed that unavailable grant without creating invitation or event jobs. Temporary test meetings and sessions were removed.
+
+The saved staging Google grant required renewed consent in both the refresh path and the pre-existing saved-calendar join path. Successful live Google refresh and adding a new Google event after joining were not verified in this release check. Google authentication cancellation is covered using the real OAuth client with an injected transport. Live checks did not send invitations or modify external calendar events.
