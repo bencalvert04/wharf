@@ -125,3 +125,10 @@ Every Pending card also offers **Remove from Pending**, which persists a dismiss
 Before deploying connection-deletion code, apply the additive statements in `db/calendar-connection-schema.mjs` through the normal migration process. They add a per-connection UUID and capture it in new OAuth states, preventing a stale callback from overwriting a reconnected account after its old record is deleted. The statements are repeatable and do not delete records. The two additive columns were applied to the connected Wharf production database on 2026-10-27 before this application rollout.
 
 OAuth flows started before the new application version may fail closed and require starting consent again; existing saved grants remain usable. Roll out the application without leaving old callback handlers active alongside new deletion handlers. Rolling back to code that checks only numeric versions is unsafe for callbacks that span a disconnect/reconnect; drain pending OAuth flows (10-minute expiry) and disable disconnect/consent traffic during such a rollback, or retain the generation checks. Do not remove the additive columns as part of rollback.
+
+### User feedback
+The footer and support page let visitors report problems or share ideas without signing in. Reports go to Ray and Ben using the existing `INVITATION_FROM` / `GMAIL_APP_PASSWORD` SMTP configuration. `DATABASE_URL` and `CRON_SECRET` are required for durable duplicate prevention and a hashed per-IP hourly limit. No raw IP, feedback text, or reply email is stored in the feedback tables. The existing cleanup job expires delivery markers after seven days and rate-limit buckets after two hours.
+
+Vercel builds run the additive feedback-only migration against that environment's `DATABASE_URL` before building; local builds skip it. The general `npm run db:migrate` also includes these tables. Failed setup blocks the new deployment. The form shows a direct email fallback on delivery failure; SMTP acceptance does not guarantee inbox placement.
+
+Local `?preview=feedback` opens a simulated form and never sends mail. Development API submissions are also blocked. Production has no simulated-submit query mode.
