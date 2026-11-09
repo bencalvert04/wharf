@@ -1,4 +1,5 @@
 'use client';
+import FeedbackButton from '@/components/FeedbackButton';
 import HeaderUtilities from '@/components/HeaderUtilities';
 import {calendarDisplayRange,calendarTickLabel} from '@/lib/calendar-display';
 import {useState,useMemo,useEffect,useLayoutEffect} from 'react';
@@ -272,7 +273,7 @@ Idempotency-Key: <your saved random UUID v4>
 ${JSON.stringify({startDate:c.start,timezone:c.zone},null,2)}`}</pre></div><div className="docs-note"><h2>Share one link</h2><p>Use the date and timezone from your conversation. The response includes invitationUrl and a ready-to-send shareMessage. Share the link with your group so everyone can connect their calendar. The first person to connect becomes the planner, who chooses a time and sends invitations on Wharf.</p><h2>Safe retries</h2><p>Generate and save a random UUID once, keep it private, and reuse it as Idempotency-Key with the same body after a timeout. Defaults are 30 minutes, 9 AM to 5 PM, on the selected date. Links expire after 30 days.</p><p><a href="/agents">Full agent quickstart ↗</a> · <a href="/llms.txt">Plain-text guide ↗</a> · <a href="/api/agent">Discovery JSON ↗</a></p></div><button className="outline" onClick={reset}>Back to scheduler <ArrowRight size={14}/></button></section>}
  </div>}
  {error&&<div role="alert" className="error">{error}<button aria-label="Dismiss error" onClick={()=>setError('')}><X size={14}/></button></div>}{notice&&<div role="status" className="error">{notice}<button aria-label="Dismiss" onClick={()=>setNotice('')}><X size={14}/></button></div>}
- </main><footer><a href="/agents">For agents</a><a href="/privacy">Privacy</a></footer>
+ </main><footer><a href="/agents">For agents</a><FeedbackButton page={view}/><a href="/privacy">Privacy</a></footer>
  {attendanceComplete&&<AttendanceComplete onClose={()=>setAttendanceComplete(false)}/>}
  {calendarPermission&&<div className="modal-backdrop" onClick={()=>!loading&&setCalendarPermission(false)}><section role="dialog" aria-modal="true" aria-labelledby="calendar-permission-title" className="modal" onClick={e=>e.stopPropagation()}><button className="modal-close icon-button" aria-label="Close calendar permission" disabled={loading} onClick={()=>setCalendarPermission(false)}><X size={18}/></button><Google/><h2 id="calendar-permission-title">Send Google Calendar invites</h2><p>Allow Wharf to create the meeting on your primary Google Calendar and invite everyone who joined.</p><p>Google asks for access to events on calendars you own. Wharf uses it to create and check meetings you confirm here. Guests keep control of their RSVP and invitation settings.</p>{error&&<p role="alert">{error}</p>}<button autoFocus className="primary full" disabled={loading} onClick={enableCalendarInvitations}>Allow Google Calendar invites <ArrowRight size={15}/></button></section></div>}
  {attendanceMethodOpen&&<AttendanceMethod
