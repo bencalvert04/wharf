@@ -20,16 +20,16 @@ export async function storeProviderConnection(s:any,account:string,provider:'mic
  await bindCalendarAccount(sql(),account);
  await storeProviderGrant(sql(),s,account,provider,sealToken(credential,account),email,name,generation);
 }
-export async function readProviderAvailability(account:string,c:Constraints){
+export async function readProviderAvailability(account:string,c:Constraints,signal?:AbortSignal){
  const connection=await providerConnection(account);
  if(!connection?.credential)throw Error('Reconnect your calendar.');
  const credential=openToken(connection.credential,account);
  let busy;
  if(connection.provider==='microsoft'){
-  const tokens=await microsoftTokens({grant_type:'refresh_token',refresh_token:credential});
+  const tokens=await microsoftTokens({grant_type:'refresh_token',refresh_token:credential},signal);
   if(tokens.refresh_token)await sql()`UPDATE calendar_provider_connections SET credential=${sealToken(tokens.refresh_token,account)},updated_at=now() WHERE account_id=${account} AND connection_id=${connection.connection_id}::uuid AND credential=${connection.credential}`;
-  busy=await microsoftAvailability(tokens.access_token,c);
- }else busy=await icloudAvailability(JSON.parse(credential) as AppleCredential,c);
+  busy=await microsoftAvailability(tokens.access_token,c,signal);
+ }else busy=await icloudAvailability(JSON.parse(credential) as AppleCredential,c,signal);
  const current=await providerConnection(account);
  if(!current?.credential||current.connection_id!==connection.connection_id)throw Error('Calendar disconnected while reading availability.');
  return busy;

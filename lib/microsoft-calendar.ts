@@ -1,3 +1,4 @@
+import {calendarRequestSignal} from './calendar-deadline.ts';
 const appUrl=()=>process.env.APP_URL||'http://localhost:3000';
 import {allowed,type Constraints} from './availability.ts';
 import {clipProviderBusy,microsoftBusy} from './provider-busy.ts';
@@ -13,9 +14,9 @@ export const microsoftRedirect=()=>appUrl()+'/api/auth/microsoft/callback';
 export function microsoftAuthorize(state:string,challenge:string){
  return endpoint+'/authorize?'+new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID!,response_type:'code',redirect_uri:microsoftRedirect(),response_mode:'query',scope:scope(),state,code_challenge:challenge,code_challenge_method:'S256',prompt:'select_account'});
 }
-export async function microsoftTokens(input:Record<string,string>){
+export async function microsoftTokens(input:Record<string,string>,signal?:AbortSignal){
  if(!microsoftConfigured())throw Error('Microsoft Calendar setup is incomplete.');
- const response=await fetch(endpoint+'/token',{method:'POST',body:new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID!,client_secret:process.env.MICROSOFT_CLIENT_SECRET!,scope:scope(),...input}),signal:AbortSignal.timeout(15000),cache:'no-store'});
+ const response=await fetch(endpoint+'/token',{method:'POST',body:new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID!,client_secret:process.env.MICROSOFT_CLIENT_SECRET!,scope:scope(),...input}),signal:calendarRequestSignal(signal),cache:'no-store'});
  const data=await response.json();
  if(!response.ok||!data.access_token||!microsoftCalendarGranted(data.scope))throw Error('Microsoft authorization failed. Reconnect your calendar to allow calendar read access.');
  return data as {access_token:string;refresh_token?:string;scope:string};
@@ -31,13 +32,13 @@ export function graphCalendarUrl(value:string){
  if(url.origin!=='https://graph.microsoft.com'||!url.pathname.startsWith('/v1.0/me/calendarView'))throw Error('Invalid Microsoft calendar page.');
  return url.href;
 }
-export async function microsoftAvailability(accessToken:string,c:Constraints){
+export async function microsoftAvailability(accessToken:string,c:Constraints,signal?:AbortSignal){
  const bounds=allowed(c);if(!bounds.length)throw Error('No meeting dates.');
  let url='https://graph.microsoft.com/v1.0/me/calendarView?'+new URLSearchParams({startDateTime:new Date(bounds[0].start).toISOString(),endDateTime:new Date(bounds.at(-1)!.end).toISOString(),'$select':'start,end,showAs,isCancelled','$top':'1000'});
  const busy=[];
  for(let page=0;url;page++){
   if(page>=100)throw Error('Calendar has too many results. Please use a smaller meeting range.');
-  const response=await fetch(graphCalendarUrl(url),{headers:{Authorization:'Bearer '+accessToken,Prefer:'outlook.timezone="UTC"'},signal:AbortSignal.timeout(15000),cache:'no-store',redirect:'error'});
+  const response=await fetch(graphCalendarUrl(url),{headers:{Authorization:'Bearer '+accessToken,Prefer:'outlook.timezone="UTC"'},signal:calendarRequestSignal(signal),cache:'no-store',redirect:'error'});
   if(!response.ok){
    const failure=await response.json().catch(()=>null);
    const knownCodes=['ErrorAccessDenied','AccessDenied','Authorization_RequestDenied','ErrorMailboxNotEnabledForRESTAPI','MailboxNotEnabledForRESTAPI','InvalidAuthenticationToken','insufficient_claims','ErrorInvalidUser','ErrorInvalidIdMalformed'];

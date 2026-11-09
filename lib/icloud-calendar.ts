@@ -1,3 +1,4 @@
+import {calendarRequestSignal} from './calendar-deadline.ts';
 import {DAVClient} from 'tsdav';
 import {allowed,type Constraints} from './availability.ts';
 import {icloudBusy} from './provider-busy.ts';
@@ -13,7 +14,7 @@ export const appleCalendarFetch:typeof fetch=async(input,init)=>{
  const method=init?.method?.toUpperCase()||'GET';
  if(!['GET','HEAD','OPTIONS','PROPFIND','REPORT'].includes(method))throw Error('Calendar writes are not supported.');
  for(let redirects=0;redirects<5;redirects++){
-  const response=await fetch(url,{...init,redirect:'manual',signal:AbortSignal.timeout(15000),cache:'no-store'});
+  const response=await fetch(url,{...init,redirect:'manual',signal:calendarRequestSignal(init?.signal??undefined),cache:'no-store'});
   if([301,302,307,308].includes(response.status)){
    const location=response.headers.get('location');if(!location)throw Error('Invalid Apple redirect.');
    url=appleCalendarUrl(new URL(location,url).href);continue;
@@ -24,12 +25,12 @@ export const appleCalendarFetch:typeof fetch=async(input,init)=>{
  throw Error('Too many Apple calendar redirects.');
 };
 export type AppleCredential={username:string;password:string};
-export async function icloudClient(credential:AppleCredential){
- const client=new DAVClient({serverUrl:'https://caldav.icloud.com',credentials:credential,authMethod:'Basic',defaultAccountType:'caldav',fetch:appleCalendarFetch});
+export async function icloudClient(credential:AppleCredential,signal?:AbortSignal){
+ const client=new DAVClient({serverUrl:'https://caldav.icloud.com',credentials:credential,authMethod:'Basic',defaultAccountType:'caldav',fetch:(input,init)=>appleCalendarFetch(input,{...init,signal})});
  await client.login();return client;
 }
-export async function icloudAvailability(credential:AppleCredential,c:Constraints){
- const client=await icloudClient(credential),calendars=await client.fetchCalendars();
+export async function icloudAvailability(credential:AppleCredential,c:Constraints,signal?:AbortSignal){
+ const client=await icloudClient(credential,signal),calendars=await client.fetchCalendars();
  if(!calendars.some(c=>!c.components?.length||c.components.includes('VEVENT')))throw Error('No iCloud event calendars were found.');
  const bounds=allowed(c);if(!bounds.length)throw Error('No meeting dates.');
  const busy=[];

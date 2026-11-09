@@ -29,7 +29,7 @@ async function fixture(){
  const links=loadWithMocks<any>(new URL('../lib/agent-meeting-link.ts',import.meta.url),{'node:crypto':crypto,'./agent-api':api,'./agent-contract':contract});
  const discovery=loadWithMocks<any>(new URL('../lib/agent-discovery.ts',import.meta.url),{'./agent-contract.ts':contract});
  const route=loadWithMocks<any>(new URL('../app/api/v1/meeting-links/route.ts',import.meta.url),{'@/lib/agent-api':api,'@/lib/agent-meeting-link':links,'@/lib/auth':auth,'@/lib/agent-discovery':discovery});
- const participation=loadWithMocks<any>(new URL('../lib/meeting-participation.ts',import.meta.url),{'./auth':auth,'./pending-meeting-store':{}});
+ const participation=loadWithMocks<any>(new URL('../lib/meeting-participation.ts',import.meta.url),{'./schedule-meeting-refresh':{scheduleMeetingRefresh:()=>{}},'./auth':auth,'./pending-meeting-store':{}});
  const post=(key:string|null,body:unknown=input,headers:Record<string,string>={})=>route.POST(new Request(base+'/api/v1/meeting-links',{method:'POST',headers:{'Content-Type':'application/json',...(key?{'Idempotency-Key':key}:{}),...headers},body:typeof body==='string'?body:JSON.stringify(body)})) as Promise<Response>;
  return {database,post,route,participation};
 }

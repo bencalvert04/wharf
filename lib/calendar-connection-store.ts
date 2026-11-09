@@ -26,7 +26,7 @@ export async function disconnectCalendarConnection(db:CalendarDatabase,sub:strin
  // Block new use first. Keep the encrypted token on provider failure so revocation
  // can be retried. Only delete the exact generation that was successfully revoked.
  const [row]=await db`UPDATE google_calendar_connections SET disconnecting=true,version=version+1,updated_at=now()
-  WHERE google_sub=${sub} AND (NOT disconnecting OR updated_at<now()-interval '30 seconds') RETURNING *`;
+  WHERE google_sub=${sub} AND (NOT disconnecting OR updated_at<=now()-interval '30 seconds') RETURNING *`;
  if(!row){
   const [pending]=await db`SELECT google_sub FROM google_calendar_connections WHERE google_sub=${sub}`;
   if(pending)throw Error('Calendar disconnection is already in progress. Please retry shortly.');

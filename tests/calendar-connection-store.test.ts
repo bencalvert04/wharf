@@ -66,6 +66,8 @@ test('a connection without a token is deleted without contacting Google',async()
 test('provider failure pauses access, keeps credentials for retry, and a successful retry deletes metadata',async()=>{
  const {database,db,generation}=await fixture();
  try{
+  // Freeze now() so the failed claim lands exactly on the retry boundary.
+  await database.exec('BEGIN');
   await assert.rejects(disconnectCalendarConnection(db,'person',async()=>{throw Error('Provider unavailable')}),/Provider unavailable/);
   const [row]=(await database.query<{disconnecting:boolean;refresh_token:string}>('SELECT * FROM google_calendar_connections')).rows;
   assert.equal(row.disconnecting,true);assert.equal(row.refresh_token,'encrypted-token');
@@ -73,6 +75,7 @@ test('provider failure pauses access, keeps credentials for retry, and a success
   await assert.rejects(storeCalendarGrant(db,'person','stale',generation,''),/changed/);
   await disconnectCalendarConnection(db,'person',async()=>{});
   assert.deepEqual((await database.query<{disconnecting:boolean;refresh_token:string}>('SELECT * FROM google_calendar_connections')).rows,[]);
+  await database.exec('COMMIT');
  }finally{await database.close()}
 });
 test('an old callback cannot overwrite a reconnected account even when its numeric version repeats',async()=>{

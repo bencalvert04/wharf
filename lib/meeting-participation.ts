@@ -1,3 +1,4 @@
+import {scheduleMeetingRefresh} from './schedule-meeting-refresh';
 import {rememberedInvitation} from './pending-meeting-store';
 import {sql,hash} from './auth';
 import type {Interval} from './availability';
@@ -46,6 +47,7 @@ export async function persistCalendarSnapshot(id:string,sub:string,name:string,b
   UPDATE request_invitees SET google_sub=${sub} WHERE meeting_id IN (SELECT meeting_id FROM saved) AND id=${inviteeId} RETURNING id
  ) SELECT (SELECT count(*) FROM saved)::int AS saved`;
  if(!result.saved)throw Error('The meeting changed while connecting. Please try again.');
+ scheduleMeetingRefresh(id);
 }
 export async function withdrawSnapshot(id:string,sub:string){
  const [row]=await sql()`SELECT revision,final_time,agent_request_id,constraints FROM requests WHERE id=${id} AND EXISTS(SELECT 1 FROM attendees WHERE meeting_id=${id} AND google_sub=${sub})`;
