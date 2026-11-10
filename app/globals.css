@@ -289,6 +289,7 @@ input[type=range]{width:100%;accent-color:var(--text);margin:14px 0 6px}
 /* Date picker */
 .date-picker{position:relative}
 .date-picker.is-single{max-width:280px}
+.date-picker.is-single:has(.date-shortcuts){max-width:none}
 .date-trigger{display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 12px;border:1px solid var(--border-strong);border-radius:6px;background:var(--bg);font-size:14px;font-weight:400;text-align:left;font-variant-numeric:tabular-nums}
 .date-trigger:hover,.date-trigger[aria-expanded=true]{border-color:var(--faint)}
 .date-trigger>svg{color:var(--muted)}
@@ -303,6 +304,8 @@ input[type=range]{width:100%;accent-color:var(--text);margin:14px 0 6px}
 .date-day{height:38px;margin:1px 0;border:0;border-radius:6px;background:transparent;font-size:13px;font-variant-numeric:tabular-nums}
 .date-day:hover:not(:disabled){background:var(--soft)}
 .date-day.in-range{background:var(--soft);border-radius:0}
+.date-day.is-today{background:var(--highlight);color:var(--accent-text);font-weight:600;box-shadow:inset 0 0 0 1px var(--highlight-border)}
+.date-day.is-today.endpoint{box-shadow:inset 0 -3px 0 var(--accent)}
 .date-day.endpoint{background:var(--text);color:var(--bg)}
 .date-picker-footer{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:6px;border-top:1px solid var(--border);color:var(--muted);font-size:12px}
 
