@@ -4,7 +4,6 @@ import {ArrowRight, ArrowUpRight, AtSign, CalendarCheck, CalendarPlus, Check, Ci
 import SlackEntrance from '@/components/SlackEntrance';
 import DiscordPageHeader from '@/components/SlackPageHeader';
 import SlackDemo from '@/components/SlackDemo';
-import InteractiveGrid from '@/components/InteractiveGrid';
 import styles from '../slack/slack.module.css';
 
 export const metadata:Metadata={title:'Wharf for Discord',description:'Find a time together, right in your Discord conversation.'};
@@ -42,7 +41,6 @@ export default async function DiscordPage({searchParams}:{searchParams:Promise<{
 
   <SlackEntrance>
    <section className={styles.hero}>
-    <InteractiveGrid/>
     <div className={styles.heroCopy} data-hero-copy>
      <h1>Wharf lives where your team is already working.</h1>
      {status&&<p role="status" className={`${styles.status} ${status.tone==='success'?styles.success:styles.error}`}>{status.tone==='success'?<Check size={16}/>:<CircleAlert size={16}/>}<span>{status.text}</span></p>}

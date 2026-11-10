@@ -23,7 +23,7 @@ import MeetingDurationButtons from '@/components/MeetingDurationButtons';
 import SharedAvailabilityPreview from '@/components/SharedAvailabilityPreview';
 import {ArrowDown, ArrowUp, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Check, Copy, X, Sun, Moon, Monitor, Clock3, Globe2, CalendarDays} from 'lucide-react';
 import {type Constraints,type Attendee,type Window,dates,shared,allowed,alternatives,hasFutureSharedSlot,localParts,validate} from '@/lib/availability';
-const initial:Constraints={title:'',start:'2026-10-26',end:'2026-10-30',duration:30,zone:'America/Denver',from:'09:00',to:'17:00',days:[0,1,2,3,4,5,6]};
+const initial:Constraints={title:'',start:'',end:'',duration:30,zone:'America/Denver',from:'09:00',to:'17:00',days:[0,1,2,3,4,5,6]};
 const zoneNames:Record<string,string>={'America/Denver':'Mountain Time (Denver)','America/Los_Angeles':'Pacific Time (Los Angeles)','America/Chicago':'Central Time (Chicago)','America/New_York':'Eastern Time (New York)','Europe/London':'United Kingdom (London)','Europe/Paris':'Central Europe (Paris)','Asia/Kolkata':'India (Kolkata)','Asia/Tokyo':'Japan (Tokyo)','Australia/Sydney':'Eastern Australia (Sydney)','UTC':'Coordinated Universal Time (UTC)'};
 const zones=Object.keys(zoneNames);
 const zoneLabel=(zone:string)=>zoneNames[zone]||zone.replaceAll('_',' ');
@@ -50,7 +50,7 @@ export default function Home(){
   if(process.env.NODE_ENV==='development'&&params.get('preview')==='alternatives'){
    setC({...example,title:'Project planning',duration:120});setCount(4);setAdjustedDemo(true);
   }else setC(example);
- }else{const today=new Date();const start=new Date(today);start.setDate(start.getDate()+1);const end=new Date(start);end.setDate(end.getDate()+4);const iso=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;setC(v=>({...v,start:iso(start),end:iso(end)}));}},[]);
+ }},[]);
  useEffect(()=>{const media=window.matchMedia('(max-width:620px)');const sync=()=>{setDaysPerPage(media.matches?2:5);setWeek(0)};sync();media.addEventListener('change',sync);return()=>media.removeEventListener('change',sync)},[]);
  useLayoutEffect(()=>{window.scrollTo({top:0,left:0})},[view]);
  const dark=theme==='system'?systemDark:theme==='dark';
@@ -141,7 +141,7 @@ export default function Home(){
   if(!document.startViewTransition||window.matchMedia('(prefers-reduced-motion: reduce)').matches){change();return}
   document.startViewTransition(()=>flushSync(change));
  }
- function resetState(){setAttendanceComplete(false);setManualOpen(false);setManualPreview(false);setCalendarPermission(false);setInvitationName('');setC(v=>({...v,demo:false,days:[0,1,2,3,4,5,6]}));setView('create');setDemo(false);setMeeting('');setLive(null);setError('');setSelected(null);setWeek(0);}
+ function resetState(){setAttendanceComplete(false);setManualOpen(false);setManualPreview(false);setCalendarPermission(false);setInvitationName('');setC(v=>({...v,start:'',end:'',windowStart:undefined,windowEnd:undefined,demo:false,days:[0,1,2,3,4,5,6]}));setView('create');setDemo(false);setMeeting('');setLive(null);setError('');setSelected(null);setWeek(0);}
  function reset(){navigate(()=>{resetState();history.pushState({},'','/?view=new')})}
  function goHome(){navigate(()=>{resetState();setView('home');history.pushState({},'','/')})}
  function showPending(){navigate(()=>{setView('pending');setError('');setSelected(null);history.pushState({},'','/?view=pending')})}
@@ -169,6 +169,7 @@ export default function Home(){
  }
  async function attend(useCalendar=false){
   if(manualPreview){if(useCalendar)setModal(true);else setAttendanceMethodOpen(true);return}
+  if(!meeting||demo){try{validate(c)}catch(e){setError((e as Error).message);document.getElementById('meeting-dates')?.focus();return}}
   let invitationCopy:InviteCopy|undefined;
   setLoading(true);
   try{

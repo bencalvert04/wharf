@@ -5,7 +5,7 @@ const CELL=32;
 const THRESHOLD=.002;
 type Cell={value:number;offsetX:number;offsetY:number};
 
-/** Dots gently spread and turn blue around the pointer, then settle back. */
+/** Dots gently gather toward the pointer and turn blue, then settle back. */
 export default function InteractiveGrid(){
  const ref=useRef<HTMLCanvasElement>(null);
  useEffect(()=>{
@@ -47,15 +47,16 @@ export default function InteractiveGrid(){
    const desired=new Map<string,{value:number;offsetX:number;offsetY:number}>();
    if(active&&enabled()){
     const column=Math.floor((x-originX)/CELL),row=Math.floor((y+1)/CELL);
-    for(let dx=-5;dx<=5;dx++)for(let dy=-5;dy<=5;dy++){
+    for(let dx=-6;dx<=6;dx++)for(let dy=-6;dy<=6;dy++){
      const c=column+dx,r=row+dy;
      const centerX=originX+c*CELL+CELL/2,centerY=r*CELL+CELL/2-1;
      const distance=Math.hypot(centerX-x,centerY-y);
-     if(distance>140)continue;
+     if(distance>180)continue;
      const key=`${c}:${r}`;
-     const spread=18*Math.pow(1-distance/140,2);
+     // Keep some spacing near the pointer rather than collapsing into one dot.
+     const pull=distance*.8*(1-distance/180);
      const angle=distance>.01?Math.atan2(centerY-y,centerX-x):(c+r)*2.4;
-     desired.set(key,{value:Math.exp(-distance*distance/(2*58*58)),offsetX:Math.cos(angle)*spread,offsetY:Math.sin(angle)*spread});
+     desired.set(key,{value:Math.exp(-distance*distance/(2*58*58)),offsetX:-Math.cos(angle)*pull,offsetY:-Math.sin(angle)*pull});
      if(!cells.has(key))cells.set(key,{value:0,offsetX:0,offsetY:0});
     }
    }
