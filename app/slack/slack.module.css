@@ -3,7 +3,6 @@
 
 /* Hero */
 .hero{--hero-mask:radial-gradient(ellipse 900px 640px at 50% 323px,#000 40%,transparent 100%);position:relative;display:flex;flex-direction:column;align-items:center;padding:56px 0 24px;isolation:isolate}
-.hero::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:-1;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:56px 56px;background-position:center -1px;mask-image:var(--hero-mask);-webkit-mask-image:var(--hero-mask)}
 .heroCopy{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:720px}
 .heroCopy h1{font-size:clamp(40px,6.2vw,72px);line-height:1.02;letter-spacing:-.055em;margin:28px 0 22px;max-width:14ch}
 .lede{font-size:clamp(16px,1.6vw,19px);line-height:1.6;color:var(--muted);margin:0;max-width:34em;text-wrap:balance}
@@ -15,7 +14,6 @@
 .success{background:#effbf3;border-color:#bfe8cc;color:#14612f}
 .error{background:#fff4f4;border-color:#f6d0d1;color:#a3262b}
 
-.hero :global(.hero-grid-hover){mask-image:var(--hero-mask);-webkit-mask-image:var(--hero-mask)}
 @media(max-width:620px){.hero{--hero-mask:radial-gradient(ellipse 95% 520px at 50% 300px,#000 35%,transparent 100%)}}
 
 /* Interactive Slack desktop window */
@@ -139,7 +137,6 @@
 
 /* Closing */
 .closing{position:relative;margin-top:72px;padding:56px 32px;text-align:center;border:1px solid var(--border);border-radius:20px;background:var(--subtle);overflow:hidden;isolation:isolate}
-.closing::before{content:"";position:absolute;inset:0;z-index:-1;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse 60% 90% at 50% 50%,#000 20%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 60% 90% at 50% 50%,#000 20%,transparent 100%)}
 .closing p{color:var(--muted);font-size:15px;margin:12px 0 0}
 .closing .actions{justify-content:center;margin-top:28px}
 
