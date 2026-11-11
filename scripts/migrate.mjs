@@ -141,6 +141,11 @@ const {availabilityRefreshSchema}=await import('../db/availability-refresh-schem
 for(const statement of availabilityRefreshSchema)await sql.query(statement);
 console.log('Website availability refresh schema is ready.');
 
+// Durable aggregate product metrics begin at installation; no historical backfill.
+const {marketingSchema}=await import('../db/marketing-schema.mjs');
+for(const statement of marketingSchema)await sql.query(statement);
+console.log('Marketing measurement schema is ready.');
+
 const {feedbackSchema}=await import('../db/feedback-schema.mjs');
 for(const statement of feedbackSchema)await sql.query(statement);
 console.log('Feedback delivery schema is ready.');
