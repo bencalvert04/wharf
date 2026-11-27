@@ -19,6 +19,7 @@ import PendingMeetings from '@/components/PendingMeetings';
 import GravityClock from '@/components/GravityClock';
 import InteractiveGrid from '@/components/InteractiveGrid';
 import HeroEntrance from '@/components/HeroEntrance';
+import HomeWordmark from '@/components/HomeWordmark';
 import MeetingDurationButtons from '@/components/MeetingDurationButtons';
 import SharedAvailabilityPreview from '@/components/SharedAvailabilityPreview';
 import {ArrowDown, ArrowUp, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Check, Copy, X, Sun, Moon, Monitor, Clock3, Globe2, CalendarDays} from 'lucide-react';
@@ -227,7 +228,7 @@ export default function Home(){
  <header className="site-header"><div className="header-left"><button className="brand" onClick={goHome} aria-label="Wharf home"><span className="brandmark" aria-hidden="true">⚓️</span>Wharf</button><nav><button className={view==='create'||view==='results'?'active':''} onClick={reset}>Scheduler</button><button className={view==='pending'?'active':''} aria-current={view==='pending'?'page':undefined} onClick={showPending}>Pending meetings</button></nav></div><nav aria-label="Utilities"><HeaderUtilities onDocs={showDocs} active={view==='docs'}/><span className="nav-divider"/><button type="button" className="icon-button" aria-label={`Appearance: ${theme}. Switch to ${theme==='light'?'dark':theme==='dark'?'system':'light'} mode`} onClick={()=>changeTheme(theme==='light'?'dark':theme==='dark'?'system':'light')}>{theme==='light'?<Sun size={16}/>:theme==='dark'?<Moon size={16}/>:<Monitor size={16}/>}</button><AccountButton navigationKey={`${view}:${meeting}`}/></nav></header>
  <main className={view==='home'||view==='create'?'framed':undefined}>{!opening&&<div key={view} className="view">
  {view==='pending'&&<PendingMeetings onCreate={reset}/>}
- {view==='home'&&<HeroEntrance><InteractiveGrid/><GravityClock/><h1 id="hero-title">Find a time that works for everyone</h1><p>Wharf compares each person’s calendar availability and shows when you can all meet.</p><div className="hero-actions"><button type="button" className="primary pill" onClick={reset}>Create a meeting</button><button type="button" className="outline pill" onClick={showDemo}>View example</button></div></HeroEntrance>}
+ {view==='home'&&<HeroEntrance><InteractiveGrid/><GravityClock/><HomeWordmark/><div className="hero-actions"><button type="button" className="primary pill" onClick={reset}>Create a meeting</button><button type="button" className="outline pill" onClick={showDemo}>View example</button></div></HeroEntrance>}
  {view==='create'&&<>
  <div className="setup-grid meeting-setup"><section className="setup" aria-labelledby="new-meeting-title">
  <h2 id="new-meeting-title" className="cell-title">New meeting</h2>
