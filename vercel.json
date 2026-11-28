@@ -1,1 +1,13 @@
-{"crons":[{"path":"/api/cleanup","schedule":"0 8 * * *"}]}
+{
+  "crons": [
+    {
+      "path": "/api/cleanup",
+      "schedule": "0 8 * * *"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "codex/marketing-measurement": false
+    }
+  }
+}

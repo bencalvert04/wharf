@@ -1,3 +1,4 @@
+import AnalyticsPreference from './AnalyticsPreference';
 import type {Metadata} from 'next';
 import styles from './privacy.module.css';
 
@@ -7,7 +8,7 @@ export default function Privacy(){
  return <main className={styles.policy}>
   <a href="/">← Wharf</a>
   <h1>Wharf Privacy Policy</h1>
-  <p>Last updated: November 5, 2026</p>
+  <p>Last updated: November 7, 2026</p>
   <p>This policy explains how Wharf handles information when you use its website, calendar connections, agent API, or Slack integration.</p>
   <nav aria-label="Privacy policy sections"><ul>
    <li><a href="#google-data">Google sign-in and calendar</a></li>
@@ -22,6 +23,7 @@ export default function Privacy(){
    <li><a href="#contact">Contact</a></li>
   </ul></nav>
 
+  <section id="usage-measurement"><h2>Usage measurement</h2><p>When enabled, Wharf measures anonymous browsing actions, campaign tags, broad device categories, and aggregate meeting creation, participation, and finalization counts to improve the service. A random tab identifier expires after 30 minutes of inactivity. Usage records do not contain names, email addresses, meeting titles, calendar contents, or full page URLs. We do not record your screen or send these events to advertising networks.</p><p>Browser event records are retained for up to 90 days; anonymous daily product counts are retained separately. Browser measurement respects Do Not Track, Global Privacy Control, and the preference below. Your choice applies to this browser and does not disable aggregate operational counts.</p><AnalyticsPreference/></section>
   <section id="google-data"><h2>Google sign-in and calendar</h2>
    <p>When you sign in with Google, we store your account ID, display name, verified email address, and profile photo URL in a server-side session record in Neon Postgres. Your browser gets an HTTP-only session cookie, not those profile details. Signing in connects your calendar. Connecting does not automatically join a meeting.</p>
    <p>When you connect Google Calendar, Wharf requests ongoing access to your primary calendar’s free and busy times to find shared availability. It does not read existing event titles, descriptions, attendees, or locations for availability checks. We store busy times within the meeting’s permitted hours. The organizer and joined attendees can see names and calculated shared availability, but not your individual busy times.</p>
